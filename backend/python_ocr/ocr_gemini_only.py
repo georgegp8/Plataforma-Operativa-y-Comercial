@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Servicio OCR simplificado usando solo Gemini AI (sin Tesseract ni Poppler)
 Procesa PDFs directamente enviándolos a Gemini
@@ -11,6 +12,12 @@ import base64
 from pathlib import Path
 import urllib.request
 import urllib.error
+
+# Configurar encoding UTF-8 para stdout
+if sys.platform == 'win32':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 # API Key de Gemini
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '***REMOVED***')
@@ -116,6 +123,15 @@ REGLAS IMPORTANTES:
             
             # Parsear JSON
             datos = json.loads(texto_respuesta)
+            
+            # Limpiar caracteres problemáticos en las descripciones
+            if 'items' in datos and isinstance(datos['items'], list):
+                for item in datos['items']:
+                    if 'descripcion' in item:
+                        # Reemplazar caracteres problemáticos
+                        item['descripcion'] = item['descripcion'].replace('°', ' ')
+                        item['descripcion'] = item['descripcion'].replace('\n', ' ')
+                        item['descripcion'] = ' '.join(item['descripcion'].split())
             
             # Completar campos derivados
             if 'serie' in datos and 'numero' in datos:
