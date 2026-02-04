@@ -27,11 +27,13 @@ class Entidad extends Model
         'placa_vehiculo',
         'es_cliente',
         'es_proveedor',
+        'activo',
     ];
 
     protected $casts = [
         'es_cliente' => 'boolean',
         'es_proveedor' => 'boolean',
+        'activo' => 'boolean',
     ];
 
     public function empresa()
