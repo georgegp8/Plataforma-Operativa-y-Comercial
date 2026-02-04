@@ -61,7 +61,6 @@ export default function NuevaCompra() {
   const [agregarPagos, setAgregarPagos] = useState(false);
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Entidad | null>(null);
   
-  // Estados para modales
   const [isProveedorModalOpen, setIsProveedorModalOpen] = useState(false);
   const [isProductoModalOpen, setIsProductoModalOpen] = useState(false);
   const [proveedores, setProveedores] = useState<Entidad[]>([]);
@@ -69,7 +68,6 @@ export default function NuevaCompra() {
   const [loadingProveedores, setLoadingProveedores] = useState(false);
   const [loadingProductos, setLoadingProductos] = useState(false);
   
-  // Estados para productos y pagos en la compra
   const [productosCompra, setProductosCompra] = useState<ProductoCompra[]>([]);
   const [pagos, setPagos] = useState<Pago[]>([]);
 
@@ -147,7 +145,6 @@ export default function NuevaCompra() {
     setProductosCompra(productosCompra.map(p => {
       if (p.id === id) {
         const updated = { ...p, [field]: value };
-        // Recalcular valores según incluye IGV
         if (field === 'precio_unitario') {
           updated.valor_unitario = incluyeIgv ? value / 1.18 : value;
           updated.igv_item = incluyeIgv ? value - updated.valor_unitario : updated.valor_unitario * 0.18;
@@ -209,7 +206,6 @@ export default function NuevaCompra() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validaciones
     if (!proveedorSeleccionado) {
       toast.error('Debe seleccionar un proveedor');
       return;
@@ -232,7 +228,7 @@ export default function NuevaCompra() {
         actividad: 'Compra manual',
         fecha_actividad: fechaEmision,
         estado: agregarPagos && pagos.length > 0 ? 'Pagado' : 'Pendiente de pago',
-        tipo_comprobante: serie.substring(0, 1), // F, B, etc.
+        tipo_comprobante: serie.substring(0, 1),
         serie_comprobante: serie,
         numero_comprobante: numero,
         comprobante_completo: `${serie}-${numero}`,
@@ -261,15 +257,12 @@ export default function NuevaCompra() {
     <div className="min-h-screen bg-background">
       <NubofactHeader />
       <div className="container mx-auto px-4 py-6">
-        {/* Header */}
         <div className="bg-primary text-primary-foreground rounded-t-lg px-4 py-3">
           <h1 className="text-lg font-semibold">Nueva Compra</h1>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="bg-card border border-border rounded-b-lg">
           <div className="p-6 space-y-6">
-            {/* Comprobante de Compra Section */}
             <div className="bg-muted/30 border border-border rounded-lg p-4">
               <h2 className="text-sm font-semibold mb-4 text-foreground">Comprobante de Compra</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -313,7 +306,7 @@ export default function NuevaCompra() {
 
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="fecha_emision">F. Emisión</Label>
+                  <Label htmlFor="fecha_emision" className="h-5 flex items-center">F. Emisión</Label>
                   <Input
                     id="fecha_emision"
                     type="date"
@@ -323,7 +316,7 @@ export default function NuevaCompra() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="fecha_vencimiento">F. Venc</Label>
+                  <Label htmlFor="fecha_vencimiento" className="h-5 flex items-center">F. Venc</Label>
                   <Input
                     id="fecha_vencimiento"
                     type="date"
@@ -333,18 +326,17 @@ export default function NuevaCompra() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <div className="h-5 flex items-center">
+                  <Label htmlFor="tipo_cambio" className="h-5 flex items-center gap-1">
+                    T.C. 
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Label htmlFor="tipo_cambio" className="cursor-help inline-flex items-center gap-1">
-                          T.C. <span className="text-xs text-muted-foreground">ⓘ</span>
-                        </Label>
+                         <span className="cursor-help text-xs text-muted-foreground">ⓘ</span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Tipo de Cambio</p>
                       </TooltipContent>
                     </Tooltip>
-                  </div>
+                  </Label>
                   <Input
                     id="tipo_cambio"
                     type="number"
@@ -355,7 +347,7 @@ export default function NuevaCompra() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="moneda">Moneda</Label>
+                  <Label htmlFor="moneda" className="h-5 flex items-center">Moneda</Label>
                   <Select value={moneda} onValueChange={setMoneda}>
                     <SelectTrigger id="moneda" className="bg-background w-full">
                       <SelectValue placeholder="Seleccionar" />
@@ -368,7 +360,7 @@ export default function NuevaCompra() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="incluye_igv">Incluye IGV</Label>
+                  <Label htmlFor="incluye_igv" className="h-5 flex items-center">Incluye IGV</Label>
                   <div className="flex items-center h-10">
                     <button
                       type="button"
@@ -401,7 +393,6 @@ export default function NuevaCompra() {
               </div>
             </div>
 
-            {/* Proveedor Section */}
             <div className="bg-muted/30 border border-border rounded-lg p-4">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-sm font-semibold text-foreground">Proveedor</h2>
@@ -429,7 +420,6 @@ export default function NuevaCompra() {
               </div>
             </div>
 
-            {/* Productos Section */}
             <div className="bg-muted/30 border border-border rounded-lg p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Button
@@ -543,7 +533,6 @@ export default function NuevaCompra() {
               )}
             </div>
 
-            {/* Pagos Section */}
             {agregarPagos && (
               <div className="bg-muted/30 border border-border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-4">
@@ -632,7 +621,6 @@ export default function NuevaCompra() {
               </div>
             )}
 
-            {/* Action Buttons */}
             <div className="flex items-center justify-between pt-4 border-t border-border">
               <div className="text-sm text-muted-foreground">
                 {productosCompra.length > 0 && (
@@ -670,7 +658,6 @@ export default function NuevaCompra() {
           </div>
         </form>
 
-        {/* Modal Seleccionar Proveedor */}
         <Dialog open={isProveedorModalOpen} onOpenChange={setIsProveedorModalOpen}>
           <DialogContent className="sm:max-w-150">
             <DialogHeader>
@@ -714,7 +701,6 @@ export default function NuevaCompra() {
           </DialogContent>
         </Dialog>
 
-        {/* Modal Seleccionar Producto */}
         <Dialog open={isProductoModalOpen} onOpenChange={setIsProductoModalOpen}>
           <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
