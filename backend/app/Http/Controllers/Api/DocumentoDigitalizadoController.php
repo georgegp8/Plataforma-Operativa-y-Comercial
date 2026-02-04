@@ -435,7 +435,7 @@ class DocumentoDigitalizadoController extends Controller
     }
 
     /**
-     * Opción 1: Procesar con Python + Tesseract (LOCAL o DOCKER)
+     * Opción 1: Procesar con Python + Gemini (sin dependencias de Tesseract/Poppler)
      */
     private function procesarConPython($rutaArchivo)
     {
@@ -446,13 +446,18 @@ class DocumentoDigitalizadoController extends Controller
             return $this->procesarConDockerOCR($rutaArchivo);
         }
         
-        // Ejecución local (desarrollo)
-        $scriptPath = base_path('python_ocr/ocr_service.py');
+        // Usar script optimizado que solo requiere Gemini (sin Tesseract ni Poppler)
+        $scriptPath = base_path('python_ocr/ocr_gemini_only.py');
+        
+        // Fallback al script completo si el optimizado no existe
+        if (!file_exists($scriptPath)) {
+            $scriptPath = base_path('python_ocr/ocr_service.py');
+        }
         
         if (!file_exists($scriptPath)) {
             return [
                 'success' => false,
-                'error' => 'Script Python no encontrado. Ejecuta: pip install pytesseract pillow pdf2image opencv-python'
+                'error' => 'Script Python no encontrado.'
             ];
         }
 
