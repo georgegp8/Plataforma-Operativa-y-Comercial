@@ -22,8 +22,9 @@ COPY requirements.txt .
 # Instalar dependencias Python
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar script
+# Copiar scripts OCR
 COPY ocr_service.py .
+COPY ocr_gemini_only.py .
 
 # Exponer puerto para API (opcional)
 EXPOSE 8000
