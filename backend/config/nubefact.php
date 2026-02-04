@@ -17,23 +17,23 @@ return [
 
     /**
      * URL base del API de NubeFact
-     * 
+     *
      * Formatos según versión:
      * - Online: https://api.nubefact.com/api/v1/{ruc_key}
      * - Offline: http://localhost:8000/api/v1/{ruc_key}
      * - Reseller: https://api.pse.pe/api/v1/{ruc_key}
-     * 
+     *
      * El {ruc_key} es único por cliente y se obtiene desde la cuenta NubeFact
      */
     'base_url' => env('NUBEFACT_BASE_URL', 'https://api.pse.pe/api/v1/45d35a0d56f7441aaa57f3bee732f3a4123f39273dc843cd8432b2179443b214'),
 
     /**
      * Token de autenticación JWT
-     * 
+     *
      * Se obtiene desde:
      * 1. www.nubefact.com → Login → API (Integración)
      * 2. tuempresa.pse.pe → API (Integración) [Reseller]
-     * 
+     *
      * Formato: largo string alfanumérico
      */
     'token' => env('NUBEFACT_TOKEN', 'eyJhbGciOiJIUzI1NiJ9.ImY3ODExY2NjMmY5YTRjY2NhZGQwNDFjZWVhNmU2NGY0ZTM1NWM2MjBhZTFlNDA4OGI0NWYxYzljNThmMWZiN2Yi.Jo7VAwq7Nqz9mGvUMr9WOESoQ_mV7UG2C9LBxnNMSVA'),
@@ -45,7 +45,7 @@ return [
 
     /**
      * Habilitar envío automático a SUNAT
-     * 
+     *
      * Si es true, NubeFact enviará el comprobante a SUNAT inmediatamente.
      * Si es false, se genera pero no se envía (útil para pruebas).
      */
@@ -53,21 +53,21 @@ return [
 
     /**
      * Habilitar envío automático de email al cliente
-     * 
+     *
      * NubeFact puede enviar el PDF por email al cliente automáticamente.
      */
     'enviar_automaticamente_cliente' => env('NUBEFACT_AUTO_EMAIL', false),
 
     /**
      * Formato de PDF por defecto
-     * 
+     *
      * Opciones: 'A4', 'A5', 'TICKET'
      */
     'formato_pdf' => env('NUBEFACT_PDF_FORMAT', 'A4'),
 
     /**
      * Incluir archivos ZIP en base64 en la respuesta
-     * 
+     *
      * Si es true, NubeFact incluirá pdf_zip_base64, xml_zip_base64, cdr_zip_base64
      * en la respuesta (útil para almacenar localmente).
      * Debe activarse también desde la cuenta NubeFact en "Configuración principal".
@@ -76,7 +76,7 @@ return [
 
     /**
      * Modo de operación
-     * 
+     *
      * - 'demo': Cuenta de pruebas (validaciones parciales)
      * - 'produccion': Cuenta real con validaciones completas de SUNAT
      */
@@ -88,12 +88,12 @@ return [
     'guias' => [
         /**
          * Reintentos para consultar guía hasta que SUNAT acepte
-         * 
+         *
          * Según documentación, el PDF de GRE se genera solo después
          * de que SUNAT acepte. Puede tomar segundos o minutos.
          */
         'max_reintentos_consulta' => env('NUBEFACT_GRE_MAX_RETRIES', 10),
-        
+
         /**
          * Segundos de espera entre reintentos
          */
@@ -102,7 +102,7 @@ return [
 
     /**
      * Mapeo de códigos de error de NubeFact
-     * 
+     *
      * Según manual "MANEJO DE ERRORES"
      */
     'codigos_error' => [

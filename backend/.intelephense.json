@@ -8,6 +8,15 @@
     "undefinedClassConstants": true,
     "undefinedVariables": true
   },
+  "files": {
+    "exclude": [
+      "**/vendor/**",
+      "**/node_modules/**",
+      "**/storage/**",
+      "**/.git/**",
+      "**/bootstrap/cache/**"
+    ]
+  },
   "stubs": [
     "apache",
     "bcmath",

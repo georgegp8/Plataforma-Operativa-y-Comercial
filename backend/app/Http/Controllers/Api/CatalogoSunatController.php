@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CatalogoSunat;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class CatalogoSunatController extends Controller
 {
@@ -30,7 +30,7 @@ class CatalogoSunatController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $catalogos
+            'data' => $catalogos,
         ]);
     }
 
@@ -47,7 +47,7 @@ class CatalogoSunatController extends Controller
         return response()->json([
             'success' => true,
             'catalogo' => $catalogo,
-            'data' => $items
+            'data' => $items,
         ]);
     }
 
@@ -71,7 +71,7 @@ class CatalogoSunatController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $catalogos
+            'data' => $catalogos,
         ]);
     }
 }

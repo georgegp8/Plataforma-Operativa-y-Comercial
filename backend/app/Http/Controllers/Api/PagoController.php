@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Pago;
-use App\Models\Oportunidad;
 use App\Models\Comprobante;
-use Illuminate\Http\Request;
+use App\Models\Oportunidad;
+use App\Models\Pago;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class PagoController extends Controller
 {
@@ -70,15 +70,15 @@ class PagoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         // Validar que tenga al menos oportunidad o comprobante
-        if (!$request->oportunidad_id && !$request->comprobante_id) {
+        if (! $request->oportunidad_id && ! $request->comprobante_id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Debe proporcionar al menos una oportunidad o un comprobante'
+                'message' => 'Debe proporcionar al menos una oportunidad o un comprobante',
             ], 422);
         }
 
@@ -87,12 +87,12 @@ class PagoController extends Controller
         // Subir comprobante de pago si existe
         if ($request->hasFile('comprobante_pago')) {
             $archivo = $request->file('comprobante_pago');
-            
-            $filename = 'pago_' . time() . '_' . $archivo->getClientOriginalName();
-            $path = "pagos/" . $filename;
-            
+
+            $filename = 'pago_'.time().'_'.$archivo->getClientOriginalName();
+            $path = 'pagos/'.$filename;
+
             Storage::disk('minio')->put($path, file_get_contents($archivo));
-            
+
             $data['comprobante_path'] = $path;
         }
 
@@ -101,7 +101,7 @@ class PagoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Pago registrado exitosamente',
-            'data' => $pago->load(['oportunidad', 'comprobante'])
+            'data' => $pago->load(['oportunidad', 'comprobante']),
         ], 201);
     }
 
@@ -114,7 +114,7 @@ class PagoController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $pago
+            'data' => $pago,
         ]);
     }
 
@@ -140,7 +140,7 @@ class PagoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -154,12 +154,12 @@ class PagoController extends Controller
             }
 
             $archivo = $request->file('comprobante_pago');
-            
-            $filename = 'pago_' . time() . '_' . $archivo->getClientOriginalName();
-            $path = "pagos/" . $filename;
-            
+
+            $filename = 'pago_'.time().'_'.$archivo->getClientOriginalName();
+            $path = 'pagos/'.$filename;
+
             Storage::disk('minio')->put($path, file_get_contents($archivo));
-            
+
             $data['comprobante_path'] = $path;
         }
 
@@ -168,7 +168,7 @@ class PagoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Pago actualizado exitosamente',
-            'data' => $pago->load(['oportunidad', 'comprobante'])
+            'data' => $pago->load(['oportunidad', 'comprobante']),
         ]);
     }
 
@@ -188,7 +188,7 @@ class PagoController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Pago eliminado exitosamente'
+            'message' => 'Pago eliminado exitosamente',
         ]);
     }
 
@@ -199,17 +199,17 @@ class PagoController extends Controller
     {
         $pago = Pago::findOrFail($id);
 
-        if (!$pago->comprobante_path) {
+        if (! $pago->comprobante_path) {
             return response()->json([
                 'success' => false,
-                'message' => 'No hay comprobante de pago adjunto'
+                'message' => 'No hay comprobante de pago adjunto',
             ], 404);
         }
 
-        if (!Storage::disk('minio')->exists($pago->comprobante_path)) {
+        if (! Storage::disk('minio')->exists($pago->comprobante_path)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Archivo no encontrado'
+                'message' => 'Archivo no encontrado',
             ], 404);
         }
 
@@ -218,7 +218,7 @@ class PagoController extends Controller
 
         return response($file, 200)
             ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
     }
 
     /**
@@ -235,7 +235,7 @@ class PagoController extends Controller
         return response()->json([
             'success' => true,
             'data' => $pagos,
-            'total' => $total
+            'total' => $total,
         ]);
     }
 
@@ -260,17 +260,17 @@ class PagoController extends Controller
             'por_medio_pago' => Pago::selectRaw('medio_pago, count(*) as cantidad, sum(monto) as total')
                 ->groupBy('medio_pago')
                 ->get()
-                ->mapWithKeys(function($item) {
+                ->mapWithKeys(function ($item) {
                     return [$item->medio_pago => [
                         'cantidad' => $item->cantidad,
-                        'total' => $item->total
+                        'total' => $item->total,
                     ]];
                 }),
         ];
 
         return response()->json([
             'success' => true,
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 }

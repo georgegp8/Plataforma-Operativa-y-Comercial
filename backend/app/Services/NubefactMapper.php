@@ -14,21 +14,21 @@ class NubefactMapper
 {
     /**
      * Convertir Comprobante interno a JSON de NubeFact para emisión
-     * 
-     * @param Comprobante $comprobante Con items cargados
+     *
+     * @param  Comprobante  $comprobante  Con items cargados
      * @return array Estructura JSON lista para NubeFact
      */
     public static function comprobanteToNubefact(Comprobante $comprobante): array
     {
         $empresa = $comprobante->empresa;
-        
+
         $data = [
             'operacion' => 'generar_comprobante',
             'tipo_de_comprobante' => (string) self::mapTipoComprobante($comprobante->tipo_doc),
             'serie' => $comprobante->serie,
             'numero' => (string) $comprobante->correlativo,
             'sunat_transaction' => 1, // Por defecto venta interna
-            
+
             // Cliente
             'cliente_tipo_de_documento' => (int) $comprobante->cliente_tipo_doc,
             'cliente_numero_de_documento' => $comprobante->cliente_num_doc,
@@ -37,16 +37,16 @@ class NubefactMapper
             'cliente_email' => $comprobante->cliente_email ?? '',
             'cliente_email_1' => '',
             'cliente_email_2' => '',
-            
+
             // Fechas
             'fecha_de_emision' => $comprobante->fecha_emision->format('d-m-Y'),
             'fecha_de_vencimiento' => $comprobante->fecha_vencimiento?->format('d-m-Y') ?? '',
-            
+
             // Moneda e IGV
             'moneda' => (string) self::mapMoneda($comprobante->codigo_tipo_moneda ?? 'PEN'),
             'tipo_de_cambio' => $comprobante->tipo_de_cambio ?? '',
             'porcentaje_de_igv' => '18.00',
-            
+
             // Totales
             'descuento_global' => '',
             'total_descuento' => '',
@@ -58,7 +58,7 @@ class NubefactMapper
             'total_gratuita' => number_format($comprobante->mto_oper_gratuitas ?? 0, 2, '.', ''),
             'total_otros_cargos' => '',
             'total' => number_format($comprobante->mto_imp_venta, 2, '.', ''),
-            
+
             // Percepción/Retención
             'percepcion_tipo' => '',
             'percepcion_base_imponible' => '',
@@ -68,24 +68,24 @@ class NubefactMapper
             'retencion_base_imponible' => '',
             'total_retencion' => '',
             'total_impuestos_bolsas' => '',
-            
+
             // Detracción
             'detraccion' => $comprobante->tiene_detraccion ? 'true' : 'false',
-            
+
             // Observaciones
             'observaciones' => $comprobante->observaciones ?? '',
-            
+
             // Nota de crédito/débito
             'documento_que_se_modifica_tipo' => $comprobante->tipo_doc_relacionado ?? '',
             'documento_que_se_modifica_serie' => $comprobante->serie_relacionado ?? '',
             'documento_que_se_modifica_numero' => $comprobante->correlativo_relacionado ?? '',
             'tipo_de_nota_de_credito' => '',
             'tipo_de_nota_de_debito' => '',
-            
+
             // Configuración de envío
             'enviar_automaticamente_a_la_sunat' => config('nubefact.enviar_automaticamente_sunat', true) ? 'true' : 'false',
             'enviar_automaticamente_al_cliente' => config('nubefact.enviar_automaticamente_cliente', false) ? 'true' : 'false',
-            
+
             // Opcionales
             'codigo_unico' => '',
             'condiciones_de_pago' => $comprobante->forma_pago ?? '',
@@ -97,17 +97,17 @@ class NubefactMapper
             'generado_por_contingencia' => '',
             'bienes_region_selva' => '',
             'servicios_region_selva' => '',
-            
+
             // Items
             'items' => self::itemsToNubefact($comprobante->items),
-            
+
             // Guías relacionadas
             'guias' => [],
-            
+
             // Venta al crédito
             'venta_al_credito' => self::cuotasToNubefact($comprobante->cuotas),
         ];
-        
+
         return $data;
     }
 
@@ -117,7 +117,7 @@ class NubefactMapper
     protected static function itemsToNubefact($items): array
     {
         $result = [];
-        
+
         foreach ($items as $item) {
             $result[] = [
                 'unidad_de_medida' => $item->unidad ?? 'NIU',
@@ -137,7 +137,7 @@ class NubefactMapper
                 'anticipo_documento_numero' => '',
             ];
         }
-        
+
         return $result;
     }
 
@@ -146,10 +146,10 @@ class NubefactMapper
      */
     protected static function cuotasToNubefact($cuotas): array
     {
-        if (empty($cuotas) || !is_array($cuotas)) {
+        if (empty($cuotas) || ! is_array($cuotas)) {
             return [];
         }
-        
+
         $result = [];
         foreach ($cuotas as $index => $cuota) {
             $result[] = [
@@ -158,7 +158,7 @@ class NubefactMapper
                 'importe' => number_format($cuota['monto'], 2, '.', ''),
             ];
         }
-        
+
         return $result;
     }
 
@@ -173,7 +173,7 @@ class NubefactMapper
             '07' => 3, // Nota de Crédito
             '08' => 4, // Nota de Débito
         ];
-        
+
         return $map[$tipo] ?? 1;
     }
 
@@ -187,7 +187,7 @@ class NubefactMapper
             'USD' => 2,
             'EUR' => 3,
         ];
-        
+
         return $map[$moneda] ?? 1;
     }
 
@@ -227,7 +227,7 @@ class NubefactMapper
             'tipo_de_comprobante' => (int) $guia->tipo_comprobante, // 7 o 8
             'serie' => $guia->serie,
             'numero' => (string) $guia->numero,
-            
+
             // Cliente/Destinatario
             'cliente_tipo_de_documento' => (int) $guia->cliente_tipo_documento,
             'cliente_numero_de_documento' => $guia->cliente_numero_documento,
@@ -236,18 +236,18 @@ class NubefactMapper
             'cliente_email' => $guia->cliente_email ?? '',
             'cliente_email_1' => '',
             'cliente_email_2' => '',
-            
+
             // Fechas
             'fecha_de_emision' => $guia->fecha_emision->format('d-m-Y'),
             'fecha_de_inicio_de_traslado' => $guia->fecha_inicio_traslado->format('d-m-Y'),
-            
+
             // Observaciones
             'observaciones' => $guia->observaciones ?? '',
-            
+
             // Pesos
             'peso_bruto_total' => number_format($guia->peso_bruto_total, 2, '.', ''),
             'peso_bruto_unidad_de_medida' => $guia->peso_bruto_unidad,
-            
+
             // Puntos de traslado
             'punto_de_partida_ubigeo' => $guia->punto_partida_ubigeo,
             'punto_de_partida_direccion' => $guia->punto_partida_direccion,
@@ -255,38 +255,38 @@ class NubefactMapper
             'punto_de_llegada_ubigeo' => $guia->punto_llegada_ubigeo,
             'punto_de_llegada_direccion' => $guia->punto_llegada_direccion,
             'punto_de_llegada_codigo_establecimiento_sunat' => $guia->punto_llegada_establecimiento ?? '0000',
-            
+
             // Vehículo
             'transportista_placa_numero' => $guia->vehiculo_placa,
-            
+
             // Conductor
             'conductor_documento_tipo' => $guia->conductor_tipo_documento,
             'conductor_documento_numero' => $guia->conductor_numero_documento,
             'conductor_nombre' => $guia->conductor_nombre ?? '',
             'conductor_apellidos' => $guia->conductor_apellidos ?? '',
             'conductor_numero_licencia' => $guia->conductor_licencia ?? '',
-            
+
             // Config
             'enviar_automaticamente_al_cliente' => config('nubefact.enviar_automaticamente_cliente', false) ? 'true' : 'false',
             'formato_de_pdf' => config('nubefact.formato_pdf', 'A4'),
-            
+
             // Items
             'items' => self::itemsGuiaToNubefact($guia->items),
         ];
-        
+
         // Campos específicos GRE Remitente
         if ($guia->tipo_comprobante == 7) {
             $data['motivo_de_traslado'] = $guia->motivo_traslado;
             $data['numero_de_bultos'] = (string) $guia->numero_bultos;
             $data['tipo_de_transporte'] = $guia->tipo_transporte;
-            
+
             if ($guia->tipo_transporte == '01') {
                 $data['transportista_documento_tipo'] = (string) $guia->transportista_tipo_documento;
                 $data['transportista_documento_numero'] = $guia->transportista_numero_documento;
                 $data['transportista_denominacion'] = $guia->transportista_denominacion;
             }
         }
-        
+
         // Campos específicos GRE Transportista
         if ($guia->tipo_comprobante == 8) {
             $data['tuc_vehiculo_principal'] = $guia->vehiculo_tuc ?? '';
@@ -294,7 +294,7 @@ class NubefactMapper
             $data['destinatario_documento_numero'] = $guia->destinatario_numero_documento;
             $data['destinatario_denominacion'] = $guia->destinatario_denominacion;
         }
-        
+
         return $data;
     }
 
@@ -304,7 +304,7 @@ class NubefactMapper
     protected static function itemsGuiaToNubefact($items): array
     {
         $result = [];
-        
+
         foreach ($items as $item) {
             $result[] = [
                 'unidad_de_medida' => $item->unidad_medida,
@@ -313,7 +313,7 @@ class NubefactMapper
                 'cantidad' => number_format($item->cantidad, 3, '.', ''),
             ];
         }
-        
+
         return $result;
     }
 

@@ -5,9 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Alerta;
 use App\Services\SlaService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 
 class AlertaController extends Controller
 {
@@ -55,7 +54,7 @@ class AlertaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Alerta marcada como leída'
+            'message' => 'Alerta marcada como leída',
         ]);
     }
 
@@ -68,7 +67,7 @@ class AlertaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Todas las alertas marcadas como leídas'
+            'message' => 'Todas las alertas marcadas como leídas',
         ]);
     }
 
@@ -82,7 +81,7 @@ class AlertaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Alerta eliminada'
+            'message' => 'Alerta eliminada',
         ]);
     }
 
@@ -96,7 +95,7 @@ class AlertaController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Se crearon {$alertasCreadas} alertas",
-            'alertas_creadas' => $alertasCreadas
+            'alertas_creadas' => $alertasCreadas,
         ]);
     }
 
@@ -109,7 +108,7 @@ class AlertaController extends Controller
 
         return response()->json([
             'success' => true,
-            'count' => $count
+            'count' => $count,
         ]);
     }
 }

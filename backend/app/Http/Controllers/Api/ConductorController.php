@@ -18,19 +18,19 @@ class ConductorController extends Controller
         }
 
         if ($request->filled('tipo_documento')) {
-            $query->where('tipo_documento', 'ILIKE', '%' . $request->tipo_documento . '%');
+            $query->where('tipo_documento', 'ILIKE', '%'.$request->tipo_documento.'%');
         }
 
         if ($request->filled('numero_documento')) {
-            $query->where('numero_documento', 'ILIKE', '%' . $request->numero_documento . '%');
+            $query->where('numero_documento', 'ILIKE', '%'.$request->numero_documento.'%');
         }
 
         if ($request->filled('nombre')) {
-            $query->where('nombre', 'ILIKE', '%' . $request->nombre . '%');
+            $query->where('nombre', 'ILIKE', '%'.$request->nombre.'%');
         }
 
         if ($request->filled('licencia_conducir')) {
-            $query->where('licencia_conducir', 'ILIKE', '%' . $request->licencia_conducir . '%');
+            $query->where('licencia_conducir', 'ILIKE', '%'.$request->licencia_conducir.'%');
         }
 
         $conductores = $query->orderBy('created_at', 'desc')->get();
@@ -52,7 +52,7 @@ class ConductorController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -65,10 +65,10 @@ class ConductorController extends Controller
     {
         $conductor = Conductor::find($id);
 
-        if (!$conductor) {
+        if (! $conductor) {
             return response()->json([
                 'success' => false,
-                'message' => 'Conductor no encontrado'
+                'message' => 'Conductor no encontrado',
             ], 404);
         }
 
@@ -79,10 +79,10 @@ class ConductorController extends Controller
     {
         $conductor = Conductor::find($id);
 
-        if (!$conductor) {
+        if (! $conductor) {
             return response()->json([
                 'success' => false,
-                'message' => 'Conductor no encontrado'
+                'message' => 'Conductor no encontrado',
             ], 404);
         }
 
@@ -98,7 +98,7 @@ class ConductorController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -111,10 +111,10 @@ class ConductorController extends Controller
     {
         $conductor = Conductor::find($id);
 
-        if (!$conductor) {
+        if (! $conductor) {
             return response()->json([
                 'success' => false,
-                'message' => 'Conductor no encontrado'
+                'message' => 'Conductor no encontrado',
             ], 404);
         }
 
@@ -122,7 +122,7 @@ class ConductorController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Conductor eliminado correctamente'
+            'message' => 'Conductor eliminado correctamente',
         ]);
     }
 }

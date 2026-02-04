@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Carbon\Carbon;
 
 class Oportunidad extends Model
 {
@@ -56,7 +56,7 @@ class Oportunidad extends Model
             if (empty($oportunidad->codigo)) {
                 $oportunidad->codigo = static::generarCodigo();
             }
-            
+
             // Calcular SLA si hay configuración
             if ($oportunidad->sla_dias && $oportunidad->fecha_inicio) {
                 $oportunidad->sla_fecha_limite = Carbon::parse($oportunidad->fecha_inicio)
@@ -141,14 +141,14 @@ class Oportunidad extends Model
             ->orderBy('id', 'desc')
             ->first();
 
-        $numero = $ultimo ? (int)substr($ultimo->codigo, -4) + 1 : 1;
-        
+        $numero = $ultimo ? (int) substr($ultimo->codigo, -4) + 1 : 1;
+
         return sprintf('OPO-%s-%04d', $year, $numero);
     }
 
     public function actualizarEstadoSLA()
     {
-        if (!$this->sla_fecha_limite) {
+        if (! $this->sla_fecha_limite) {
             return;
         }
 

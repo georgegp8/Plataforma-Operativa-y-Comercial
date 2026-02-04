@@ -18,15 +18,15 @@ class VehiculoController extends Controller
         }
 
         if ($request->filled('placa')) {
-            $query->where('placa', 'ILIKE', '%' . $request->placa . '%');
+            $query->where('placa', 'ILIKE', '%'.$request->placa.'%');
         }
 
         if ($request->filled('modelo')) {
-            $query->where('modelo', 'ILIKE', '%' . $request->modelo . '%');
+            $query->where('modelo', 'ILIKE', '%'.$request->modelo.'%');
         }
 
         if ($request->filled('marca')) {
-            $query->where('marca', 'ILIKE', '%' . $request->marca . '%');
+            $query->where('marca', 'ILIKE', '%'.$request->marca.'%');
         }
 
         $vehiculos = $query->orderBy('created_at', 'desc')->get();
@@ -46,7 +46,7 @@ class VehiculoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -59,10 +59,10 @@ class VehiculoController extends Controller
     {
         $vehiculo = Vehiculo::find($id);
 
-        if (!$vehiculo) {
+        if (! $vehiculo) {
             return response()->json([
                 'success' => false,
-                'message' => 'Vehículo no encontrado'
+                'message' => 'Vehículo no encontrado',
             ], 404);
         }
 
@@ -73,10 +73,10 @@ class VehiculoController extends Controller
     {
         $vehiculo = Vehiculo::find($id);
 
-        if (!$vehiculo) {
+        if (! $vehiculo) {
             return response()->json([
                 'success' => false,
-                'message' => 'Vehículo no encontrado'
+                'message' => 'Vehículo no encontrado',
             ], 404);
         }
 
@@ -90,7 +90,7 @@ class VehiculoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -103,10 +103,10 @@ class VehiculoController extends Controller
     {
         $vehiculo = Vehiculo::find($id);
 
-        if (!$vehiculo) {
+        if (! $vehiculo) {
             return response()->json([
                 'success' => false,
-                'message' => 'Vehículo no encontrado'
+                'message' => 'Vehículo no encontrado',
             ], 404);
         }
 
@@ -114,7 +114,7 @@ class VehiculoController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Vehículo eliminado correctamente'
+            'message' => 'Vehículo eliminado correctamente',
         ]);
     }
 }

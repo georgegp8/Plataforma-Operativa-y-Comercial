@@ -19,15 +19,15 @@ class UnidadMedidaController extends Controller
         }
 
         if ($request->has('descripcion') && $request->descripcion !== '') {
-            $query->where('descripcion', 'ILIKE', '%' . $request->descripcion . '%');
+            $query->where('descripcion', 'ILIKE', '%'.$request->descripcion.'%');
         }
 
         if ($request->has('codigo') && $request->codigo !== '') {
-            $query->where('codigo', 'ILIKE', '%' . $request->codigo . '%');
+            $query->where('codigo', 'ILIKE', '%'.$request->codigo.'%');
         }
 
         if ($request->has('simbolo') && $request->simbolo !== '') {
-            $query->where('simbolo', 'ILIKE', '%' . $request->simbolo . '%');
+            $query->where('simbolo', 'ILIKE', '%'.$request->simbolo.'%');
         }
 
         $unidades = $query->orderBy('created_at', 'desc')->get();
@@ -42,13 +42,13 @@ class UnidadMedidaController extends Controller
             'descripcion' => 'required|string',
             'simbolo' => 'required|string|max:20',
             'activo' => 'boolean',
-            'created_by' => 'nullable|string|max:100'
+            'created_by' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -56,7 +56,7 @@ class UnidadMedidaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $unidad
+            'data' => $unidad,
         ], 201);
     }
 
@@ -64,16 +64,16 @@ class UnidadMedidaController extends Controller
     {
         $unidad = UnidadMedida::find($id);
 
-        if (!$unidad) {
+        if (! $unidad) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unidad de medida no encontrada'
+                'message' => 'Unidad de medida no encontrada',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $unidad
+            'data' => $unidad,
         ]);
     }
 
@@ -81,10 +81,10 @@ class UnidadMedidaController extends Controller
     {
         $unidad = UnidadMedida::find($id);
 
-        if (!$unidad) {
+        if (! $unidad) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unidad de medida no encontrada'
+                'message' => 'Unidad de medida no encontrada',
             ], 404);
         }
 
@@ -93,13 +93,13 @@ class UnidadMedidaController extends Controller
             'descripcion' => 'required|string',
             'simbolo' => 'required|string|max:20',
             'activo' => 'boolean',
-            'created_by' => 'nullable|string|max:100'
+            'created_by' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -107,7 +107,7 @@ class UnidadMedidaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $unidad
+            'data' => $unidad,
         ]);
     }
 
@@ -115,10 +115,10 @@ class UnidadMedidaController extends Controller
     {
         $unidad = UnidadMedida::find($id);
 
-        if (!$unidad) {
+        if (! $unidad) {
             return response()->json([
                 'success' => false,
-                'message' => 'Unidad de medida no encontrada'
+                'message' => 'Unidad de medida no encontrada',
             ], 404);
         }
 
@@ -126,7 +126,7 @@ class UnidadMedidaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Unidad de medida eliminada correctamente'
+            'message' => 'Unidad de medida eliminada correctamente',
         ]);
     }
 }

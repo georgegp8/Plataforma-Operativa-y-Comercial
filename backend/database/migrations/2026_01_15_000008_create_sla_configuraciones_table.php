@@ -16,13 +16,13 @@ return new class extends Migration
             $table->string('tipo_oportunidad'); // Venta, Servicio, Proyecto
             $table->string('area'); // Comercial, Técnico, Administrativo
             $table->string('estado')->nullable(); // nuevo, en_proceso, etc.
-            
+
             $table->integer('dias_sla');
             $table->integer('dias_alerta_amarilla')->default(3); // Días antes del vencimiento
-            
+
             $table->boolean('activo')->default(true);
             $table->timestamps();
-            
+
             // Índices
             $table->index(['tipo_oportunidad', 'area', 'estado']);
         });

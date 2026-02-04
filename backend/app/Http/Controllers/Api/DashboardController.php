@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Comprobante;
-use App\Models\Oportunidad;
-use App\Models\Empresa;
 use App\Models\Alerta;
+use App\Models\Comprobante;
+use App\Models\Empresa;
 use App\Models\Entidad;
+use App\Models\Oportunidad;
 use App\Models\Producto;
 use App\Services\SlaService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -56,7 +56,7 @@ class DashboardController extends Controller
                 'sla' => $sla,
                 'alertas' => $alertas,
                 'clientes' => $clientes,
-            ]
+            ],
         ]);
     }
 
@@ -73,10 +73,10 @@ class DashboardController extends Controller
             COUNT(CASE WHEN estado_sunat = 'rechazado' THEN 1 END) as total_rechazados,
             COUNT(CASE WHEN estado_sunat = 'pendiente' THEN 1 END) as total_pendientes
         ")
-            ->when($empresaId, fn($q) => $q->where('empresa_id', $empresaId))
-            ->when($clienteNumDoc, fn($q) => $q->where('cliente_num_doc', 'like', "%{$clienteNumDoc}%"))
-            ->when($fechaDesde, fn($q) => $q->whereDate('fecha_emision', '>=', $fechaDesde))
-            ->when($fechaHasta, fn($q) => $q->whereDate('fecha_emision', '<=', $fechaHasta))
+            ->when($empresaId, fn ($q) => $q->where('empresa_id', $empresaId))
+            ->when($clienteNumDoc, fn ($q) => $q->where('cliente_num_doc', 'like', "%{$clienteNumDoc}%"))
+            ->when($fechaDesde, fn ($q) => $q->whereDate('fecha_emision', '>=', $fechaDesde))
+            ->when($fechaHasta, fn ($q) => $q->whereDate('fecha_emision', '<=', $fechaHasta))
             ->first();
 
         $totalMes = $stats->total_mes ?? 0;
@@ -85,15 +85,15 @@ class DashboardController extends Controller
         $totalPendientes = $stats->total_pendientes ?? 0;
 
         $porTipo = Comprobante::selectRaw('tipo_doc, count(*) as cantidad, sum(mto_imp_venta) as total')
-            ->when($empresaId, fn($q) => $q->where('empresa_id', $empresaId))
-            ->when($clienteNumDoc, fn($q) => $q->where('cliente_num_doc', 'like', "%{$clienteNumDoc}%"))
-            ->when($fechaDesde, fn($q) => $q->whereDate('fecha_emision', '>=', $fechaDesde))
-            ->when($fechaHasta, fn($q) => $q->whereDate('fecha_emision', '<=', $fechaHasta))
+            ->when($empresaId, fn ($q) => $q->where('empresa_id', $empresaId))
+            ->when($clienteNumDoc, fn ($q) => $q->where('cliente_num_doc', 'like', "%{$clienteNumDoc}%"))
+            ->when($fechaDesde, fn ($q) => $q->whereDate('fecha_emision', '>=', $fechaDesde))
+            ->when($fechaHasta, fn ($q) => $q->whereDate('fecha_emision', '<=', $fechaHasta))
             ->groupBy('tipo_doc')
             ->get()
-            ->mapWithKeys(fn($item) => [$item->tipo_doc => [
+            ->mapWithKeys(fn ($item) => [$item->tipo_doc => [
                 'cantidad' => $item->cantidad,
-                'total' => $item->total
+                'total' => $item->total,
             ]]);
 
         return [
@@ -124,7 +124,7 @@ class DashboardController extends Controller
             'monto_total' => $query->sum('monto_estimado'),
             'monto_ganado' => $query->where('estado', 'ganado')->sum('monto_estimado'),
             'por_estado' => Oportunidad::selectRaw('estado, count(*) as cantidad')
-                ->when($empresaId, fn($q) => $q->where('empresa_id', $empresaId))
+                ->when($empresaId, fn ($q) => $q->where('empresa_id', $empresaId))
                 ->groupBy('estado')
                 ->get()
                 ->pluck('cantidad', 'estado'),
@@ -187,7 +187,7 @@ class DashboardController extends Controller
         $totalRegistros = $entidadesQuery
             ->where(function ($q) {
                 $q->where('es_cliente', true)
-                  ->orWhere('es_proveedor', true);
+                    ->orWhere('es_proveedor', true);
             })
             ->count();
 
@@ -231,7 +231,7 @@ class DashboardController extends Controller
                 'sla' => $sla,
                 'ultimas_facturas' => $ultimasFacturas,
                 'proximas_vencer' => $proximasVencer,
-            ]
+            ],
         ]);
     }
 
@@ -251,11 +251,11 @@ class DashboardController extends Controller
             SUM(mto_imp_venta) as total,
             COUNT(*) as cantidad
             ")
-            ->when($empresaId, fn($q) => $q->where('empresa_id', $empresaId))
-            ->when($clienteNumDoc, fn($q) => $q->where('cliente_num_doc', 'like', "%{$clienteNumDoc}%"))
-            ->when($fechaDesde, fn($q) => $q->whereDate('fecha_emision', '>=', $fechaDesde))
-            ->when($fechaHasta, fn($q) => $q->whereDate('fecha_emision', '<=', $fechaHasta))
-            ->when(!$fechaDesde && !$fechaHasta, fn($q) => $q->where('fecha_emision', '>=', now()->subMonths(12)))
+            ->when($empresaId, fn ($q) => $q->where('empresa_id', $empresaId))
+            ->when($clienteNumDoc, fn ($q) => $q->where('cliente_num_doc', 'like', "%{$clienteNumDoc}%"))
+            ->when($fechaDesde, fn ($q) => $q->whereDate('fecha_emision', '>=', $fechaDesde))
+            ->when($fechaHasta, fn ($q) => $q->whereDate('fecha_emision', '<=', $fechaHasta))
+            ->when(! $fechaDesde && ! $fechaHasta, fn ($q) => $q->where('fecha_emision', '>=', now()->subMonths(12)))
             ->where('estado_sunat', 'aceptado')
             ->groupBy('mes')
             ->orderBy('mes')
@@ -263,7 +263,7 @@ class DashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $ventas
+            'data' => $ventas,
         ]);
     }
 
@@ -279,7 +279,7 @@ class DashboardController extends Controller
         $fechaHasta = $request->get('fecha_hasta', null);
 
         // Calcular fecha_hasta según período o usar la proporcionada
-        if (!$fechaHasta) {
+        if (! $fechaHasta) {
             $fechaHasta = $this->calcularFechaHasta($periodo, $fechaDel);
         }
 
@@ -299,9 +299,9 @@ class DashboardController extends Controller
             ->whereDate('fecha_emision', '>=', $fechaDel)
             ->whereDate('fecha_emision', '<=', $fechaHasta)
             ->where('estado_sunat', 'aceptado')
-            ->where(function($q) {
+            ->where(function ($q) {
                 $q->whereNull('anulado')
-                  ->orWhere('anulado', false);
+                    ->orWhere('anulado', false);
             })
             ->first();
 
@@ -370,22 +370,22 @@ class DashboardController extends Controller
         $ventasPorHora = [];
         for ($hora = 0; $hora < 24; $hora++) {
             $ventasPorHora[] = [
-                'hora' => str_pad($hora, 2, '0', STR_PAD_LEFT) . 'h',
+                'hora' => str_pad($hora, 2, '0', STR_PAD_LEFT).'h',
                 'total' => 0,
             ];
         }
 
         // Consultar ventas agrupadas por hora
-        $ventas = Comprobante::selectRaw("
+        $ventas = Comprobante::selectRaw('
             EXTRACT(HOUR FROM fecha_emision) as hora,
             SUM(mto_imp_venta) as total
-            ")
+            ')
             ->whereDate('fecha_emision', '>=', $fechaDel)
             ->whereDate('fecha_emision', '<=', $fechaHasta)
             ->where('estado_sunat', 'aceptado')
-            ->where(function($q) {
+            ->where(function ($q) {
                 $q->whereNull('anulado')
-                  ->orWhere('anulado', false);
+                    ->orWhere('anulado', false);
             })
             ->groupBy('hora')
             ->orderBy('hora')
@@ -393,7 +393,7 @@ class DashboardController extends Controller
 
         // Actualizar valores reales
         foreach ($ventas as $venta) {
-            $horaIndex = (int)$venta->hora;
+            $horaIndex = (int) $venta->hora;
             if ($horaIndex >= 0 && $horaIndex < 24) {
                 $ventasPorHora[$horaIndex]['total'] = round($venta->total, 2);
             }
@@ -414,22 +414,22 @@ class DashboardController extends Controller
         $fechaHasta = $request->get('fecha_hasta', null);
 
         // Calcular fecha_hasta según período o usar la proporcionada
-        if (!$fechaHasta) {
+        if (! $fechaHasta) {
             $fechaHasta = $this->calcularFechaHasta($periodo, $fechaDel);
         }
 
         // Obtener ranking de CPE por tipo de comprobante
-        $rankingData = Comprobante::selectRaw("
+        $rankingData = Comprobante::selectRaw('
             tipo_doc,
             COUNT(*) as value
-        ")
+        ')
             ->whereIn('tipo_doc', ['01', '03', '07', '08'])
             ->whereDate('fecha_emision', '>=', $fechaDel)
             ->whereDate('fecha_emision', '<=', $fechaHasta)
             ->where('estado_sunat', 'aceptado')
-            ->where(function($q) {
+            ->where(function ($q) {
                 $q->whereNull('anulado')
-                  ->orWhere('anulado', false);
+                    ->orWhere('anulado', false);
             })
             ->groupBy('tipo_doc')
             ->pluck('value', 'tipo_doc');
@@ -446,14 +446,14 @@ class DashboardController extends Controller
         ];
 
         // Construir ranking con todas las categorías
-        $ranking = collect($allCategories)->map(function($name, $tipo_doc) use ($rankingData, $total) {
+        $ranking = collect($allCategories)->map(function ($name, $tipo_doc) use ($rankingData, $total) {
             $value = $rankingData->get($tipo_doc, 0);
             $percentage = $total > 0 ? round(($value / $total) * 100, 0) : 0;
 
             return [
                 'name' => $name,
-                'value' => (int)$value,
-                'percentage' => (int)$percentage
+                'value' => (int) $value,
+                'percentage' => (int) $percentage,
             ];
         })->values();
 
@@ -462,9 +462,6 @@ class DashboardController extends Controller
 
     /**
      * Obtiene el ranking de productos top por ventas
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function getProductosTop(Request $request): JsonResponse
     {
@@ -473,9 +470,9 @@ class DashboardController extends Controller
         $fechaDel = $request->get('fecha_del', now()->format('Y-m-d'));
         $fechaHasta = $request->get('fecha_hasta', null);
         $limit = $request->get('limit', 5);
-        
+
         // Calcular fecha_hasta según período o usar la proporcionada
-        if (!$fechaHasta) {
+        if (! $fechaHasta) {
             $fechaHasta = $this->calcularFechaHasta($periodo, $fechaDel);
         }
 
@@ -488,12 +485,12 @@ class DashboardController extends Controller
                 'ci.unidad',
                 DB::raw('COALESCE(p.precio_venta_unitario, ci.mto_precio_unitario) as precio_unitario'),
                 DB::raw('SUM(ci.cantidad) as cantidad'),
-                DB::raw('SUM(ci.mto_valor_venta + COALESCE(ci.igv, 0)) as total')
+                DB::raw('SUM(ci.mto_valor_venta + COALESCE(ci.igv, 0)) as total'),
             ])
             ->whereDate('c.fecha_emision', '>=', $fechaDel)
             ->whereDate('c.fecha_emision', '<=', $fechaHasta)
             ->where('c.estado_sunat', 'aceptado')
-            ->where(function($q) {
+            ->where(function ($q) {
                 $q->whereNull('c.anulado')->orWhere('c.anulado', false);
             })
             ->groupBy('ci.codigo_producto', 'ci.descripcion', 'ci.unidad', 'p.precio_venta_unitario', 'ci.mto_precio_unitario')
@@ -501,14 +498,14 @@ class DashboardController extends Controller
             ->limit($limit)
             ->get()
             ->values()
-            ->map(function($item, $index) {
+            ->map(function ($item, $index) {
                 return [
                     'id' => $index + 1,
                     'producto' => $item->producto,
                     'unidad' => $item->unidad ?? 'NIU',
-                    'precio_unitario' => (float)$item->precio_unitario,
-                    'cantidad' => (float)$item->cantidad,
-                    'total' => (float)$item->total
+                    'precio_unitario' => (float) $item->precio_unitario,
+                    'cantidad' => (float) $item->cantidad,
+                    'total' => (float) $item->total,
                 ];
             });
 
@@ -517,9 +514,6 @@ class DashboardController extends Controller
 
     /**
      * Obtiene el ranking de clientes top por ventas
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function getClientesTop(Request $request): JsonResponse
     {
@@ -528,21 +522,21 @@ class DashboardController extends Controller
         $fechaDel = $request->get('fecha_del', now()->format('Y-m-d'));
         $fechaHasta = $request->get('fecha_hasta', null);
         $limit = $request->get('limit', 5);
-        
+
         // Calcular fecha_hasta según período o usar la proporcionada
-        if (!$fechaHasta) {
+        if (! $fechaHasta) {
             $fechaHasta = $this->calcularFechaHasta($periodo, $fechaDel);
         }
 
         $clientesTop = Comprobante::select([
-                'cliente_razon_social as cliente',
-                DB::raw('COUNT(*) as transacciones'),
-                DB::raw('SUM(mto_imp_venta) as total')
-            ])
+            'cliente_razon_social as cliente',
+            DB::raw('COUNT(*) as transacciones'),
+            DB::raw('SUM(mto_imp_venta) as total'),
+        ])
             ->whereDate('fecha_emision', '>=', $fechaDel)
             ->whereDate('fecha_emision', '<=', $fechaHasta)
             ->where('estado_sunat', 'aceptado')
-            ->where(function($q) {
+            ->where(function ($q) {
                 $q->whereNull('anulado')->orWhere('anulado', false);
             })
             ->whereNotNull('cliente_razon_social')
@@ -552,12 +546,12 @@ class DashboardController extends Controller
             ->limit($limit)
             ->get()
             ->values()
-            ->map(function($item, $index) {
+            ->map(function ($item, $index) {
                 return [
                     'id' => $index + 1,
                     'cliente' => $item->cliente,
-                    'transacciones' => (int)$item->transacciones,
-                    'total' => (float)$item->total
+                    'transacciones' => (int) $item->transacciones,
+                    'total' => (float) $item->total,
                 ];
             });
 
@@ -566,9 +560,6 @@ class DashboardController extends Controller
 
     /**
      * Obtiene productos con stock mínimo
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function getStockMinimo(Request $request): JsonResponse
     {
@@ -577,45 +568,45 @@ class DashboardController extends Controller
         $perPage = $request->get('per_page', 5);
 
         $productos = Producto::select([
-                'id',
-                'descripcion as producto',
-                'stock_actual as stock',
-                DB::raw("CASE 
+            'id',
+            'descripcion as producto',
+            'stock_actual as stock',
+            DB::raw("CASE 
                     WHEN stock_actual = 0 THEN 'AGOTADO'
                     WHEN stock_actual <= stock_minimo * 0.3 THEN 'CRITICO'
                     WHEN stock_actual <= stock_minimo THEN 'BAJO'
                     ELSE 'NORMAL'
                 END as estado"),
-                DB::raw("'Oficina Principal' as almacen")
-            ])
-            ->where(function($q) {
+            DB::raw("'Oficina Principal' as almacen"),
+        ])
+            ->where(function ($q) {
                 $q->where('stock_actual', '<=', DB::raw('stock_minimo'))
-                  ->orWhere('stock_actual', '=', 0);
+                    ->orWhere('stock_actual', '=', 0);
             })
             ->where('activo', true)
-            ->orderByRaw("CASE 
+            ->orderByRaw('CASE 
                 WHEN stock_actual = 0 THEN 1
                 WHEN stock_actual <= stock_minimo * 0.3 THEN 2
                 WHEN stock_actual <= stock_minimo THEN 3
                 ELSE 4
-            END")
+            END')
             ->orderBy('stock_actual', 'asc')
             ->get()
-            ->map(function($item) {
+            ->map(function ($item) {
                 return [
                     'id' => $item->id,
                     'producto' => $item->producto,
-                    'stock' => number_format((float)$item->stock, 2),
+                    'stock' => number_format((float) $item->stock, 2),
                     'estado' => $item->estado,
-                    'almacen' => $item->almacen
+                    'almacen' => $item->almacen,
                 ];
             });
 
         return response()->json([
             'data' => $productos->forPage($page, $perPage)->values(),
             'total' => $productos->count(),
-            'current_page' => (int)$page,
-            'per_page' => (int)$perPage,
+            'current_page' => (int) $page,
+            'per_page' => (int) $perPage,
             'total_pages' => ceil($productos->count() / $perPage),
         ]);
     }
@@ -694,14 +685,14 @@ class DashboardController extends Controller
 
         // Organizar datos por mes
         $mesesData = [];
-        $meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-                  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        $meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+            'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
 
         foreach ($datos as $dato) {
-            $mesNumero = (int)date('n', strtotime($dato->mes . '-01'));
+            $mesNumero = (int) date('n', strtotime($dato->mes.'-01'));
             $mesNombre = $meses[$mesNumero - 1];
-            
-            if (!isset($mesesData[$mesNombre])) {
+
+            if (! isset($mesesData[$mesNombre])) {
                 $mesesData[$mesNombre] = [
                     'mes' => $mesNombre,
                     'facturas' => 0,
@@ -715,16 +706,16 @@ class DashboardController extends Controller
             // Mapear tipo_doc a categoría
             switch ($dato->tipo_doc) {
                 case '01':
-                    $mesesData[$mesNombre]['facturas'] += (float)$dato->total;
+                    $mesesData[$mesNombre]['facturas'] += (float) $dato->total;
                     break;
                 case '03':
-                    $mesesData[$mesNombre]['boletas'] += (float)$dato->total;
+                    $mesesData[$mesNombre]['boletas'] += (float) $dato->total;
                     break;
                 case '07':
-                    $mesesData[$mesNombre]['notasCredito'] += (float)$dato->total;
+                    $mesesData[$mesNombre]['notasCredito'] += (float) $dato->total;
                     break;
                 case '08':
-                    $mesesData[$mesNombre]['notasDebito'] += (float)$dato->total;
+                    $mesesData[$mesNombre]['notasDebito'] += (float) $dato->total;
                     break;
             }
         }
@@ -749,7 +740,7 @@ class DashboardController extends Controller
         }
 
         // Formatear para tabla
-        $dataTabla = array_map(function($mes) {
+        $dataTabla = array_map(function ($mes) {
             return [
                 'mes' => $mes['mes'],
                 'facturas' => number_format($mes['facturas'], 2),
@@ -777,4 +768,3 @@ class DashboardController extends Controller
         ]);
     }
 }
-

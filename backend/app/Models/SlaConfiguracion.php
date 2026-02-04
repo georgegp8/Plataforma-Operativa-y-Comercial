@@ -15,7 +15,7 @@ class SlaConfiguracion extends Model
         'nombre',
         'dias_limite',
         'color_alerta',
-        'activo'
+        'activo',
     ];
 
     protected $casts = [

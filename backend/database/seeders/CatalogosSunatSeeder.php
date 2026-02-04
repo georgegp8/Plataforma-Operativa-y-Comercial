@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\CatalogoSunat;
+use Illuminate\Database\Seeder;
 
 class CatalogosSunatSeeder extends Seeder
 {
@@ -14,31 +14,31 @@ class CatalogosSunatSeeder extends Seeder
     {
         // Catálogo 01: Tipo de Documento
         $this->catalogoTipoDocumento();
-        
+
         // Catálogo 02: Tipo de Moneda
         $this->catalogoTipoMoneda();
-        
+
         // Catálogo 03: Tipo de Unidad de Medida
         $this->catalogoUnidadMedida();
-        
+
         // Catálogo 05: Tipo de Tributo
         $this->catalogoTipoTributo();
-        
+
         // Catálogo 06: Tipo de Documento de Identidad
         $this->catalogoTipoDocumentoIdentidad();
-        
+
         // Catálogo 07: Tipo de Afectación del IGV
         $this->catalogoTipoAfectacionIGV();
-        
+
         // Catálogo 09: Tipo de Nota de Crédito
         $this->catalogoTipoNotaCredito();
-        
+
         // Catálogo 10: Tipo de Nota de Débito
         $this->catalogoTipoNotaDebito();
-        
+
         // Catálogo 51: Tipo de Operación
         $this->catalogoTipoOperacion();
-        
+
         // Catálogo 53: Tipo de Descuento
         $this->catalogoTipoDescuento();
     }

@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\ComprobanteItem;
 use App\Models\Entidad;
+use Illuminate\Console\Command;
 
 class ResetNubefactData extends Command
 {
@@ -14,9 +14,10 @@ class ResetNubefactData extends Command
 
     public function handle(): int
     {
-        if (!$this->option('force')) {
-            if (!$this->confirm('Esto eliminará TODOS los items de comprobantes y entidades importadas. ¿Deseas continuar?')) {
+        if (! $this->option('force')) {
+            if (! $this->confirm('Esto eliminará TODOS los items de comprobantes y entidades importadas. ¿Deseas continuar?')) {
                 $this->info('Operación cancelada.');
+
                 return self::SUCCESS;
             }
         }

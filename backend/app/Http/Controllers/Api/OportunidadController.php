@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Oportunidad;
-use App\Models\Empresa;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class OportunidadController extends Controller
@@ -47,7 +46,7 @@ class OportunidadController extends Controller
         // Filtro por vencimiento
         if ($request->has('vencidas')) {
             $query->where('fecha_vencimiento', '<', now())
-                  ->whereNotIn('estado', ['ganado', 'perdido', 'cancelado']);
+                ->whereNotIn('estado', ['ganado', 'perdido', 'cancelado']);
         }
 
         // Ordenamiento
@@ -84,7 +83,7 @@ class OportunidadController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -98,7 +97,7 @@ class OportunidadController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Oportunidad creada exitosamente',
-            'data' => $oportunidad->load(['empresa', 'responsable'])
+            'data' => $oportunidad->load(['empresa', 'responsable']),
         ], 201);
     }
 
@@ -112,12 +111,12 @@ class OportunidadController extends Controller
             'responsable',
             'comprobantes',
             'documentos',
-            'pagos'
+            'pagos',
         ])->findOrFail($id);
 
         return response()->json([
             'success' => true,
-            'data' => $oportunidad
+            'data' => $oportunidad,
         ]);
     }
 
@@ -147,7 +146,7 @@ class OportunidadController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -163,7 +162,7 @@ class OportunidadController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Oportunidad actualizada exitosamente',
-            'data' => $oportunidad->load(['empresa', 'responsable'])
+            'data' => $oportunidad->load(['empresa', 'responsable']),
         ]);
     }
 
@@ -178,7 +177,7 @@ class OportunidadController extends Controller
         if ($oportunidad->comprobantes()->count() > 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se puede eliminar la oportunidad porque tiene comprobantes asociados'
+                'message' => 'No se puede eliminar la oportunidad porque tiene comprobantes asociados',
             ], 409);
         }
 
@@ -186,7 +185,7 @@ class OportunidadController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Oportunidad eliminada exitosamente'
+            'message' => 'Oportunidad eliminada exitosamente',
         ]);
     }
 
@@ -205,12 +204,12 @@ class OportunidadController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         $oportunidad->estado = $request->estado;
-        
+
         if ($request->has('notas')) {
             $oportunidad->notas = $request->notas;
         }
@@ -219,8 +218,8 @@ class OportunidadController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Estado actualizado a: ' . $request->estado,
-            'data' => $oportunidad
+            'message' => 'Estado actualizado a: '.$request->estado,
+            'data' => $oportunidad,
         ]);
     }
 
@@ -250,7 +249,7 @@ class OportunidadController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 }

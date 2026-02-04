@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Compra;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class CompraController extends Controller
@@ -20,20 +20,20 @@ class CompraController extends Controller
 
         // Filtro por estado
         if ($request->filled('estado')) {
-            $query->where('estado', 'ILIKE', '%' . $request->estado . '%');
+            $query->where('estado', 'ILIKE', '%'.$request->estado.'%');
         }
 
         // Filtro por proveedor
         if ($request->filled('proveedor')) {
-            $query->where(function($q) use ($request) {
-                $q->where('proveedor_nombre', 'ILIKE', '%' . $request->proveedor . '%')
-                  ->orWhere('proveedor_ruc', 'ILIKE', '%' . $request->proveedor . '%');
+            $query->where(function ($q) use ($request) {
+                $q->where('proveedor_nombre', 'ILIKE', '%'.$request->proveedor.'%')
+                    ->orWhere('proveedor_ruc', 'ILIKE', '%'.$request->proveedor.'%');
             });
         }
 
         // Filtro por número de comprobante
         if ($request->filled('numero')) {
-            $query->where('comprobante_completo', 'ILIKE', '%' . $request->numero . '%');
+            $query->where('comprobante_completo', 'ILIKE', '%'.$request->numero.'%');
         }
 
         $compras = $query->orderBy('fecha_actividad', 'desc')->get();
@@ -73,7 +73,7 @@ class CompraController extends Controller
     {
         $compra = Compra::find($id);
 
-        if (!$compra) {
+        if (! $compra) {
             return response()->json(['message' => 'Compra no encontrada'], 404);
         }
 
@@ -84,7 +84,7 @@ class CompraController extends Controller
     {
         $compra = Compra::find($id);
 
-        if (!$compra) {
+        if (! $compra) {
             return response()->json(['message' => 'Compra no encontrada'], 404);
         }
 
@@ -118,7 +118,7 @@ class CompraController extends Controller
     {
         $compra = Compra::find($id);
 
-        if (!$compra) {
+        if (! $compra) {
             return response()->json(['message' => 'Compra no encontrada'], 404);
         }
 

@@ -36,6 +36,8 @@ const Configuracion = lazy(() => import('@/pages/Configuracion'));
 const DocumentosPage = lazy(() => import('@/pages/Documentos'));
 const PagosPage = lazy(() => import('@/pages/Pagos'));
 const GestionProductos = lazy(() => import('@/pages/GestionProductos'));
+const ProductosCompuestos = lazy(() => import('@/pages/ProductosCompuestos'));
+const IngresoSalidaProductos = lazy(() => import('@/pages/IngresoSalidaProductos'));
 
 // Loading fallback component
 const PageLoader = () => (
@@ -70,6 +72,9 @@ function App() {
             <Route path="/compras/listas" element={<ListaCompras />} />
             <Route path="/compras/nuevas" element={<NuevaCompra />} />
             <Route path="/compras/digitalizacion" element={<DigitalizacionDocumentos />} />
+            <Route path="/productos" element={<GestionProductos />} />
+            <Route path="/inventario/productos-compuestos" element={<ProductosCompuestos />} />
+            <Route path="/inventario/ingreso-salida" element={<IngresoSalidaProductos />} />
             <Route path="/app" element={<AppLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="dashboard-tv" element={<DashboardTv />} />

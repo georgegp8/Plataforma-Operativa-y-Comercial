@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Empresa;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class EmpresaController extends Controller
 {
@@ -65,7 +65,7 @@ class EmpresaController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -74,7 +74,7 @@ class EmpresaController extends Controller
         // Subir certificado si existe
         if ($request->hasFile('certificado')) {
             $certificado = $request->file('certificado');
-            $filename = $data['ruc'] . '_' . time() . '.' . $certificado->getClientOriginalExtension();
+            $filename = $data['ruc'].'_'.time().'.'.$certificado->getClientOriginalExtension();
             $path = $certificado->storeAs('certs', $filename, 'local');
             $data['certificado_path'] = $path;
         }
@@ -84,7 +84,7 @@ class EmpresaController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Empresa creada exitosamente',
-            'data' => $empresa
+            'data' => $empresa,
         ], 201);
     }
 
@@ -97,7 +97,7 @@ class EmpresaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $empresa
+            'data' => $empresa,
         ]);
     }
 
@@ -109,7 +109,7 @@ class EmpresaController extends Controller
         $empresa = Empresa::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'ruc' => 'sometimes|string|size:11|unique:empresas,ruc,' . $id,
+            'ruc' => 'sometimes|string|size:11|unique:empresas,ruc,'.$id,
             'razon_social' => 'sometimes|string|max:255',
             'nombre_comercial' => 'nullable|string|max:255',
             'ubigeo' => 'sometimes|string|size:6',
@@ -129,7 +129,7 @@ class EmpresaController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -143,7 +143,7 @@ class EmpresaController extends Controller
             }
 
             $certificado = $request->file('certificado');
-            $filename = $data['ruc'] . '_' . time() . '.' . $certificado->getClientOriginalExtension();
+            $filename = $data['ruc'].'_'.time().'.'.$certificado->getClientOriginalExtension();
             $path = $certificado->storeAs('certs', $filename, 'local');
             $data['certificado_path'] = $path;
         }
@@ -153,7 +153,7 @@ class EmpresaController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Empresa actualizada exitosamente',
-            'data' => $empresa
+            'data' => $empresa,
         ]);
     }
 
@@ -168,7 +168,7 @@ class EmpresaController extends Controller
         if ($empresa->comprobantes()->count() > 0) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se puede eliminar la empresa porque tiene comprobantes asociados'
+                'message' => 'No se puede eliminar la empresa porque tiene comprobantes asociados',
             ], 409);
         }
 
@@ -181,7 +181,7 @@ class EmpresaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Empresa eliminada exitosamente'
+            'message' => 'Empresa eliminada exitosamente',
         ]);
     }
 
@@ -191,13 +191,13 @@ class EmpresaController extends Controller
     public function toggleActivo(int $id): JsonResponse
     {
         $empresa = Empresa::findOrFail($id);
-        $empresa->activo = !$empresa->activo;
+        $empresa->activo = ! $empresa->activo;
         $empresa->save();
 
         return response()->json([
             'success' => true,
             'message' => $empresa->activo ? 'Empresa activada' : 'Empresa desactivada',
-            'data' => $empresa
+            'data' => $empresa,
         ]);
     }
 
@@ -212,8 +212,8 @@ class EmpresaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Modo cambiado a ' . $empresa->modo,
-            'data' => $empresa
+            'message' => 'Modo cambiado a '.$empresa->modo,
+            'data' => $empresa,
         ]);
     }
 }

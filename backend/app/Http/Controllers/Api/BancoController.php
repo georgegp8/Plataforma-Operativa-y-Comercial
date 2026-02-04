@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Banco;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class BancoController extends Controller
 {
@@ -19,11 +19,11 @@ class BancoController extends Controller
         }
 
         if ($request->has('descripcion')) {
-            $query->where('descripcion', 'like', '%' . $request->descripcion . '%');
+            $query->where('descripcion', 'like', '%'.$request->descripcion.'%');
         }
 
         if ($request->has('abreviatura')) {
-            $query->where('abreviatura', 'like', '%' . $request->abreviatura . '%');
+            $query->where('abreviatura', 'like', '%'.$request->abreviatura.'%');
         }
 
         $bancos = $query->orderBy('created_at', 'desc')->get();
@@ -43,7 +43,7 @@ class BancoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -58,7 +58,7 @@ class BancoController extends Controller
         return response()->json([
             'success' => true,
             'data' => $banco,
-            'message' => 'Banco creado exitosamente'
+            'message' => 'Banco creado exitosamente',
         ], 201);
     }
 
@@ -68,7 +68,7 @@ class BancoController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $banco
+            'data' => $banco,
         ]);
     }
 
@@ -86,7 +86,7 @@ class BancoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -94,13 +94,13 @@ class BancoController extends Controller
             'descripcion',
             'abreviatura',
             'imagen',
-            'activo'
+            'activo',
         ]));
 
         return response()->json([
             'success' => true,
             'data' => $banco,
-            'message' => 'Banco actualizado exitosamente'
+            'message' => 'Banco actualizado exitosamente',
         ]);
     }
 
@@ -111,7 +111,7 @@ class BancoController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Banco eliminado exitosamente'
+            'message' => 'Banco eliminado exitosamente',
         ]);
     }
 
@@ -126,7 +126,7 @@ class BancoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -143,7 +143,7 @@ class BancoController extends Controller
         return response()->json([
             'success' => true,
             'data' => $banco,
-            'message' => 'Imagen subida exitosamente'
+            'message' => 'Imagen subida exitosamente',
         ]);
     }
 }

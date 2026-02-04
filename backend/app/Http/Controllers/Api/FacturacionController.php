@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\FacturacionService;
 use App\Models\Comprobante;
-use App\Models\Empresa;
-use Illuminate\Http\Request;
+use App\Services\FacturacionService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class FacturacionController extends Controller
 {
@@ -68,9 +67,9 @@ class FacturacionController extends Controller
         return response()->json([
             'comprobante' => $comprobante,
             'urls' => [
-                'xml' => $comprobante->xml_path ? asset('storage/' . $comprobante->xml_path) : null,
-                'cdr' => $comprobante->cdr_path ? asset('storage/' . $comprobante->cdr_path) : null,
-                'pdf' => $comprobante->pdf_path ? asset('storage/' . $comprobante->pdf_path) : null,
+                'xml' => $comprobante->xml_path ? asset('storage/'.$comprobante->xml_path) : null,
+                'cdr' => $comprobante->cdr_path ? asset('storage/'.$comprobante->cdr_path) : null,
+                'pdf' => $comprobante->pdf_path ? asset('storage/'.$comprobante->pdf_path) : null,
             ],
         ]);
     }
@@ -309,7 +308,7 @@ class FacturacionController extends Controller
         return response()->json([
             'serie' => $request->serie,
             'correlativo' => str_pad($siguiente, 8, '0', STR_PAD_LEFT),
-            'numero_completo' => $request->serie . '-' . str_pad($siguiente, 8, '0', STR_PAD_LEFT),
+            'numero_completo' => $request->serie.'-'.str_pad($siguiente, 8, '0', STR_PAD_LEFT),
         ]);
     }
 
@@ -322,7 +321,7 @@ class FacturacionController extends Controller
 
         // Primero intentamos servir el archivo local si existe
         if ($comprobante->xml_path && Storage::disk('public')->exists($comprobante->xml_path)) {
-            $fileName = ($comprobante->serie . '-' . $comprobante->correlativo) . '.xml';
+            $fileName = ($comprobante->serie.'-'.$comprobante->correlativo).'.xml';
             $path = Storage::disk('public')->path($comprobante->xml_path);
 
             return response()->download($path, $fileName);
@@ -333,11 +332,11 @@ class FacturacionController extends Controller
             $response = Http::get($comprobante->nubefact_xml_url);
 
             if ($response->successful()) {
-                $fileName = ($comprobante->serie . '-' . $comprobante->correlativo) . '.xml';
+                $fileName = ($comprobante->serie.'-'.$comprobante->correlativo).'.xml';
 
                 return response($response->body(), 200)
                     ->header('Content-Type', $response->header('Content-Type') ?: 'application/xml')
-                    ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+                    ->header('Content-Disposition', 'attachment; filename="'.$fileName.'"');
             }
         }
 
@@ -356,7 +355,7 @@ class FacturacionController extends Controller
 
         // Primero intentamos servir el archivo local si existe
         if ($comprobante->cdr_path && Storage::disk('public')->exists($comprobante->cdr_path)) {
-            $fileName = ($comprobante->serie . '-' . $comprobante->correlativo) . '.zip';
+            $fileName = ($comprobante->serie.'-'.$comprobante->correlativo).'.zip';
             $path = Storage::disk('public')->path($comprobante->cdr_path);
 
             return response()->download($path, $fileName);
@@ -367,11 +366,11 @@ class FacturacionController extends Controller
             $response = Http::get($comprobante->nubefact_cdr_url);
 
             if ($response->successful()) {
-                $fileName = ($comprobante->serie . '-' . $comprobante->correlativo) . '.zip';
+                $fileName = ($comprobante->serie.'-'.$comprobante->correlativo).'.zip';
 
                 return response($response->body(), 200)
                     ->header('Content-Type', $response->header('Content-Type') ?: 'application/zip')
-                    ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+                    ->header('Content-Disposition', 'attachment; filename="'.$fileName.'"');
             }
         }
 
@@ -573,7 +572,7 @@ class FacturacionController extends Controller
             COUNT(CASE WHEN tipo_doc = '08' THEN 1 END) as notas_debito
         ")
             ->whereBetween('fecha_emision', [$fechaDesde, $fechaHasta])
-            ->when($empresaId, fn($q) => $q->where('empresa_id', $empresaId))
+            ->when($empresaId, fn ($q) => $q->where('empresa_id', $empresaId))
             ->first();
 
         return response()->json([
@@ -612,10 +611,10 @@ class FacturacionController extends Controller
 
             if ($request->has('numero')) {
                 $numero = $request->numero;
-                $query->where(function($q) use ($numero) {
+                $query->where(function ($q) use ($numero) {
                     $q->where('serie', 'like', "%{$numero}%")
-                      ->orWhere('correlativo', 'like', "%{$numero}%")
-                      ->orWhere('cliente_razon_social', 'like', "%{$numero}%");
+                        ->orWhere('correlativo', 'like', "%{$numero}%")
+                        ->orWhere('cliente_razon_social', 'like', "%{$numero}%");
                 });
             }
 
@@ -632,7 +631,7 @@ class FacturacionController extends Controller
             $csvContent = "FECHA EMISION;FECHA VENCIMIENTO;TIPO;SERIE;NUMERO;DOC ENTIDAD;RUC;DENOMINACION;MONEDA;GRAVADA;EXONERADA;INAFECTA;IGV;TOTAL;TOTAL GRATUITA;PAGADO;ENVIADO AL CLIENTE;ANULADO;ESTADO SUNAT\n";
 
             foreach ($comprobantes as $c) {
-                $tipoDesc = match($c->tipo_doc) {
+                $tipoDesc = match ($c->tipo_doc) {
                     '01' => 'FACTURA',
                     '03' => 'BOLETA',
                     '07' => 'NOTA CREDITO',
@@ -665,7 +664,7 @@ class FacturacionController extends Controller
             }
 
             // Generar nombre de archivo
-            $filename = 'comprobantes_' . date('Y-m-d_H-i-s') . '.csv';
+            $filename = 'comprobantes_'.date('Y-m-d_H-i-s').'.csv';
 
             return response($csvContent, 200)
                 ->header('Content-Type', 'text/csv; charset=UTF-8')
@@ -677,7 +676,7 @@ class FacturacionController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error al exportar: ' . $e->getMessage(),
+                'message' => 'Error al exportar: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -728,7 +727,7 @@ class FacturacionController extends Controller
             $csvContent = "FECHA EMISION;TIPO;SERIE;NUMERO;ITEM;CODIGO;DESCRIPCION;UNIDAD;CANTIDAD;VALOR UNITARIO;PRECIO UNITARIO;SUBTOTAL;IGV;TOTAL;DOC CLIENTE;DENOMINACION CLIENTE\n";
 
             foreach ($comprobantes as $c) {
-                if (!$c->items || $c->items->isEmpty()) {
+                if (! $c->items || $c->items->isEmpty()) {
                     continue;
                 }
 
@@ -746,7 +745,7 @@ class FacturacionController extends Controller
                     $descripcion = str_replace(["\r", "\n"], ' ', $descripcion);
                     $descripcion = str_replace('"', '""', $descripcion);
 
-                    $totalItem = (float)($item->mto_valor_venta ?? 0) + (float)($item->total_impuestos ?? 0);
+                    $totalItem = (float) ($item->mto_valor_venta ?? 0) + (float) ($item->total_impuestos ?? 0);
 
                     $csvContent .= sprintf(
                         "%s;%s;%s;%s;%s;%s;\"%s\";%s;%s;%s;%s;%s;%s;%s;%s;\"%s\"\n",
@@ -758,11 +757,11 @@ class FacturacionController extends Controller
                         $item->codigo_producto,
                         $descripcion,
                         $item->unidad,
-                        number_format((float)$item->cantidad, 3, '.', ''),
-                        number_format((float)$item->mto_valor_unitario, 6, '.', ''),
-                        number_format((float)$item->mto_precio_unitario, 6, '.', ''),
-                        number_format((float)$item->mto_valor_venta, 2, '.', ''),
-                        number_format((float)$item->igv, 2, '.', ''),
+                        number_format((float) $item->cantidad, 3, '.', ''),
+                        number_format((float) $item->mto_valor_unitario, 6, '.', ''),
+                        number_format((float) $item->mto_precio_unitario, 6, '.', ''),
+                        number_format((float) $item->mto_valor_venta, 2, '.', ''),
+                        number_format((float) $item->igv, 2, '.', ''),
                         number_format($totalItem, 2, '.', ''),
                         $c->cliente_num_doc,
                         $c->cliente_razon_social,
@@ -788,10 +787,10 @@ class FacturacionController extends Controller
     {
         try {
             $html = $this->facturacionService->generarHtml($id);
-            
+
             return response($html, 200)
                 ->header('Content-Type', 'text/html');
-                
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

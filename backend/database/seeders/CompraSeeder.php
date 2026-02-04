@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Compra;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class CompraSeeder extends Seeder
 {

@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\Comprobante;
-use App\Models\Empresa;
 use App\Services\NubefactClient;
 use App\Services\NubefactMapper;
 use Illuminate\Console\Command;
@@ -47,7 +46,7 @@ class NubefactSyncCommand extends Command
     public function handle()
     {
         $this->info('🔄 Iniciando sincronización con NubeFact...');
-        
+
         // Construir query
         $query = Comprobante::query()->with(['items', 'empresa']);
 
@@ -78,9 +77,9 @@ class NubefactSyncCommand extends Command
 
         // Solo pendientes
         if ($this->option('pendientes')) {
-            $query->where(function($q) {
+            $query->whereNested(function ($q) {
                 $q->whereNull('nubefact_aceptada_por_sunat')
-                  ->orWhere('nubefact_aceptada_por_sunat', false);
+                    ->orWhere('nubefact_aceptada_por_sunat', false);
             });
         }
 
@@ -93,6 +92,7 @@ class NubefactSyncCommand extends Command
 
         if ($comprobantes->isEmpty()) {
             $this->warn('⚠️  No se encontraron comprobantes para sincronizar con los filtros aplicados.');
+
             return 0;
         }
 
@@ -106,6 +106,7 @@ class NubefactSyncCommand extends Command
         $progressBar->start();
 
         foreach ($comprobantes as $comprobante) {
+            /** @var \App\Models\Comprobante $comprobante */
             try {
                 // Consultar estado en NubeFact
                 $tipoInt = NubefactClient::mapearTipoComprobante($comprobante->tipo_doc);
@@ -123,18 +124,20 @@ class NubefactSyncCommand extends Command
                     NubefactMapper::updateComprobanteFromNubefact($comprobante, $response);
                     $comprobante->nubefact_consultado_at = now();
                     $comprobante->save();
-                    
+
                     $exitosos++;
-                    
+
                     $this->newLine();
                     $this->info("✅ {$comprobante->tipo_doc}-{$comprobante->serie}-{$comprobante->correlativo} sincronizado");
-                } else {
+                }
+                else {
                     $sinCambios++;
                 }
 
-            } catch (\Exception $e) {
+            }
+            catch (\Exception $e) {
                 $fallidos++;
-                
+
                 Log::channel('nubefact')->error('Error sincronizando comprobante', [
                     'comprobante_id' => $comprobante->id,
                     'tipo' => $comprobante->tipo_doc,
@@ -142,7 +145,7 @@ class NubefactSyncCommand extends Command
                     'numero' => $comprobante->correlativo,
                     'error' => $e->getMessage(),
                 ]);
-                
+
                 $this->newLine();
                 $this->error("❌ Error en {$comprobante->tipo_doc}-{$comprobante->serie}-{$comprobante->correlativo}: {$e->getMessage()}");
             }
@@ -168,8 +171,18 @@ class NubefactSyncCommand extends Command
     /**
      * Detectar si hubo cambios en la respuesta de NubeFact
      */
-    protected function detectarCambios(Comprobante $comprobante, array $response): bool
+    protected function detectarCambios($comprobante, array $response): bool
     {
+        if (!($comprobante instanceof Comprobante)) {
+            Log::channel('nubefact')->error('Type error in detecting changes', [
+                'expected' => Comprobante::class ,
+                'actual_type' => get_debug_type($comprobante),
+                'value' => $comprobante,
+            ]);
+
+            return false;
+        }
+
         // Si es primera consulta
         if (!$comprobante->nubefact_consultado_at) {
             return true;
@@ -185,4 +198,3 @@ class NubefactSyncCommand extends Command
         return in_array(true, $cambios, true);
     }
 }
-

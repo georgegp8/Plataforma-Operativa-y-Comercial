@@ -2,16 +2,17 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\Comprobante;
 use App\Models\ComprobanteItem;
 use App\Models\Empresa;
 use App\Models\Entidad;
 use Carbon\Carbon;
+use Illuminate\Console\Command;
 
 class ImportNubefactCsv extends Command
 {
     protected $signature = 'import:nubefact-csv {comprobantes_file} {items_file} {entidades_file?}';
+
     protected $description = 'Importa datos de CSV de NubeFact (comprobantes, items y entidades)';
 
     public function handle()
@@ -20,14 +21,15 @@ class ImportNubefactCsv extends Command
         $itemsFile = $this->argument('items_file');
         $entidadesFile = $this->argument('entidades_file');
 
-        if (!file_exists($comprobantesFile) || !file_exists($itemsFile)) {
+        if (! file_exists($comprobantesFile) || ! file_exists($itemsFile)) {
             $this->error('Los archivos CSV de comprobantes o items no existen.');
+
             return 1;
         }
 
         // Crear empresa de ejemplo si no existe
         $empresa = Empresa::firstOrCreate([
-            'ruc' => '20434906301'
+            'ruc' => '20434906301',
         ], [
             'razon_social' => 'EMPRESA DE EJEMPLO',
             'nombre_comercial' => 'Empresa Ejemplo',
@@ -36,18 +38,18 @@ class ImportNubefactCsv extends Command
             'departamento' => 'LIMA',
             'provincia' => 'LIMA',
             'distrito' => 'LIMA',
-            'activo' => true
+            'activo' => true,
         ]);
 
         $this->info("Importando comprobantes desde: {$comprobantesFile}");
         $comprobantesImportados = $this->importarComprobantes($comprobantesFile, $empresa);
-        
+
         $this->info("Importando items desde: {$itemsFile}");
         $itemsImportados = $this->importarItems($itemsFile);
 
         $entidadesImportadas = 0;
         if ($entidadesFile) {
-            if (!file_exists($entidadesFile)) {
+            if (! file_exists($entidadesFile)) {
                 $this->warn("El archivo de ENTIDADES no existe: {$entidadesFile}. Se omite su importación.");
             } else {
                 $this->info("Importando entidades desde: {$entidadesFile}");
@@ -55,7 +57,7 @@ class ImportNubefactCsv extends Command
             }
         }
 
-        $this->info("Importación completada:");
+        $this->info('Importación completada:');
         $this->info("- Comprobantes: {$comprobantesImportados}");
         $this->info("- Items: {$itemsImportados}");
         if ($entidadesFile) {
@@ -69,10 +71,10 @@ class ImportNubefactCsv extends Command
     {
         $handle = fopen($file, 'r');
         $header = fgetcsv($handle, 0, ';');
-        
+
         // Debug: mostrar headers encontrados
-        $this->info("Headers encontrados: " . implode(', ', $header));
-        
+        $this->info('Headers encontrados: '.implode(', ', $header));
+
         // Crear mapeo de headers más flexible
         $headerMap = [];
         foreach ($header as $index => $col) {
@@ -116,41 +118,43 @@ class ImportNubefactCsv extends Command
                 $headerMap['ACEPTADO'] = $index;
             }
         }
-        
+
         $count = 0;
 
         while (($row = fgetcsv($handle, 0, ';')) !== false) {
-            if (count($row) < 10) continue; // Saltar filas incompletas
+            if (count($row) < 10) {
+                continue;
+            } // Saltar filas incompletas
 
             try {
                 // Usar el mapeo para acceder a los datos
-                $fechaEmision = isset($headerMap['FECHA_EMISION']) ? 
-                    Carbon::createFromFormat('d/m/Y', $row[$headerMap['FECHA_EMISION']]) : 
+                $fechaEmision = isset($headerMap['FECHA_EMISION']) ?
+                    Carbon::createFromFormat('d/m/Y', $row[$headerMap['FECHA_EMISION']]) :
                     now();
-                
-                $fechaVencimiento = isset($headerMap['FECHA_VENCIMIENTO']) && $row[$headerMap['FECHA_VENCIMIENTO']] ? 
-                    Carbon::createFromFormat('d/m/Y', $row[$headerMap['FECHA_VENCIMIENTO']]) : 
+
+                $fechaVencimiento = isset($headerMap['FECHA_VENCIMIENTO']) && $row[$headerMap['FECHA_VENCIMIENTO']] ?
+                    Carbon::createFromFormat('d/m/Y', $row[$headerMap['FECHA_VENCIMIENTO']]) :
                     $fechaEmision;
-                
+
                 $comprobante = Comprobante::create([
                     'empresa_id' => $empresa->id,
                     'usuario_id' => 1, // Usuario por defecto
                     'tipo_doc' => isset($headerMap['TIPO']) ? $row[$headerMap['TIPO']] : '01',
                     'serie' => isset($headerMap['SERIE']) ? $row[$headerMap['SERIE']] : '',
-                    'correlativo' => isset($headerMap['NUMERO']) ? (int)$row[$headerMap['NUMERO']] : 0,
+                    'correlativo' => isset($headerMap['NUMERO']) ? (int) $row[$headerMap['NUMERO']] : 0,
                     'cliente_tipo_doc' => isset($headerMap['DOC_ENTIDAD']) ? ($row[$headerMap['DOC_ENTIDAD']] ?: '6') : '6',
                     'cliente_num_doc' => isset($headerMap['RUC']) ? ($row[$headerMap['RUC']] ?: '') : '',
                     'cliente_razon_social' => isset($headerMap['DENOMINACION']) ? ($row[$headerMap['DENOMINACION']] ?: 'Sin denominación') : 'Sin denominación',
                     'cliente_direccion' => '',
                     'cliente_email' => '',
                     'moneda' => isset($headerMap['MONEDA']) ? ($row[$headerMap['MONEDA']] ?: 'PEN') : 'PEN',
-                    'mto_oper_gravadas' => isset($headerMap['GRAVADA']) ? (float)($row[$headerMap['GRAVADA']] ?: 0) : 0,
-                    'mto_oper_exoneradas' => isset($headerMap['EXONERADA']) ? (float)($row[$headerMap['EXONERADA']] ?: 0) : 0,
-                    'mto_oper_inafectas' => isset($headerMap['INAFECTA']) ? (float)($row[$headerMap['INAFECTA']] ?: 0) : 0,
-                    'mto_base_imp' => isset($headerMap['GRAVADA']) ? (float)($row[$headerMap['GRAVADA']] ?: 0) : 0,
-                    'mto_igv' => isset($headerMap['IGV']) ? (float)($row[$headerMap['IGV']] ?: 0) : 0,
-                    'mto_imp_venta' => isset($headerMap['TOTAL']) ? (float)($row[$headerMap['TOTAL']] ?: 0) : 0,
-                    'mto_oper_gratuitas' => isset($headerMap['TOTAL_GRATUITA']) ? (float)($row[$headerMap['TOTAL_GRATUITA']] ?: 0) : 0,
+                    'mto_oper_gravadas' => isset($headerMap['GRAVADA']) ? (float) ($row[$headerMap['GRAVADA']] ?: 0) : 0,
+                    'mto_oper_exoneradas' => isset($headerMap['EXONERADA']) ? (float) ($row[$headerMap['EXONERADA']] ?: 0) : 0,
+                    'mto_oper_inafectas' => isset($headerMap['INAFECTA']) ? (float) ($row[$headerMap['INAFECTA']] ?: 0) : 0,
+                    'mto_base_imp' => isset($headerMap['GRAVADA']) ? (float) ($row[$headerMap['GRAVADA']] ?: 0) : 0,
+                    'mto_igv' => isset($headerMap['IGV']) ? (float) ($row[$headerMap['IGV']] ?: 0) : 0,
+                    'mto_imp_venta' => isset($headerMap['TOTAL']) ? (float) ($row[$headerMap['TOTAL']] ?: 0) : 0,
+                    'mto_oper_gratuitas' => isset($headerMap['TOTAL_GRATUITA']) ? (float) ($row[$headerMap['TOTAL_GRATUITA']] ?: 0) : 0,
                     'pagado' => isset($headerMap['PAGADO']) ? (($row[$headerMap['PAGADO']] ?? '') === 'SI') : false,
                     'anulado' => isset($headerMap['ANULADO']) ? (($row[$headerMap['ANULADO']] ?? '') === 'SI') : false,
                     'enviado_cliente' => false,
@@ -160,20 +164,22 @@ class ImportNubefactCsv extends Command
                 ]);
 
                 $count++;
-                
+
                 if ($count % 10 === 0) {
                     $this->info("Procesados {$count} comprobantes...");
                 }
-                
+
             } catch (\Exception $e) {
                 $serie = isset($headerMap['SERIE']) ? $row[$headerMap['SERIE']] : 'Unknown';
                 $numero = isset($headerMap['NUMERO']) ? $row[$headerMap['NUMERO']] : 'Unknown';
-                $this->error("Error procesando comprobante {$serie}-{$numero}: " . $e->getMessage());
+                $this->error("Error procesando comprobante {$serie}-{$numero}: ".$e->getMessage());
+
                 continue;
             }
         }
 
         fclose($handle);
+
         return $count;
     }
 
@@ -184,28 +190,31 @@ class ImportNubefactCsv extends Command
         $count = 0;
 
         while (($row = fgetcsv($handle, 0, ';')) !== false) {
-            if (count($row) < 10) continue; // Saltar filas incompletas
+            if (count($row) < 10) {
+                continue;
+            } // Saltar filas incompletas
 
             $data = array_combine($header, $row);
-            
+
             try {
                 // Buscar el comprobante correspondiente
                 $comprobante = Comprobante::where('tipo_doc', $data['TIPO'])
                     ->where('serie', $data['SERIE'])
-                    ->where('correlativo', (int)$data['NÚMERO'])
+                    ->where('correlativo', (int) $data['NÚMERO'])
                     ->first();
 
-                if (!$comprobante) {
+                if (! $comprobante) {
                     $this->warn("Comprobante no encontrado: {$data['SERIE']}-{$data['NÚMERO']}");
+
                     continue;
                 }
 
                 // Calcular los valores necesarios
-                $cantidad = (float)($data['CANTIDAD'] ?: 1);
-                $precioUnitario = (float)($data['PRECIO UNITARIO'] ?: 0);
-                $valorUnitario = (float)($data['VALOR UNITARIO'] ?: 0);
-                $subtotal = (float)($data['SUBTOTAL'] ?: 0);
-                $igv = (float)($data['IGV'] ?: 0);
+                $cantidad = (float) ($data['CANTIDAD'] ?: 1);
+                $precioUnitario = (float) ($data['PRECIO UNITARIO'] ?: 0);
+                $valorUnitario = (float) ($data['VALOR UNITARIO'] ?: 0);
+                $subtotal = (float) ($data['SUBTOTAL'] ?: 0);
+                $igv = (float) ($data['IGV'] ?: 0);
 
                 ComprobanteItem::create([
                     'comprobante_id' => $comprobante->id,
@@ -220,23 +229,25 @@ class ImportNubefactCsv extends Command
                     'mto_base_igv' => $subtotal,
                     'igv' => $igv,
                     'tip_afe_igv' => isset($data['TIPO DE IGV']) && $data['TIPO DE IGV'] ? '10' : '20',
-                    'descuento' => (float)($data['DESCUENTO'] ?: 0),
+                    'descuento' => (float) ($data['DESCUENTO'] ?: 0),
                     'total_impuestos' => $igv,
                 ]);
 
                 $count++;
-                
+
                 if ($count % 50 === 0) {
                     $this->info("Procesados {$count} items...");
                 }
-                
+
             } catch (\Exception $e) {
-                $this->error("Error procesando item {$data['DESCRIPCIÓN']}: " . $e->getMessage());
+                $this->error("Error procesando item {$data['DESCRIPCIÓN']}: ".$e->getMessage());
+
                 continue;
             }
         }
 
         fclose($handle);
+
         return $count;
     }
 
@@ -245,9 +256,10 @@ class ImportNubefactCsv extends Command
         $handle = fopen($file, 'r');
         $header = fgetcsv($handle, 0, ';'); // Solo para saltar la primera fila
 
-        if (!$header) {
+        if (! $header) {
             $this->warn('El archivo de ENTIDADES está vacío.');
             fclose($handle);
+
             return 0;
         }
 
@@ -280,7 +292,7 @@ class ImportNubefactCsv extends Command
 
             // Saltar filas de leyenda/cabecera que describen los tipos de documento
             // (por ejemplo: "6 = RUC", "1 = DNI", "- = VARIOS ...").
-            if (strlen($tipoDoc) !== 1 || !preg_match('/^[0-9A-Z\-]$/', $tipoDoc)) {
+            if (strlen($tipoDoc) !== 1 || ! preg_match('/^[0-9A-Z\-]$/', $tipoDoc)) {
                 continue;
             }
 
@@ -312,12 +324,14 @@ class ImportNubefactCsv extends Command
                     $this->info("Procesadas {$count} entidades...");
                 }
             } catch (\Exception $e) {
-                $this->error('Error procesando entidad ' . $denominacion . ': ' . $e->getMessage());
+                $this->error('Error procesando entidad '.$denominacion.': '.$e->getMessage());
+
                 continue;
             }
         }
 
         fclose($handle);
+
         return $count;
     }
 }

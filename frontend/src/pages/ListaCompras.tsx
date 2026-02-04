@@ -36,7 +36,7 @@ export default function ListaCompras() {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [filterType, setFilterType] = useState('numero');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -176,7 +176,7 @@ export default function ListaCompras() {
         return compra.comprobante_completo.toLowerCase().includes(term);
       case 'proveedor':
         return compra.proveedor_nombre.toLowerCase().includes(term) ||
-               compra.proveedor_ruc.includes(term);
+          compra.proveedor_ruc.includes(term);
       case 'estado':
         return compra.estado.toLowerCase().includes(term);
       default:
@@ -313,7 +313,7 @@ export default function ListaCompras() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button 
+                        <button
                           onClick={() => toast.info('Funcionalidad de visualización de productos en desarrollo')}
                           className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 mx-auto"
                         >
@@ -353,39 +353,95 @@ export default function ListaCompras() {
           </div>
 
           {/* Pagination */}
-          {!loading && filteredCompras.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/30">
-              <div className="text-sm text-muted-foreground">
-                Mostrando {startIndex + 1} a {Math.min(endIndex, filteredCompras.length)} de {filteredCompras.length} registros
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => goToPage(currentPage - 1)}
+          {!loading && (
+            <div className="flex items-center justify-between border-t border-border px-4 py-4 sm:px-6">
+              <div className="flex flex-1 justify-between sm:hidden">
+                <Button
+                  variant="outline"
+                  onClick={() => goToPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="px-3 py-1 border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => goToPage(page)}
-                    className={`px-3 py-1 border border-border rounded transition-colors ${
-                      currentPage === page
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-background hover:bg-muted'
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  onClick={() => goToPage(currentPage + 1)}
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-3 py-1 border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                  Siguiente
+                </Button>
+              </div>
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando <span className="font-medium">{startIndex + 1}</span> a{' '}
+                    <span className="font-medium">
+                      {Math.min(endIndex, filteredCompras.length)}
+                    </span>{' '}
+                    de <span className="font-medium">{filteredCompras.length}</span> resultados
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Mostrar</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="px-2 py-1 text-sm border border-border rounded bg-background text-foreground"
+                    >
+                      <option value="10">10</option>
+                      <option value="25">25</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                    <span className="text-sm text-muted-foreground">registros</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => goToPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Anterior
+                    </button>
+                    {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                      let page;
+                      if (totalPages <= 5) {
+                        page = i + 1;
+                      } else if (currentPage <= 3) {
+                        page = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        page = totalPages - 4 + i;
+                      } else {
+                        page = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => goToPage(page)}
+                          className={`px-3 py-1 text-sm border border-border rounded transition-colors ${currentPage === page
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-background hover:bg-muted'
+                            }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages || totalPages === 0}
+                      className="px-3 py-1 text-sm border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                    >
+                      Siguiente
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

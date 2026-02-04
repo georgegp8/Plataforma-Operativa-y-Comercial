@@ -19,11 +19,11 @@ class TransaccionController extends Controller
         }
 
         if ($request->has('descripcion') && $request->descripcion !== '') {
-            $query->where('descripcion', 'ILIKE', '%' . $request->descripcion . '%');
+            $query->where('descripcion', 'ILIKE', '%'.$request->descripcion.'%');
         }
 
         if ($request->has('tipo') && $request->tipo !== '') {
-            $query->where('tipo', 'ILIKE', '%' . $request->tipo . '%');
+            $query->where('tipo', 'ILIKE', '%'.$request->tipo.'%');
         }
 
         $transacciones = $query->orderBy('created_at', 'desc')->get();
@@ -37,13 +37,13 @@ class TransaccionController extends Controller
             'descripcion' => 'required|string',
             'tipo' => 'required|string|max:50',
             'activo' => 'boolean',
-            'created_by' => 'nullable|string|max:100'
+            'created_by' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -51,7 +51,7 @@ class TransaccionController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $transaccion
+            'data' => $transaccion,
         ], 201);
     }
 
@@ -59,16 +59,16 @@ class TransaccionController extends Controller
     {
         $transaccion = Transaccion::find($id);
 
-        if (!$transaccion) {
+        if (! $transaccion) {
             return response()->json([
                 'success' => false,
-                'message' => 'Transacción no encontrada'
+                'message' => 'Transacción no encontrada',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $transaccion
+            'data' => $transaccion,
         ]);
     }
 
@@ -76,10 +76,10 @@ class TransaccionController extends Controller
     {
         $transaccion = Transaccion::find($id);
 
-        if (!$transaccion) {
+        if (! $transaccion) {
             return response()->json([
                 'success' => false,
-                'message' => 'Transacción no encontrada'
+                'message' => 'Transacción no encontrada',
             ], 404);
         }
 
@@ -87,13 +87,13 @@ class TransaccionController extends Controller
             'descripcion' => 'required|string',
             'tipo' => 'required|string|max:50',
             'activo' => 'boolean',
-            'created_by' => 'nullable|string|max:100'
+            'created_by' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -101,7 +101,7 @@ class TransaccionController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $transaccion
+            'data' => $transaccion,
         ]);
     }
 
@@ -109,10 +109,10 @@ class TransaccionController extends Controller
     {
         $transaccion = Transaccion::find($id);
 
-        if (!$transaccion) {
+        if (! $transaccion) {
             return response()->json([
                 'success' => false,
-                'message' => 'Transacción no encontrada'
+                'message' => 'Transacción no encontrada',
             ], 404);
         }
 
@@ -120,7 +120,7 @@ class TransaccionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Transacción eliminada correctamente'
+            'message' => 'Transacción eliminada correctamente',
         ]);
     }
 }

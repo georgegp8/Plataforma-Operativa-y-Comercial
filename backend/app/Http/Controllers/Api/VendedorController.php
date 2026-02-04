@@ -22,7 +22,7 @@ class VendedorController extends Controller
         }
 
         if ($request->has('nombre')) {
-            $query->where('nombre', 'like', '%' . $request->nombre . '%');
+            $query->where('nombre', 'like', '%'.$request->nombre.'%');
         }
 
         $vendedores = $query->orderBy('created_at', 'desc')->get();
@@ -46,7 +46,7 @@ class VendedorController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -66,7 +66,7 @@ class VendedorController extends Controller
         return response()->json([
             'success' => true,
             'data' => $vendedor,
-            'message' => 'Vendedor creado exitosamente'
+            'message' => 'Vendedor creado exitosamente',
         ], 201);
     }
 
@@ -79,7 +79,7 @@ class VendedorController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $vendedor
+            'data' => $vendedor,
         ]);
     }
 
@@ -101,7 +101,7 @@ class VendedorController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -110,13 +110,13 @@ class VendedorController extends Controller
             'email',
             'telefono',
             'porcentaje_comision',
-            'activo'
+            'activo',
         ]));
 
         return response()->json([
             'success' => true,
             'data' => $vendedor,
-            'message' => 'Vendedor actualizado exitosamente'
+            'message' => 'Vendedor actualizado exitosamente',
         ]);
     }
 
@@ -130,7 +130,7 @@ class VendedorController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Vendedor eliminado exitosamente'
+            'message' => 'Vendedor eliminado exitosamente',
         ]);
     }
 }

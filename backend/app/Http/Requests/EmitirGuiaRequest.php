@@ -19,4 +19,3 @@ class EmitirGuiaRequest extends FormRequest
         ];
     }
 }
-

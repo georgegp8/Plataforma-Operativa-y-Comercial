@@ -1,33 +1,32 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\FacturacionController;
-use App\Http\Controllers\Api\EmpresaController;
-use App\Http\Controllers\Api\OportunidadController;
-use App\Http\Controllers\Api\DocumentoController;
-use App\Http\Controllers\Api\PagoController;
-use App\Http\Controllers\Api\CatalogoSunatController;
 use App\Http\Controllers\Api\AlertaController;
+use App\Http\Controllers\Api\AtributoController;
+use App\Http\Controllers\Api\BancoController;
+use App\Http\Controllers\Api\CatalogoSunatController;
+use App\Http\Controllers\Api\CategoriaController;
+use App\Http\Controllers\Api\CompraController;
+use App\Http\Controllers\Api\ConductorController;
+use App\Http\Controllers\Api\CuentaBancariaController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DocumentoController;
+use App\Http\Controllers\Api\DocumentoDigitalizadoController;
+use App\Http\Controllers\Api\EmpresaController;
 use App\Http\Controllers\Api\EntidadController;
+use App\Http\Controllers\Api\FacturacionController;
+use App\Http\Controllers\Api\MarcaController;
 use App\Http\Controllers\Api\NubefactController;
 use App\Http\Controllers\Api\NubefactSyncController;
+use App\Http\Controllers\Api\OportunidadController;
+use App\Http\Controllers\Api\PagoController;
+use App\Http\Controllers\Api\PersonalController;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\SerieController;
-use App\Http\Controllers\Api\VendedorController;
-use App\Http\Controllers\Api\PersonalController;
-use App\Http\Controllers\Api\CuentaBancariaController;
-use App\Http\Controllers\Api\BancoController;
-use App\Http\Controllers\Api\CategoriaController;
-use App\Http\Controllers\Api\MarcaController;
-use App\Http\Controllers\Api\AtributoController;
-use App\Http\Controllers\Api\UnidadMedidaController;
 use App\Http\Controllers\Api\TransaccionController;
+use App\Http\Controllers\Api\UnidadMedidaController;
 use App\Http\Controllers\Api\VehiculoController;
-use App\Http\Controllers\Api\ConductorController;
-use App\Http\Controllers\Api\CompraController;
-use App\Http\Controllers\Api\DocumentoDigitalizadoController;
+use App\Http\Controllers\Api\VendedorController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,7 +41,7 @@ Route::prefix('facturacion')->group(function () {
     Route::get('/comprobantes/export', [FacturacionController::class, 'exportarExcel']);
     Route::get('/items/export', [FacturacionController::class, 'exportarItems']);
     Route::get('/comprobantes/{id}', [FacturacionController::class, 'show']);
-    
+
     // Emitir comprobantes
     Route::post('/emitir/factura', [FacturacionController::class, 'emitirFactura']);
     Route::post('/emitir/boleta', [FacturacionController::class, 'emitirBoleta']);
@@ -52,7 +51,7 @@ Route::prefix('facturacion')->group(function () {
     Route::post('/emitir/comunicacion-baja', [FacturacionController::class, 'emitirComunicacionBaja']);
     Route::post('/emitir/retencion', [FacturacionController::class, 'emitirRetencion']);
     Route::post('/emitir/percepcion', [FacturacionController::class, 'emitirPercepcion']);
-    
+
     // Consultas SUNAT
     Route::get('/consultar/{id}', [FacturacionController::class, 'consultarTicket']);
     Route::get('/descargar/xml/{id}', [FacturacionController::class, 'descargarXml']);
@@ -60,7 +59,7 @@ Route::prefix('facturacion')->group(function () {
     Route::get('/descargar/pdf/{id}', [FacturacionController::class, 'descargarPdf']);
     Route::get('/descargar/html/{id}', [FacturacionController::class, 'descargarHtml']); // NUEVO
     Route::post('/enviar-email/{id}', [FacturacionController::class, 'enviarEmail']);
-    
+
     // Estadísticas y reportes
     Route::get('/estadisticas', [FacturacionController::class, 'estadisticas']);
     Route::get('/reporte/ventas', [FacturacionController::class, 'reporteVentas']);
@@ -72,7 +71,7 @@ Route::prefix('nubefact')->middleware('api')->group(function () {
     Route::post('/comprobantes', [NubefactController::class, 'emitirComprobante']);
     Route::get('/comprobantes/{tipo}/{serie}/{numero}', [NubefactController::class, 'consultarComprobante']);
     Route::delete('/comprobantes/{tipo}/{serie}/{numero}', [NubefactController::class, 'anularComprobante']);
-    
+
     // Guías de remisión
     Route::post('/guias', [NubefactController::class, 'emitirGuia']);
     Route::get('/guias/{tipo}/{serie}/{numero}', [NubefactController::class, 'consultarGuia']);
@@ -82,19 +81,19 @@ Route::prefix('nubefact')->middleware('api')->group(function () {
 Route::prefix('nubefact-sync')->middleware('api')->group(function () {
     // Verificar estado de conexión
     Route::get('/estado', [NubefactSyncController::class, 'verificarEstado']);
-    
+
     // Estadísticas de sincronización
     Route::get('/estadisticas', [NubefactSyncController::class, 'estadisticas']);
-    
+
     // Consultar comprobante directo (sin guardar)
     Route::get('/consultar/{tipo_doc}/{serie}/{numero}', [NubefactSyncController::class, 'consultarEnNubefact']);
-    
+
     // Sincronizar comprobante específico
     Route::post('/comprobante', [NubefactSyncController::class, 'sincronizarComprobante']);
-    
+
     // Sincronizar rango de comprobantes
     Route::post('/rango', [NubefactSyncController::class, 'sincronizarRango']);
-    
+
     // Sincronizar pendientes
     Route::post('/pendientes', [NubefactSyncController::class, 'sincronizarPendientes']);
 });
@@ -109,7 +108,7 @@ Route::prefix('v1')->group(function () {
     Route::delete('empresas/{id}', [EmpresaController::class, 'destroy']);
     Route::patch('empresas/{id}/toggle-activo', [EmpresaController::class, 'toggleActivo']);
     Route::patch('empresas/{id}/cambiar-modo', [EmpresaController::class, 'cambiarModo']);
-    
+
     // Oportunidades
     Route::get('oportunidades', [OportunidadController::class, 'index']);
     Route::post('oportunidades', [OportunidadController::class, 'store']);
@@ -118,7 +117,7 @@ Route::prefix('v1')->group(function () {
     Route::delete('oportunidades/{id}', [OportunidadController::class, 'destroy']);
     Route::patch('oportunidades/{id}/estado', [OportunidadController::class, 'cambiarEstado']);
     Route::get('oportunidades/estadisticas/general', [OportunidadController::class, 'estadisticas']);
-    
+
     // Documentos
     Route::get('documentos', [DocumentoController::class, 'index']);
     Route::post('documentos', [DocumentoController::class, 'store']);
@@ -128,7 +127,7 @@ Route::prefix('v1')->group(function () {
     Route::get('documentos/{id}/descargar', [DocumentoController::class, 'descargar']);
     Route::get('documentos/{id}/url', [DocumentoController::class, 'getUrl']);
     Route::get('documentos/oportunidad/{oportunidadId}', [DocumentoController::class, 'porOportunidad']);
-    
+
     // Pagos
     Route::get('pagos', [PagoController::class, 'index']);
     Route::post('pagos', [PagoController::class, 'store']);
@@ -138,12 +137,12 @@ Route::prefix('v1')->group(function () {
     Route::get('pagos/{id}/comprobante', [PagoController::class, 'descargarComprobante']);
     Route::get('pagos/oportunidad/{oportunidadId}', [PagoController::class, 'porOportunidad']);
     Route::get('pagos/estadisticas/general', [PagoController::class, 'estadisticas']);
-    
+
     // Catálogos SUNAT
     Route::get('catalogos', [CatalogoSunatController::class, 'catalogos']);
     Route::get('catalogos/lista', [CatalogoSunatController::class, 'index']);
     Route::get('catalogos/{catalogo}', [CatalogoSunatController::class, 'show']);
-    
+
     // Alertas
     Route::get('alertas', [AlertaController::class, 'index']);
     Route::patch('alertas/{id}/leida', [AlertaController::class, 'marcarLeida']);
@@ -151,7 +150,7 @@ Route::prefix('v1')->group(function () {
     Route::delete('alertas/{id}', [AlertaController::class, 'destroy']);
     Route::post('alertas/verificar-sla', [AlertaController::class, 'verificarSla']);
     Route::get('alertas/no-leidas', [AlertaController::class, 'noLeidas']);
-    
+
     // Dashboard
     Route::get('dashboard', [DashboardController::class, 'index']);
     Route::get('dashboard/tv', [DashboardController::class, 'tv']);
@@ -182,7 +181,7 @@ Route::prefix('v1')->group(function () {
     Route::post('/series', [SerieController::class, 'store']);
     Route::put('/series/{id}', [SerieController::class, 'update']);
     Route::delete('/series/{id}', [SerieController::class, 'destroy']);
-    
+
     // Productos
     Route::get('productos', [ProductoController::class, 'index']);
     Route::post('productos', [ProductoController::class, 'store']);

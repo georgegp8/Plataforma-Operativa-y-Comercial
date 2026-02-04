@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\NubefactSyncService;
 use App\Services\NubefactClient;
-use Illuminate\Http\Request;
+use App\Services\NubefactSyncService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 class NubefactSyncController extends Controller
 {
     protected NubefactSyncService $syncService;
+
     protected NubefactClient $client;
 
     public function __construct(NubefactSyncService $syncService, NubefactClient $client)
@@ -26,7 +27,7 @@ class NubefactSyncController extends Controller
 
     /**
      * Sincronizar un comprobante específico desde NubeFact
-     * 
+     *
      * POST /api/nubefact-sync/comprobante
      * Body: { "tipo_doc": "01", "serie": "F001", "numero": 123, "empresa_id": 1 }
      */
@@ -51,7 +52,7 @@ class NubefactSyncController extends Controller
 
     /**
      * Sincronizar un rango de comprobantes
-     * 
+     *
      * POST /api/nubefact-sync/rango
      * Body: { "tipo_doc": "01", "serie": "F001", "numero_inicio": 1, "numero_fin": 50 }
      */
@@ -87,7 +88,7 @@ class NubefactSyncController extends Controller
 
     /**
      * Sincronizar comprobantes pendientes
-     * 
+     *
      * POST /api/nubefact-sync/pendientes
      * Body: { "solo_pendientes": true, "limite": 50 }
      */
@@ -119,7 +120,7 @@ class NubefactSyncController extends Controller
     /**
      * Consultar un comprobante directamente en NubeFact sin guardar
      * (solo para visualización)
-     * 
+     *
      * GET /api/nubefact-sync/consultar/{tipo_doc}/{serie}/{numero}
      */
     public function consultarEnNubefact(string $tipoDoc, string $serie, int $numero): JsonResponse
@@ -131,7 +132,7 @@ class NubefactSyncController extends Controller
 
     /**
      * Verificar estado de la conexión con NubeFact
-     * 
+     *
      * GET /api/nubefact-sync/estado
      */
     public function verificarEstado(): JsonResponse
@@ -147,6 +148,8 @@ class NubefactSyncController extends Controller
                 ->whereNotNull('tipo_doc')
                 ->first();
 
+            /** @var object{tipo_doc: string, serie: string, correlativo: string}|null $comprobantePrueba */
+
             $conexionVerificada = false;
             $mensajeAdicional = '';
 
@@ -155,20 +158,22 @@ class NubefactSyncController extends Controller
                     // Intentar consultar un comprobante real de la BD
                     $tipoMap = ['01' => 1, '03' => 2, '07' => 3, '08' => 4];
                     $tipoNubefact = $tipoMap[$comprobantePrueba->tipo_doc] ?? 1;
-                    
+
                     $this->client->consultarComprobante(
                         $tipoNubefact,
                         $comprobantePrueba->serie,
                         $comprobantePrueba->correlativo
                     );
-                    
+
                     $conexionVerificada = true;
                     $mensajeAdicional = ' (verificado con comprobante real)';
-                } catch (\Exception $e) {
+                }
+                catch (\Exception $e) {
                     // Si falla la consulta pero las credenciales están OK, es aceptable
                     $mensajeAdicional = ' (credenciales válidas, comprobante no encontrado en NubeFact)';
                 }
-            } else {
+            }
+            else {
                 $mensajeAdicional = ' (sin comprobantes para verificar conexión real)';
             }
 
@@ -183,7 +188,8 @@ class NubefactSyncController extends Controller
                 ],
             ]);
 
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'mensaje' => 'Error en configuración de NubeFact: ' . $e->getMessage(),
@@ -193,7 +199,7 @@ class NubefactSyncController extends Controller
 
     /**
      * Obtener estadísticas de sincronización
-     * 
+     *
      * GET /api/nubefact-sync/estadisticas
      */
     public function estadisticas(): JsonResponse

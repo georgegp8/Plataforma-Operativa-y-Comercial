@@ -1,7 +1,7 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Services\FacturacionService;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
@@ -22,7 +22,7 @@ Route::get('/prueba-sunat', function (FacturacionService $facturacionService) {
             'correlativo' => 1,
             'fechaEmision' => date('Y-m-d'),
             'tipoMoneda' => 'PEN', // Catálogo 02
-            
+
             // Cliente
             'client' => [
                 'tipoDoc' => '6', // RUC
@@ -32,7 +32,7 @@ Route::get('/prueba-sunat', function (FacturacionService $facturacionService) {
                     'direccion' => 'Av. Ejemplo 123, Lima',
                 ],
             ],
-            
+
             // Totales
             'mtoOperGravadas' => 100.00,
             'mtoIGV' => 18.00,
@@ -40,12 +40,12 @@ Route::get('/prueba-sunat', function (FacturacionService $facturacionService) {
             'valorVenta' => 100.00,
             'subTotal' => 118.00,
             'mtoImpVenta' => 118.00,
-            
+
             // Forma de pago
             'formaPago' => [
                 'tipo' => 'Contado',
             ],
-            
+
             // Items del comprobante
             'details' => [
                 [
@@ -61,7 +61,7 @@ Route::get('/prueba-sunat', function (FacturacionService $facturacionService) {
                     'tipAfeIgv' => '10', // Catálogo 07 - Gravado
                     'totalImpuestos' => 18.00,
                     'mtoPrecioUnitario' => 59.00,
-                ]
+                ],
             ],
         ];
 
@@ -74,9 +74,9 @@ Route::get('/prueba-sunat', function (FacturacionService $facturacionService) {
             'success' => $resultado['success'],
             'comprobante' => [
                 'tipo' => $resultado['comprobante']->tipo_doc,
-                'numero' => $resultado['comprobante']->serie . '-' . $resultado['comprobante']->correlativo,
+                'numero' => $resultado['comprobante']->serie.'-'.$resultado['comprobante']->correlativo,
                 'cliente' => $resultado['comprobante']->cliente_razon_social,
-                'total' => 'S/ ' . number_format($resultado['comprobante']->mto_imp_venta, 2),
+                'total' => 'S/ '.number_format($resultado['comprobante']->mto_imp_venta, 2),
             ],
             'respuesta_sunat' => [
                 'codigo' => $resultado['cdr_response']->getCode(),

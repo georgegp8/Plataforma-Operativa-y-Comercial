@@ -20,7 +20,7 @@ return new class extends Migration
             $table->boolean('activo')->default(true);
             $table->json('metadata')->nullable();
             $table->timestamps();
-            
+
             // Índices
             $table->unique(['catalogo', 'codigo']);
             $table->index('activo');

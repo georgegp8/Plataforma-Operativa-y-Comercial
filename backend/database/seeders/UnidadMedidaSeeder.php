@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\UnidadMedida;
+use Illuminate\Database\Seeder;
 
 class UnidadMedidaSeeder extends Seeder
 {
@@ -20,7 +19,7 @@ class UnidadMedidaSeeder extends Seeder
             ['codigo' => 'GLI', 'descripcion' => 'GALÓN', 'simbolo' => 'GAL', 'activo' => true],
             ['codigo' => 'GRM', 'descripcion' => 'GRAMOS', 'simbolo' => 'GR', 'activo' => true],
             ['codigo' => 'KGM', 'descripcion' => 'KILOGRAMO', 'simbolo' => 'KG', 'activo' => true],
-            
+
             // Unidades encontradas en tabla productos
             ['codigo' => 'NIU', 'descripcion' => 'UNIDAD (BIENES)', 'simbolo' => 'UND', 'activo' => true],
             ['codigo' => 'GLL', 'descripcion' => 'GALÓN (US)', 'simbolo' => 'GAL', 'activo' => true],

@@ -18,7 +18,7 @@ class Auditoria extends Model
         'registro_id',
         'datos_anteriores',
         'datos_nuevos',
-        'ip_address'
+        'ip_address',
     ];
 
     protected $casts = [

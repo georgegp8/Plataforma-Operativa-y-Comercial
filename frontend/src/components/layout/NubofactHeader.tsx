@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Settings, 
-  ShoppingCart, 
-  Package, 
-  FileText, 
-  Archive, 
+import {
+  Settings,
+  ShoppingCart,
+  Package,
+  FileText,
+  Archive,
   BarChart3,
   ChevronDown,
   User,
@@ -24,6 +24,9 @@ import {
   TruckIcon,
   ClipboardList,
   Plus,
+  Gift,
+  Inbox,
+  MoveHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -64,10 +67,18 @@ const comprasItems: DropdownItem[] = [
   { label: 'Digitalización de Documentos', path: '/compras/digitalizacion', icon: Scan },
 ];
 
+const inventarioItems: DropdownItem[] = [
+  { label: 'Productos', path: '/productos', icon: Package },
+  { label: 'Productos Compuestos', path: '/inventario/productos-compuestos', icon: Gift },
+  { label: 'Ingreso y Salida de Productos', path: '/inventario/ingreso-salida', icon: Inbox },
+  { label: 'Guías de Remisión', path: '/facturacion', icon: FileText },
+  { label: 'Traslados', path: '/inventario/traslados', icon: MoveHorizontal },
+];
+
 const navItems: NavItem[] = [
   { label: 'Mantenimiento', icon: Settings, path: '/mantenimiento', hasDropdown: true, dropdownItems: mantenimientoItems },
   { label: 'Compras', icon: ShoppingCart, path: '/compras', hasDropdown: true, dropdownItems: comprasItems },
-  { label: 'Inventario', icon: Package, path: '/inventario', hasDropdown: true },
+  { label: 'Inventario', icon: Package, path: '/inventario', hasDropdown: true, dropdownItems: inventarioItems },
   { label: "CPE's", icon: FileText, path: '/cpes', hasDropdown: true },
   { label: 'Archivo De Caja', icon: Archive, path: '/archivo-caja', hasDropdown: true },
   { label: 'Reportes', icon: BarChart3, path: '/reportes', hasDropdown: true },
@@ -91,28 +102,28 @@ export function NubofactHeader() {
         <div className="flex items-center gap-8">
           {/* Logo Nubefact - SVG inline, pegado a la izquierda */}
           <Link to="/" className="cursor-pointer" onClick={() => setActiveTab('/')}>
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              viewBox="0 0 170 32" 
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 170 32"
               height="40"
               aria-label="Nubefact Logo"
               style={{ display: 'block' }}
             >
-              <text 
-                x="0" 
-                y="24" 
-                fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" 
+              <text
+                x="0"
+                y="24"
+                fontFamily="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
                 fontWeight="800"
                 fontSize="32"
                 style={{ fill: 'rgb(var(--nubofact-logo-text))', transition: 'fill 0.3s ease' }}
               >
                 Nubofact
               </text>
-              
-              <circle 
-                cx="161" 
-                cy="18" 
-                r="6" 
+
+              <circle
+                cx="161"
+                cy="18"
+                r="6"
                 style={{ fill: 'rgb(var(--nubofact-logo-dot))' }}
               />
             </svg>
@@ -121,9 +132,9 @@ export function NubofactHeader() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isOpen = openDropdown === item.path;
-              
+
               return (
-                <div 
+                <div
                   key={item.path}
                   className="relative"
                   onMouseEnter={() => item.hasDropdown && setOpenDropdown(item.path)}
@@ -156,7 +167,7 @@ export function NubofactHeader() {
                       {item.hasDropdown && <ChevronDown className="h-3.5 w-3.5" />}
                     </Link>
                   )}
-                  
+
                   {/* Dropdown Menu */}
                   {item.hasDropdown && item.dropdownItems && isOpen && (
                     <div className="absolute top-full left-0 w-64 bg-card border border-border rounded-md shadow-lg z-50 pt-1">
@@ -186,7 +197,7 @@ export function NubofactHeader() {
         <div className="flex items-center gap-3">
           {/* Theme Toggle */}
           <ThemeToggle />
-          
+
           <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
             <User className="h-6 w-6 text-gray-600" />
           </div>

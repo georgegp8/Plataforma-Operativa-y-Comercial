@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Exception;
 
 /**
  * Cliente para integración con API de NubeFact
@@ -15,7 +15,9 @@ use Exception;
 class NubefactClient
 {
     protected string $baseUrl;
+
     protected string $token;
+
     protected int $timeout;
 
     public function __construct()
@@ -27,25 +29,27 @@ class NubefactClient
 
     /**
      * OPERACIÓN 1: GENERAR COMPROBANTES (Facturas, Boletas, Notas)
-     * 
-     * @param array $data Estructura JSON según documentación NubeFact
+     *
+     * @param  array  $data  Estructura JSON según documentación NubeFact
      * @return array Respuesta de NubeFact con enlaces PDF/XML/CDR
+     *
      * @throws Exception
      */
     public function generarComprobante(array $data): array
     {
         $data['operacion'] = 'generar_comprobante';
-        
+
         return $this->request($data);
     }
 
     /**
      * OPERACIÓN 2: CONSULTAR COMPROBANTES
-     * 
-     * @param int $tipoComprobante 1=Factura, 2=Boleta, 3=NC, 4=ND
-     * @param string $serie Serie del comprobante (F001, B001, etc.)
-     * @param int $numero Número correlativo
+     *
+     * @param  int  $tipoComprobante  1=Factura, 2=Boleta, 3=NC, 4=ND
+     * @param  string  $serie  Serie del comprobante (F001, B001, etc.)
+     * @param  int  $numero  Número correlativo
      * @return array Estado del comprobante, enlaces y flags de SUNAT
+     *
      * @throws Exception
      */
     public function consultarComprobante(int $tipoComprobante, string $serie, int $numero): array
@@ -62,13 +66,11 @@ class NubefactClient
 
     /**
      * OPERACIÓN 3: GENERAR ANULACIÓN (Comunicación de Baja)
-     * 
-     * @param int $tipoComprobante
-     * @param string $serie
-     * @param int $numero
-     * @param string $motivo Motivo de anulación (ej: "ERROR DEL SISTEMA")
-     * @param string|null $codigoUnico Código único opcional para control
+     *
+     * @param  string  $motivo  Motivo de anulación (ej: "ERROR DEL SISTEMA")
+     * @param  string|null  $codigoUnico  Código único opcional para control
      * @return array Respuesta con ticket SUNAT y enlaces
+     *
      * @throws Exception
      */
     public function generarAnulacion(
@@ -95,11 +97,9 @@ class NubefactClient
 
     /**
      * OPERACIÓN 4: CONSULTAR ANULACIÓN
-     * 
-     * @param int $tipoComprobante
-     * @param string $serie
-     * @param int $numero
+     *
      * @return array Estado de la anulación en SUNAT
+     *
      * @throws Exception
      */
     public function consultarAnulacion(int $tipoComprobante, string $serie, int $numero): array
@@ -116,32 +116,34 @@ class NubefactClient
 
     /**
      * OPERACIÓN: GENERAR GUÍA DE REMISIÓN
-     * 
+     *
      * Importante: Proceso de 2 pasos según documentación:
      * 1. Enviar guía (no genera PDF/XML inmediatamente)
      * 2. Consultar con consultarGuia() hasta que SUNAT acepte
-     * 
-     * @param array $data Estructura JSON para GRE Remitente (tipo 7) o Transportista (tipo 8)
+     *
+     * @param  array  $data  Estructura JSON para GRE Remitente (tipo 7) o Transportista (tipo 8)
      * @return array Respuesta inicial (PDF/XML/CDR estarán vacíos hasta aprobación SUNAT)
+     *
      * @throws Exception
      */
     public function generarGuia(array $data): array
     {
         $data['operacion'] = 'generar_guia';
-        
+
         return $this->request($data);
     }
 
     /**
      * OPERACIÓN: CONSULTAR GUÍA DE REMISIÓN
-     * 
+     *
      * Usar después de generarGuia() para obtener PDF/XML/CDR
      * una vez que SUNAT haya aceptado la guía.
-     * 
-     * @param int $tipoComprobante 7=GRE Remitente, 8=GRE Transportista
-     * @param string $serie Serie de la guía (T001, V001, etc.)
-     * @param int $numero Número correlativo
+     *
+     * @param  int  $tipoComprobante  7=GRE Remitente, 8=GRE Transportista
+     * @param  string  $serie  Serie de la guía (T001, V001, etc.)
+     * @param  int  $numero  Número correlativo
      * @return array Estado y enlaces (PDF disponible solo si aceptada_por_sunat=true)
+     *
      * @throws Exception
      */
     public function consultarGuia(int $tipoComprobante, string $serie, int $numero): array
@@ -158,9 +160,10 @@ class NubefactClient
 
     /**
      * Ejecutar petición HTTP a NubeFact con headers correctos
-     * 
-     * @param array $data Payload JSON
+     *
+     * @param  array  $data  Payload JSON
      * @return array Respuesta decodificada
+     *
      * @throws Exception Si hay error de autenticación, formato o servidor
      */
     protected function request(array $data): array
@@ -225,8 +228,8 @@ class NubefactClient
 
     /**
      * Helper: Mapear tipo de documento de cliente/proveedor a código SUNAT
-     * 
-     * @param string $tipo 'RUC', 'DNI', 'CE', etc.
+     *
+     * @param  string  $tipo  'RUC', 'DNI', 'CE', etc.
      * @return string Código numérico para NubeFact
      */
     public static function mapearTipoDocumento(string $tipo): string
@@ -244,8 +247,8 @@ class NubefactClient
 
     /**
      * Helper: Mapear tipo de comprobante interno a código NubeFact
-     * 
-     * @param string $tipo 'FACTURA', 'BOLETA', 'NC', 'ND' O códigos SUNAT ('01', '03', '07', '08')
+     *
+     * @param  string  $tipo  'FACTURA', 'BOLETA', 'NC', 'ND' O códigos SUNAT ('01', '03', '07', '08')
      * @return int Código para NubeFact (1, 2, 3, 4)
      */
     public static function mapearTipoComprobante(string $tipo): int
@@ -279,7 +282,7 @@ class NubefactClient
 
     /**
      * Helper: Validar que URL base y token estén configurados
-     * 
+     *
      * @throws Exception Si faltan credenciales
      */
     public function validarCredenciales(): void

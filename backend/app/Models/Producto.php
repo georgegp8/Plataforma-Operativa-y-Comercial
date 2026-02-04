@@ -73,8 +73,8 @@ class Producto extends Model
     {
         return $query->where(function ($q) use ($termino) {
             $q->where('codigo', 'ilike', "%{$termino}%")
-              ->orWhere('descripcion', 'ilike', "%{$termino}%")
-              ->orWhere('codigo_producto_sunat', 'ilike', "%{$termino}%");
+                ->orWhere('descripcion', 'ilike', "%{$termino}%")
+                ->orWhere('codigo_producto_sunat', 'ilike', "%{$termino}%");
         });
     }
 }

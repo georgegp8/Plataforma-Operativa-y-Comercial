@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\SlaConfiguracion;
 use App\Models\Alerta;
 use App\Models\Oportunidad;
+use App\Models\SlaConfiguracion;
 use Carbon\Carbon;
 
 class SlaService
@@ -18,7 +18,7 @@ class SlaService
             ->where('activo', true)
             ->first();
 
-        if (!$sla) {
+        if (! $sla) {
             return [
                 'tiene_sla' => false,
                 'dias_limite' => null,
@@ -74,7 +74,7 @@ class SlaService
         foreach ($oportunidades as $oportunidad) {
             $slaInfo = $this->calcularSla($oportunidad);
 
-            if (!$slaInfo['tiene_sla']) {
+            if (! $slaInfo['tiene_sla']) {
                 continue;
             }
 
@@ -85,7 +85,7 @@ class SlaService
                     ->where('leido', false)
                     ->first();
 
-                if (!$alertaExistente) {
+                if (! $alertaExistente) {
                     $mensaje = $slaInfo['estado'] === 'vencido'
                         ? "SLA vencido para oportunidad {$oportunidad->cliente_nombre}"
                         : "SLA próximo a vencer ({$slaInfo['dias_restantes']} días) para {$oportunidad->cliente_nombre}";
@@ -122,7 +122,7 @@ class SlaService
         foreach ($oportunidades as $oportunidad) {
             $slaInfo = $this->calcularSla($oportunidad);
 
-            if (!$slaInfo['tiene_sla']) {
+            if (! $slaInfo['tiene_sla']) {
                 continue;
             }
 

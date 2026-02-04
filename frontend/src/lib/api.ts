@@ -314,6 +314,7 @@ export interface ProductoFormData {
   costo_compra_unitario?: string | number;
   precio_compra_unitario?: string | number;
   tipo_afectacion_igv: string;
+  stock_actual?: string | number;
   destacado: boolean;
 }
 
@@ -444,7 +445,7 @@ export const api = {
   entidades: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<Entidad[]>('/v1/entidades', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<Entidad>>(`/v1/entidades/${id}`),
     crear: (data: EntidadFormData) =>
       apiClient.post<ApiResponse<Entidad>>('/v1/entidades', data),
@@ -458,7 +459,7 @@ export const api = {
   clientes: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<Entidad[]>('/v1/entidades', { params: { ...params, es_cliente: true } }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<Entidad>>(`/v1/entidades/${id}`),
     crear: (data: EntidadFormData) =>
       apiClient.post<ApiResponse<Entidad>>('/v1/entidades', { ...data, es_cliente: true }),
@@ -472,7 +473,7 @@ export const api = {
   proveedores: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<Entidad[]>('/v1/entidades', { params: { ...params, es_proveedor: true } }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<Entidad>>(`/v1/entidades/${id}`),
     crear: (data: EntidadFormData) =>
       apiClient.post<ApiResponse<Entidad>>('/v1/entidades', { ...data, es_proveedor: true }),
@@ -486,7 +487,7 @@ export const api = {
   vendedores: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/vendedores', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/vendedores/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/vendedores', data),
@@ -500,7 +501,7 @@ export const api = {
   personal: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/personal', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/personal/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/personal', data),
@@ -514,7 +515,7 @@ export const api = {
   cuentasBancarias: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/cuentas-bancarias', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/cuentas-bancarias/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/cuentas-bancarias', data),
@@ -528,7 +529,7 @@ export const api = {
   bancos: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/bancos', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/bancos/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/bancos', data),
@@ -546,7 +547,7 @@ export const api = {
   categorias: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/categorias', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/categorias/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/categorias', data),
@@ -560,7 +561,7 @@ export const api = {
   marcas: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/marcas', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/marcas/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/marcas', data),
@@ -574,7 +575,7 @@ export const api = {
   atributos: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/atributos', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/atributos/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/atributos', data),
@@ -588,7 +589,7 @@ export const api = {
   unidadesMedida: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/unidades-medida', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/unidades-medida/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/unidades-medida', data),
@@ -602,7 +603,7 @@ export const api = {
   transacciones: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/transacciones', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/transacciones/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/transacciones', data),
@@ -616,7 +617,7 @@ export const api = {
   vehiculos: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/vehiculos', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/vehiculos/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/vehiculos', data),
@@ -630,7 +631,7 @@ export const api = {
   conductores: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/conductores', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/conductores/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/conductores', data),
@@ -643,7 +644,7 @@ export const api = {
   compras: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<any[]>('/v1/compras', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<any>>(`/v1/compras/${id}`),
     crear: (data: any) =>
       apiClient.post<ApiResponse<any>>('/v1/compras', data),
@@ -687,13 +688,13 @@ export const api = {
   productos: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<Producto[]>('/v1/productos', { params }),
-    obtener: (id: number) => 
+    obtener: (id: number) =>
       apiClient.get<ApiResponse<Producto>>(`/v1/productos/${id}`),
     crear: (data: ProductoFormData) =>
       apiClient.post<ApiResponse<Producto>>('/v1/productos', data),
     actualizar: (id: number, data: Partial<ProductoFormData>) =>
       apiClient.put<ApiResponse<Producto>>(`/v1/productos/${id}`, data),
-    eliminar: (id: number) => 
+    eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/productos/${id}`),
     restaurar: (id: number) =>
       apiClient.patch<ApiResponse<Producto>>(`/v1/productos/${id}/restaurar`),

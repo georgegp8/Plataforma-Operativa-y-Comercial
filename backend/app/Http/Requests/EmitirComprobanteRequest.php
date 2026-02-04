@@ -23,7 +23,7 @@ class EmitirComprobanteRequest extends FormRequest
     public function rules(): array
     {
         // La validación se aplica solo si no se está re-emitiendo un comprobante existente
-        $isNewComprobante = !$this->has('comprobante_id');
+        $isNewComprobante = ! $this->has('comprobante_id');
 
         return [
             'comprobante_id' => 'sometimes|exists:comprobantes,id',
@@ -45,4 +45,3 @@ class EmitirComprobanteRequest extends FormRequest
         ];
     }
 }
-

@@ -18,11 +18,11 @@ class PersonalController extends Controller
         }
 
         if ($request->has('nombre')) {
-            $query->where('nombre', 'like', '%' . $request->nombre . '%');
+            $query->where('nombre', 'like', '%'.$request->nombre.'%');
         }
 
         if ($request->has('puesto')) {
-            $query->where('puesto_asignado', 'like', '%' . $request->puesto . '%');
+            $query->where('puesto_asignado', 'like', '%'.$request->puesto.'%');
         }
 
         $personal = $query->orderBy('created_at', 'desc')->get();
@@ -45,7 +45,7 @@ class PersonalController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -63,7 +63,7 @@ class PersonalController extends Controller
         return response()->json([
             'success' => true,
             'data' => $personal,
-            'message' => 'Personal creado exitosamente'
+            'message' => 'Personal creado exitosamente',
         ], 201);
     }
 
@@ -73,7 +73,7 @@ class PersonalController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $personal
+            'data' => $personal,
         ]);
     }
 
@@ -94,7 +94,7 @@ class PersonalController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -105,13 +105,13 @@ class PersonalController extends Controller
             'salario_base',
             'email',
             'telefono',
-            'activo'
+            'activo',
         ]));
 
         return response()->json([
             'success' => true,
             'data' => $personal,
-            'message' => 'Personal actualizado exitosamente'
+            'message' => 'Personal actualizado exitosamente',
         ]);
     }
 
@@ -122,7 +122,7 @@ class PersonalController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Personal eliminado exitosamente'
+            'message' => 'Personal eliminado exitosamente',
         ]);
     }
 }

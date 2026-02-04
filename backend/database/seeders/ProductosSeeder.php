@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use App\Models\Producto;
 use App\Models\Empresa;
+use App\Models\Producto;
+use Illuminate\Database\Seeder;
 
 class ProductosSeeder extends Seeder
 {
@@ -16,14 +15,15 @@ class ProductosSeeder extends Seeder
     {
         // Obtener la primera empresa o crear una de prueba
         $empresa = Empresa::first();
-        
-        if (!$empresa) {
+
+        if (! $empresa) {
             echo "⚠️  No hay empresas en la base de datos. Por favor, cree una empresa primero.\n";
+
             return;
         }
 
         // Cargar datos de productos desde archivo
-        $productos = require __DIR__ . '/productos_data.php';
+        $productos = require __DIR__.'/productos_data.php';
 
         foreach ($productos as $productoData) {
             Producto::create([
@@ -47,6 +47,6 @@ class ProductosSeeder extends Seeder
             ]);
         }
 
-        echo "✅ Se crearon " . count($productos) . " productos del catálogo.\n";
+        echo '✅ Se crearon '.count($productos)." productos del catálogo.\n";
     }
 }

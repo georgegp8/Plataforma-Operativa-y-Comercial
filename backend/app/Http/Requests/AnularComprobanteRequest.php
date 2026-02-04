@@ -26,4 +26,3 @@ class AnularComprobanteRequest extends FormRequest
         ];
     }
 }
-

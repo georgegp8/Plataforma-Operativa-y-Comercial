@@ -18,7 +18,7 @@ class MarcaController extends Controller
         }
 
         if ($request->has('nombre')) {
-            $query->where('nombre', 'like', '%' . $request->nombre . '%');
+            $query->where('nombre', 'like', '%'.$request->nombre.'%');
         }
 
         $marcas = $query->orderBy('created_at', 'desc')->get();
@@ -37,7 +37,7 @@ class MarcaController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -49,7 +49,7 @@ class MarcaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $marca
+            'data' => $marca,
         ], 201);
     }
 
@@ -57,10 +57,10 @@ class MarcaController extends Controller
     {
         $marca = Marca::find($id);
 
-        if (!$marca) {
+        if (! $marca) {
             return response()->json([
                 'success' => false,
-                'message' => 'Marca no encontrada'
+                'message' => 'Marca no encontrada',
             ], 404);
         }
 
@@ -71,10 +71,10 @@ class MarcaController extends Controller
     {
         $marca = Marca::find($id);
 
-        if (!$marca) {
+        if (! $marca) {
             return response()->json([
                 'success' => false,
-                'message' => 'Marca no encontrada'
+                'message' => 'Marca no encontrada',
             ], 404);
         }
 
@@ -87,7 +87,7 @@ class MarcaController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -99,7 +99,7 @@ class MarcaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $marca
+            'data' => $marca,
         ]);
     }
 
@@ -107,10 +107,10 @@ class MarcaController extends Controller
     {
         $marca = Marca::find($id);
 
-        if (!$marca) {
+        if (! $marca) {
             return response()->json([
                 'success' => false,
-                'message' => 'Marca no encontrada'
+                'message' => 'Marca no encontrada',
             ], 404);
         }
 
@@ -118,7 +118,7 @@ class MarcaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Marca eliminada exitosamente'
+            'message' => 'Marca eliminada exitosamente',
         ]);
     }
 }

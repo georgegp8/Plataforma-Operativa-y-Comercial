@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,19 +7,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { NubofactHeader } from '@/components/layout/NubofactHeader';
 
-// Vercel Best Practice: Extract constants outside component
 const DEBOUNCE_DELAY = 300; // ms
-import { Edit, Plus, Star, StarOff, Trash2, MoreVertical, Eye, Package, ArrowUp, ArrowDown } from 'lucide-react';
+import { Edit, Plus, Trash2, Eye, Package, Upload, Download, MapPin, ChevronLeft, ChevronRight, Loader2, Pencil, Check, X } from 'lucide-react';
 import api, { type Producto } from '@/lib/api';
-import { PageHeader } from '@/components/layout/PageHeader';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/table-skeleton';
+
+type FiltroProducto = 'nombre' | 'codigo' | 'nombre_sec';
 
 const UNIDADES_MEDIDA = [
   { value: 'NIU', label: 'NIU - UNIDADES' },
@@ -61,12 +62,16 @@ export default function GestionProductos() {
   const [loading, setLoading] = useState(true);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
+  const [editingStockId, setEditingStockId] = useState<number | null>(null);
+  const [tempStockValue, setTempStockValue] = useState('');
   const [busqueda, setBusqueda] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState<FiltroProducto>('nombre');
+  const [filtroEstado, setFiltroEstado] = useState<'habilitados' | 'deshabilitados' | 'todos'>('habilitados');
   const [empresaId] = useState(1); // TODO: Obtener de contexto
-  const [selectedProductos, setSelectedProductos] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [mostrarColumnasOpcionales, setMostrarColumnasOpcionales] = useState(false);
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortOrder,] = useState<'asc' | 'desc'>('asc');
+  const [isChangingPage, setIsChangingPage] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const itemsPerPage = 10;
 
   const [formData, setFormData] = useState({
@@ -81,10 +86,10 @@ export default function GestionProductos() {
     costo_compra_unitario: '',
     precio_compra_unitario: '',
     tipo_afectacion_igv: '10',
+    stock_actual: '',
     destacado: false,
   });
 
-  // React Best Practice: Memoize async functions to prevent recreation
   const cargarProductos = useCallback(async () => {
     try {
       setLoading(true);
@@ -93,15 +98,17 @@ export default function GestionProductos() {
         buscar: busqueda || undefined,
         sort_by: 'codigo',
         sort_order: sortOrder,
+        incluir_inactivos: filtroEstado !== 'habilitados',
       });
-      setProductos(response.data);
+      setProductos(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error al cargar productos:', error);
       toast.error('Error al cargar productos');
     } finally {
       setLoading(false);
+      setIsFirstLoad(false);
     }
-  }, [empresaId, busqueda, sortOrder]);
+  }, [empresaId, busqueda, sortOrder, filtroEstado]);
 
   // Cargar productos al montar el componente
   useEffect(() => {
@@ -122,7 +129,7 @@ export default function GestionProductos() {
     }, DEBOUNCE_DELAY);
 
     return () => clearTimeout(timer);
-  }, [busqueda, sortOrder, cargarProductos]);
+  }, [busqueda, sortOrder, filtroEstado, cargarProductos]);
 
   const abrirModal = (producto?: Producto) => {
     if (producto) {
@@ -140,6 +147,7 @@ export default function GestionProductos() {
         precio_compra_unitario: producto.precio_compra_unitario?.toString() || '',
         tipo_afectacion_igv: producto.tipo_afectacion_igv,
         destacado: producto.destacado,
+        stock_actual: Math.floor(Number(producto.stock_actual || 0)).toString(),
       });
     } else {
       setProductoEditando(null);
@@ -155,6 +163,7 @@ export default function GestionProductos() {
         costo_compra_unitario: '',
         precio_compra_unitario: '',
         tipo_afectacion_igv: '10',
+        stock_actual: '',
         destacado: false,
       });
     }
@@ -190,16 +199,6 @@ export default function GestionProductos() {
     }
   };
 
-  const toggleDestacado = async (id: number) => {
-    try {
-      await api.productos.toggleDestacado(id);
-      void cargarProductos();
-      toast.success('Estado de destacado actualizado');
-    } catch {
-      toast.error('Error al actualizar destacado');
-    }
-  };
-
   const eliminarProducto = async (id: number) => {
     if (!confirm('¿Estás seguro de desactivar este producto?')) return;
 
@@ -212,21 +211,49 @@ export default function GestionProductos() {
     }
   };
 
-  const toggleSelectProducto = (id: number) => {
-    setSelectedProductos(prev =>
-      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-    );
+  const iniciarEdicionStock = (producto: Producto) => {
+    setEditingStockId(producto.id);
+    setTempStockValue(producto.stock_actual?.toString() || '0');
   };
 
-  const toggleSelectAll = () => {
-    if (selectedProductos.length === productosFiltrados.length) {
-      setSelectedProductos([]);
-    } else {
-      setSelectedProductos(productosFiltrados.map(p => p.id));
+  const cancelarEdicionStock = () => {
+    setEditingStockId(null);
+    setTempStockValue('');
+  };
+
+  const guardarStockRapido = async (id: number) => {
+    const nuevoStock = parseInt(tempStockValue);
+    if (isNaN(nuevoStock)) {
+      toast.error('El stock debe ser un número válido');
+      return;
+    }
+
+    try {
+      // Optimistic update logic could be here, but for simplicity relying on reload
+      // We use the same update endpoint but only sending stock
+      await api.productos.actualizar(id, { stock_actual: nuevoStock.toString() });
+      toast.success('Stock actualizado');
+      setEditingStockId(null);
+      void cargarProductos();
+    } catch (error) {
+      console.error('Error al actualizar stock:', error);
+      toast.error('Error al actualizar stock');
     }
   };
 
-  const productosFiltrados = productos;
+  const cambiarPagina = (nuevaPagina: number) => {
+    setIsChangingPage(true);
+    // Pequeña pausa visual suave para el cambio de página
+    setTimeout(() => {
+      setCurrentPage(nuevaPagina);
+      setTimeout(() => setIsChangingPage(false), 300);
+    }, 100);
+  };
+
+  const productosFiltrados = productos.filter((producto) => {
+    if (filtroEstado === 'deshabilitados') return !producto.activo;
+    return true;
+  });
 
   // Paginación
   const totalPages = Math.ceil(productosFiltrados.length / itemsPerPage);
@@ -234,33 +261,45 @@ export default function GestionProductos() {
   const endIndex = startIndex + itemsPerPage;
   const productosPaginados = productosFiltrados.slice(startIndex, endIndex);
 
+  if (loading && productos.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <NubofactHeader />
+        <div className="container mx-auto px-4 py-6">
+          <div className="text-center py-8 text-muted-foreground">Cargando productos...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 p-4 md:p-6 lg:p-8 animate-in fade-in duration-500">
-      <PageHeader
-        title="Gestión de Productos"
-        description="Administra el catálogo de productos por empresa: códigos, precios, stock y tipos de afectación IGV."
-      />
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setMostrarColumnasOpcionales(!mostrarColumnasOpcionales)}
-              >
-                {mostrarColumnasOpcionales ? 'Ocultar' : 'Mostrar'} columnas opcionales
-              </Button>
-              <Dialog open={modalAbierto} onOpenChange={setModalAbierto}>
+    <div className="min-h-screen bg-background">
+      <NubofactHeader />
+      <div className="container mx-auto px-4 py-6">
+        {/* Header del módulo - Listado de Productos */}
+        <div className="bg-primary text-primary-foreground rounded-t-lg px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl font-semibold flex items-center gap-2">
+            <Package className="h-5 w-5" />
+            Listado de Productos
+          </h1>
+          <div className="flex gap-2">
+            <Dialog open={modalAbierto} onOpenChange={setModalAbierto}>
               <DialogTrigger asChild>
-                <Button onClick={() => abrirModal()}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo Producto
+                <Button
+                  onClick={() => abrirModal()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  size="sm"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Nuevo
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>{productoEditando ? 'Editar Producto' : 'Nuevo Producto'}</DialogTitle>
+                  <DialogDescription>
+                    {productoEditando ? 'Modifique los datos del producto existente.' : 'Complete la información para registrar un nuevo producto.'}
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -313,6 +352,20 @@ export default function GestionProductos() {
                       value={formData.codigo_producto_sunat}
                       onChange={(e) => setFormData({ ...formData, codigo_producto_sunat: e.target.value })}
                       placeholder="Catálogo 25 SUNAT"
+                    />
+                  </div>
+
+
+
+                  <div>
+                    <Label>Stock Actual (Inventario)</Label>
+                    <Input type="number"
+                      step="1"
+                      min="0"
+                      pattern="\d*"
+                      value={formData.stock_actual}
+                      onChange={(e) => setFormData({ ...formData, stock_actual: e.target.value })}
+                      placeholder="Cantidad en stock"
                     />
                   </div>
 
@@ -403,376 +456,390 @@ export default function GestionProductos() {
                 </div>
               </DialogContent>
             </Dialog>
+            <Button
+              onClick={() => toast.info('Funcionalidad de Importar en desarrollo')}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              size="sm"
+            >
+              <Upload className="h-4 w-4 mr-1" />
+              Importar
+            </Button>
           </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Barra de búsqueda y filtros */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
-              <Input
-                placeholder="Buscar por código, descripción o categoría..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full"
-              />
-            </div>
-            {selectedProductos.length > 0 && (
-              <Badge variant="secondary" className="px-3 py-2">
-                {selectedProductos.length} seleccionado{selectedProductos.length !== 1 ? 's' : ''}
-              </Badge>
-            )}
-          </div>
+        </div>
 
-          {/* Paginación superior */}
-          {!loading && productosFiltrados.length > 0 && (
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Mostrando {startIndex + 1} - {Math.min(endIndex, productosFiltrados.length)} de {productosFiltrados.length} productos
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Anterior
-                </Button>
-                {[...Array(totalPages)].map((_, i) => (
-                  <Button
-                    key={i + 1}
-                    variant={currentPage === i + 1 ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCurrentPage(i + 1)}
-                    className="hidden sm:inline-flex"
-                  >
-                    {i + 1}
-                  </Button>
-                ))}
-                <span className="sm:hidden text-sm">
-                  Página {currentPage} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Siguiente
-                </Button>
-              </div>
+        {/* Filtros */}
+        <div className="bg-muted/50 px-4 py-4 border-x border-border">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">Filtrar por</label>
+              <select
+                value={filtroTipo}
+                onChange={(e) => {
+                  setFiltroTipo(e.target.value as FiltroProducto);
+                  setBusqueda('');
+                  setCurrentPage(1);
+                }}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="nombre">Nombre</option>
+                <option value="nombre_sec">Nombre Sec.</option>
+              </select>
             </div>
-          )}
-
-          {loading ? (
-            <div className="rounded-md border overflow-hidden">
-              <TableSkeleton columns={12} rows={8} />
-            </div>
-          ) : (
-            <div className="rounded-md border overflow-hidden shadow-sm">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50 border-b-2">
-                      <TableHead className="w-10 py-2 px-2 bg-muted/50">
-                        <Checkbox
-                          checked={selectedProductos.length === productosFiltrados.length && productosFiltrados.length > 0}
-                          onCheckedChange={toggleSelectAll}
-                        />
-                      </TableHead>
-                      <TableHead className="min-w-20 py-2 px-2 bg-muted/50">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 -ml-2 font-bold text-xs uppercase hover:bg-muted"
-                          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                        >
-                          Código
-                          {sortOrder === 'asc' ? (
-                            <ArrowUp className="ml-1 w-3 h-3" />
-                          ) : (
-                            <ArrowDown className="ml-1 w-3 h-3" />
-                          )}
-                        </Button>
-                      </TableHead>
-                      <TableHead className="min-w-48 py-2 px-2 bg-muted/50">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 px-2 -ml-2 font-bold text-xs uppercase hover:bg-muted"
-                          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                        >
-                          Código
-                          {sortOrder === 'asc' ? (
-                            <ArrowUp className="ml-1 w-3 h-3" />
-                          ) : (
-                            <ArrowDown className="ml-1 w-3 h-3" />
-                          )}
-                        </Button>
-                      </TableHead>
-                      <TableHead className="min-w-16 py-2 px-2 bg-muted/50">
-                        <div className="font-bold text-xs uppercase text-center">Unidad</div>
-                      </TableHead>
-                      {mostrarColumnasOpcionales && (
-                        <TableHead className="min-w-24 text-right py-2 px-2 bg-muted/50">
-                          <div className="font-bold text-xs uppercase">Costo Compra</div>
-                          <div className="text-[10px] font-normal text-muted-foreground">(sin IGV)</div>
-                        </TableHead>
-                      )}
-                      <TableHead className="min-w-24 text-right py-2 px-2 bg-muted/50">
-                        <div className="font-bold text-xs uppercase">Valor Venta</div>
-                        <div className="text-[10px] font-normal text-muted-foreground">(sin IGV)</div>
-                      </TableHead>
-                      {mostrarColumnasOpcionales && (
-                        <TableHead className="min-w-24 text-right py-2 px-2 bg-muted/50">
-                          <div className="font-bold text-xs uppercase">Precio Compra</div>
-                          <div className="text-[10px] font-normal text-muted-foreground">(con IGV)</div>
-                        </TableHead>
-                      )}
-                      <TableHead className="min-w-24 text-right py-2 px-2 bg-muted/50">
-                        <div className="font-bold text-xs uppercase">Precio Venta</div>
-                        <div className="text-[10px] font-normal text-muted-foreground">(con IGV)</div>
-                      </TableHead>
-                      <TableHead className="w-16 text-center py-2 px-2 bg-muted/50">
-                        <div className="text-lg">⭐</div>
-                      </TableHead>
-                      <TableHead className="min-w-28 py-2 px-2 bg-muted/50">
-                        <div className="font-bold text-xs uppercase">Tipo IGV</div>
-                      </TableHead>
-                      {mostrarColumnasOpcionales && (
-                        <TableHead className="min-w-24 py-2 px-2 bg-muted/50">
-                          <div className="font-bold text-xs uppercase">Categoría</div>
-                        </TableHead>
-                      )}
-                      {mostrarColumnasOpcionales && (
-                        <TableHead className="min-w-24 py-2 px-2 bg-muted/50">
-                          <div className="font-bold text-xs uppercase">Cód. SUNAT</div>
-                        </TableHead>
-                      )}
-                      <TableHead className="min-w-20 text-right py-2 px-2 bg-muted/50">
-                        <div className="font-bold text-xs uppercase">Stock</div>
-                      </TableHead>
-                      <TableHead className="w-16 text-center py-2 px-2 bg-muted/50">
-                        <div className="font-bold text-xs uppercase">Acciones</div>
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {productosPaginados.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={mostrarColumnasOpcionales ? 14 : 10} className="p-0">
-                          <EmptyState
-                            icon={Package}
-                            title={busqueda ? `No se encontraron productos con "${busqueda}"` : 'No hay productos registrados'}
-                            description={busqueda ? 'Intenta con otro término de búsqueda o verifica la ortografía.' : 'Comienza agregando productos a tu catálogo.'}
-                            action={busqueda ? (
-                              <Button variant="outline" size="sm" onClick={() => setBusqueda('')}>
-                                Ver todos los productos
-                              </Button>
-                            ) : (
-                              <Button variant="default" size="sm" onClick={() => abrirModal()}>
-                                <Plus className="w-4 h-4 mr-2" />
-                                Crear primer producto
-                              </Button>
-                            )}
-                            className="py-12"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      productosPaginados.map((producto) => (
-                        <TableRow 
-                          key={producto.id}
-                          className={`hover:bg-muted/50 transition-colors ${
-                            selectedProductos.includes(producto.id) ? 'bg-accent/50' : ''
-                          }`}
-                        >
-                          <TableCell className="py-2 px-2">
-                            <Checkbox
-                              checked={selectedProductos.includes(producto.id)}
-                              onCheckedChange={() => toggleSelectProducto(producto.id)}
-                            />
-                          </TableCell>
-                          <TableCell className="font-mono font-medium text-[14px] py-2 px-2">
-                            {producto.codigo || '-'}
-                          </TableCell>
-                          <TableCell className="py-2 px-2">
-                            <div className="truncate text-[14px] max-w-md" title={producto.descripcion}>
-                              {producto.descripcion}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center py-2 px-2">
-                            <Badge variant="secondary" className="font-mono text-[14px] px-2 py-0.5">
-                              {producto.unidad_medida}
-                            </Badge>
-                          </TableCell>
-                          {mostrarColumnasOpcionales && (
-                            <TableCell className="text-right font-mono text-[14px] py-2 px-2">
-                              {producto.costo_compra_unitario ? 
-                                <span className="text-muted-foreground">{Number(producto.costo_compra_unitario).toFixed(2)}</span> : 
-                                <span className="text-muted-foreground">-</span>
-                              }
-                            </TableCell>
-                          )}
-                          <TableCell className="text-right font-mono text-[14px] py-2 px-2">
-                            {producto.valor_venta_unitario ? 
-                              <span className="text-muted-foreground">{Number(producto.valor_venta_unitario).toFixed(2)}</span> : 
-                              <span className="text-muted-foreground">-</span>
-                            }
-                          </TableCell>
-                          {mostrarColumnasOpcionales && (
-                            <TableCell className="text-right font-mono text-[14px] py-2 px-2">
-                              {producto.precio_compra_unitario ? 
-                                <span className="text-muted-foreground">{Number(producto.precio_compra_unitario).toFixed(2)}</span> : 
-                                <span className="text-muted-foreground">-</span>
-                              }
-                            </TableCell>
-                          )}
-                          <TableCell className="text-right font-mono text-[14px] font-semibold py-2 px-2">
-                            {producto.precio_venta_unitario ? 
-                              <span className="text-green-700 dark:text-green-400">{Number(producto.precio_venta_unitario).toFixed(2)}</span> : 
-                              <span className="text-muted-foreground">-</span>
-                            }
-                          </TableCell>
-                          <TableCell className="text-center py-2 px-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleDestacado(producto.id)}
-                              className="h-7 w-7 p-0"
-                            >
-                              {producto.destacado ? (
-                                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                              ) : (
-                                <StarOff className="w-4 h-4 text-muted-foreground" />
-                              )}
-                            </Button>
-                          </TableCell>
-                          <TableCell className="py-2 px-2">
-                            <Badge 
-                              variant={producto.tipo_afectacion_igv === '10' ? 'default' : 'secondary'}
-                              className="text-[14px] whitespace-nowrap px-2 py-0.5"
-                            >
-                              {TIPOS_IGV.find((t) => t.value === producto.tipo_afectacion_igv)?.label.split('[')[0].trim() || producto.tipo_afectacion_igv}
-                            </Badge>
-                          </TableCell>
-                          {mostrarColumnasOpcionales && (
-                            <TableCell className="text-center py-2 px-2">
-                              {producto.categoria ? (
-                                <span className="font-mono text-[14px]">
-                                  {producto.categoria}
-                                </span>
-                              ) : (
-                                <span className="text-muted-foreground text-[14px]">-</span>
-                              )}
-                            </TableCell>
-                          )}
-                          {mostrarColumnasOpcionales && (
-                            <TableCell className="font-mono text-[14px] text-center py-2 px-2">
-                              {producto.codigo_producto_sunat || <span className="text-muted-foreground">-</span>}
-                            </TableCell>
-                          )}
-                          <TableCell className="text-right font-mono text-[14px] py-2 px-2">
-                            <span className={`font-semibold ${
-                              Number(producto.stock_actual || 0) < 0 
-                                ? 'text-red-600 dark:text-red-400' 
-                                : Number(producto.stock_actual || 0) === 0
-                                ? 'text-yellow-600 dark:text-yellow-400'
-                                : 'text-green-700 dark:text-green-400'
-                            }`}>
-                              {Number(producto.stock_actual || 0).toFixed(2)}
-                            </span>
-                          </TableCell>
-                          <TableCell className="py-2 px-2">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuItem onClick={() => console.log('Ver movimientos', producto.id)} className="text-xs py-1.5">
-                                  <Eye className="w-4 h-4 mr-2" />
-                                  Ver movimientos
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => abrirModal(producto)} className="text-xs py-1.5">
-                                  <Edit className="w-4 h-4 mr-2" />
-                                  Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem 
-                                  onClick={() => eliminarProducto(producto.id)}
-                                  className="text-red-600 text-xs py-1.5"
-                                >
-                                  <Trash2 className="w-4 h-4 mr-2" />
-                                  Borrar
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-
-          {/* Paginación inferior */}
-          {!loading && productosFiltrados.length > itemsPerPage && (
-            <div className="flex items-center justify-between pt-4">
-              <div className="text-sm text-muted-foreground">
-                Total: {productosFiltrados.length} producto{productosFiltrados.length !== 1 ? 's' : ''}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Anterior
-                </Button>
-                {[...Array(totalPages)].map((_, i) => {
-                  // Mostrar solo páginas cercanas a la actual
-                  if (
-                    i === 0 || 
-                    i === totalPages - 1 || 
-                    (i >= currentPage - 2 && i <= currentPage)
-                  ) {
-                    return (
-                      <Button
-                        key={`page-${i + 1}`}
-                        variant={currentPage === i + 1 ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setCurrentPage(i + 1)}
-                        className="hidden sm:inline-flex"
-                      >
-                        {i + 1}
-                      </Button>
-                    );
-                  } else if (i === currentPage - 3 || i === currentPage + 1) {
-                    return <span key={`ellipsis-${i}`} className="px-2 hidden sm:inline">...</span>;
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">Buscar</label>
+              <div className="relative">
+                <Input
+                  value={busqueda}
+                  onChange={(e) => {
+                    setBusqueda(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder={
+                    filtroTipo === 'nombre' ? 'Buscar por nombre...' :
+                      filtroTipo === 'codigo' ? 'Buscar por código...' :
+                        'Buscar por nombre secundario...'
                   }
-                  return null;
-                })}
-                <span className="sm:hidden text-sm px-2">
-                  {currentPage} / {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Siguiente
-                </Button>
+                  className="w-full pr-10"
+                />
+                {loading && !isFirstLoad && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
               </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">Almacén</label>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-foreground"
+                onClick={() => toast.info('Funcionalidad de Almacén en desarrollo')}
+              >
+                Almacén - Oficina Principal
+              </Button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-foreground">Estados</label>
+              <select
+                value={filtroEstado}
+                onChange={(e) => {
+                  setFiltroEstado(e.target.value as 'habilitados' | 'deshabilitados' | 'todos');
+                  setCurrentPage(1);
+                }}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="habilitados">Habilitados</option>
+                <option value="deshabilitados">Deshabilitados</option>
+                <option value="todos">Todos</option>
+              </select>
+            </div>
+            <div className="flex flex-col justify-end gap-2">
+              <Button
+                onClick={() => toast.info('Funcionalidad de Exportar en desarrollo')}
+                className="bg-green-600 hover:bg-green-700 text-white w-full"
+                size="sm"
+              >
+                <Download className="h-4 w-4 mr-1" />
+                Exportar
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Tabla */}
+        <Card className="rounded-t-none border-t-0">
+          <CardContent className="p-0">
+            {/* Paginación superior */}
+            {/* Tabla con Paginación Superior Eliminada */}
+
+            {loading && isFirstLoad ? (
+              <div className="rounded-md border overflow-hidden">
+                <TableSkeleton columns={12} rows={8} />
+              </div>
+            ) : (
+              <div className="relative">
+                {(isChangingPage) && (
+                  <div className="absolute inset-0 bg-background/50 z-10 flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  </div>
+                )}
+                <div className={`rounded-md border overflow-hidden shadow-sm transition-opacity duration-200 ${loading && !isFirstLoad ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-primary hover:bg-primary">
+                          <TableHead className="w-12 py-2 px-2 text-white">#</TableHead>
+                          <TableHead className="min-w-24 py-2 px-2 text-white">Acciones</TableHead>
+                          <TableHead className="w-40 py-2 px-2 text-white">Registro Actividad</TableHead>
+                          <TableHead className="min-w-24 py-2 px-2 text-white">Cód. Interno</TableHead>
+                          <TableHead className="min-w-16 py-2 px-2 text-white">Unidad</TableHead>
+                          <TableHead className="min-w-64 py-2 px-2 text-white">Producto o Servicio</TableHead>
+                          <TableHead className="min-w-12 py-2 px-2 text-center text-white">Ubicación</TableHead>
+                          <TableHead className="min-w-20 py-2 px-2 text-right text-white">Stock</TableHead>
+                          <TableHead className="min-w-24 py-2 px-2 text-right text-white">P.Venta</TableHead>
+                          <TableHead className="min-w-24 py-2 px-2 text-right text-white">P.Compra</TableHead>
+                          <TableHead className="min-w-24 py-2 px-2 text-center text-white">Estado</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {productosPaginados.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={11} className="p-0">
+                              <EmptyState
+                                icon={Package}
+                                title={busqueda ? `No se encontraron productos con "${busqueda}"` : 'No hay productos registrados'}
+                                description={busqueda ? 'Intenta con otro término de búsqueda o verifica la ortografía.' : 'Comienza agregando productos a tu catálogo.'}
+                                action={busqueda ? (
+                                  <Button variant="outline" size="sm" onClick={() => setBusqueda('')}>
+                                    Ver todos los productos
+                                  </Button>
+                                ) : (
+                                  <Button variant="default" size="sm" onClick={() => abrirModal()}>
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    Crear primer producto
+                                  </Button>
+                                )}
+                                className="py-12"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          productosPaginados.map((producto, idx) => (
+                            <TableRow
+                              key={producto.id}
+                              className="hover:bg-muted/50 transition-colors"
+                            >
+                              <TableCell className="py-2 px-2 font-mono text-sm">
+                                {startIndex + idx + 1}
+                              </TableCell>
+                              <TableCell className="py-2 px-2">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="default" size="sm" className="h-7 text-xs">
+                                      Acciones
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="w-40">
+                                    <DropdownMenuItem onClick={() => toast.info('Ver movimientos en desarrollo')} className="text-xs py-1.5">
+                                      <Eye className="w-4 h-4 mr-2" />
+                                      Ver movimientos
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => abrirModal(producto)} className="text-xs py-1.5">
+                                      <Edit className="w-4 h-4 mr-2" />
+                                      Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => eliminarProducto(producto.id)}
+                                      className="text-red-600 text-xs py-1.5"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Borrar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                              <TableCell className="py-2 px-2">
+                                <div className="text-xs text-muted-foreground w-40 break-words whitespace-normal leading-tight" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                  {(() => {
+                                    const updatedAt = (producto as Producto & { updated_at?: string }).updated_at;
+                                    return updatedAt
+                                      ? `Administrador: Producto actualizado ${new Date(updatedAt).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'medium' }).replace(',', '')}`
+                                      : '-';
+                                  })()}
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-mono text-sm py-2 px-2">
+                                {producto.codigo || '-'}
+                              </TableCell>
+                              <TableCell className="py-2 px-2">
+                                <Badge variant="secondary" className="font-mono text-xs">
+                                  {producto.unidad_medida}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="py-2 px-2">
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="truncate text-sm max-w-xs cursor-help">
+                                        {producto.descripcion}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-sm">
+                                      <p>{producto.descripcion}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </TableCell>
+                              <TableCell className="text-center py-2 px-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => toast.info('Funcionalidad de Ubicación en desarrollo')}
+                                >
+                                  <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                </Button>
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm py-2 px-2">
+                                {editingStockId === producto.id ? (
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Input
+                                      type="number"
+                                      value={tempStockValue}
+                                      onChange={(e) => setTempStockValue(e.target.value)}
+                                      className="h-7 w-20 text-right px-2 py-1 text-xs"
+                                      step="1"
+                                      min="0"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') void guardarStockRapido(producto.id);
+                                        if (e.key === 'Escape') cancelarEdicionStock();
+                                      }}
+                                    />
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                      onClick={() => void guardarStockRapido(producto.id)}
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={cancelarEdicionStock}
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-2 group">
+                                    <span className={
+                                      Number(producto.stock_actual || 0) < 0
+                                        ? 'text-red-600 dark:text-red-400 font-semibold'
+                                        : Number(producto.stock_actual || 0) === 0
+                                          ? 'text-yellow-600 dark:text-yellow-400 font-semibold'
+                                          : 'text-foreground'
+                                    }>
+                                      {Number(producto.stock_actual || 0).toFixed(0)}
+                                    </span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                                      onClick={() => iniciarEdicionStock(producto)}
+                                      title="Editar stock rápido"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm py-2 px-2">
+                                S/ {Number(producto.precio_venta_unitario ?? 0).toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-right font-mono text-sm py-2 px-2">
+                                S/ {Number(producto.precio_compra_unitario ?? 0).toFixed(2)}
+                              </TableCell>
+                              <TableCell className="text-center py-2 px-2">
+                                <Badge
+                                  variant={producto.activo ? 'default' : 'secondary'}
+                                  className={producto.activo ? 'bg-green-600 hover:bg-green-700' : ''}
+                                >
+                                  {producto.activo ? 'Habilitado' : 'Deshabilitado'}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Paginación inferior */}
+            {/* Paginación */}
+            {!loading && productosFiltrados.length > itemsPerPage && (
+              <div className="flex items-center justify-between border-t border-border px-4 py-4 sm:px-6">
+                <div className="flex flex-1 justify-between sm:hidden">
+                  <Button
+                    variant="outline"
+                    onClick={() => cambiarPagina(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => cambiarPagina(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+                <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Mostrando <span className="font-medium">{startIndex + 1}</span> a{' '}
+                      <span className="font-medium">
+                        {Math.min(endIndex, productosFiltrados.length)}
+                      </span>{' '}
+                      de <span className="font-medium">{productosFiltrados.length}</span> resultados
+                    </p>
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => cambiarPagina(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-sm border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Anterior
+                      </button>
+                      {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                        let page;
+                        if (totalPages <= 5) {
+                          page = i + 1;
+                        } else if (currentPage <= 3) {
+                          page = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          page = totalPages - 4 + i;
+                        } else {
+                          page = currentPage - 2 + i;
+                        }
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => cambiarPagina(page)}
+                            className={`px-3 py-1 text-sm border border-border rounded transition-colors ${currentPage === page
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-background hover:bg-muted'
+                              }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => cambiarPagina(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages || totalPages === 0}
+                        className="px-3 py-1 text-sm border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      >
+                        Siguiente
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div >
   );
 }

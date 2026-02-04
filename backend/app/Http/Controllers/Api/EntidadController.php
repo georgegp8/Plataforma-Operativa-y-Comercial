@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Entidad;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class EntidadController extends Controller
 {
@@ -16,7 +16,7 @@ class EntidadController extends Controller
         $query = Entidad::query();
 
         // Por defecto solo mostrar entidades activas (a menos que se especifique lo contrario)
-        if (!$request->has('incluir_inactivos') || !$request->boolean('incluir_inactivos')) {
+        if (! $request->has('incluir_inactivos') || ! $request->boolean('incluir_inactivos')) {
             $query->where('activo', true);
         }
 
@@ -157,22 +157,22 @@ class EntidadController extends Controller
         try {
             // Buscar entidad sin filtro de es_cliente
             $entidad = Entidad::findOrFail($id);
-            
+
             // Verificar si tiene compras asociadas
             $tieneCompras = \App\Models\Compra::where('proveedor_id', $id)->exists();
-            
+
             if ($tieneCompras) {
                 // Soft delete: marcar como inactivo en lugar de eliminar
                 $entidad->activo = false;
                 $entidad->save();
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Entidad desactivada (tiene registros asociados)',
                     'soft_delete' => true,
                 ]);
             }
-            
+
             // Si no tiene registros asociados, eliminar permanentemente
             $entidad->delete();
 
@@ -180,11 +180,11 @@ class EntidadController extends Controller
                 'success' => true,
                 'message' => 'Entidad eliminada correctamente',
             ]);
-            
+
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error al eliminar: ' . $e->getMessage(),
+                'message' => 'Error al eliminar: '.$e->getMessage(),
             ], 400);
         }
     }

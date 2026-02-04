@@ -18,11 +18,11 @@ class CategoriaController extends Controller
         }
 
         if ($request->has('nombre')) {
-            $query->where('nombre', 'like', '%' . $request->nombre . '%');
+            $query->where('nombre', 'like', '%'.$request->nombre.'%');
         }
 
         if ($request->has('identificador')) {
-            $query->where('identificador', 'like', '%' . $request->identificador . '%');
+            $query->where('identificador', 'like', '%'.$request->identificador.'%');
         }
 
         $categorias = $query->orderBy('created_at', 'desc')->get();
@@ -42,7 +42,7 @@ class CategoriaController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -55,7 +55,7 @@ class CategoriaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $categoria
+            'data' => $categoria,
         ], 201);
     }
 
@@ -63,10 +63,10 @@ class CategoriaController extends Controller
     {
         $categoria = Categoria::find($id);
 
-        if (!$categoria) {
+        if (! $categoria) {
             return response()->json([
                 'success' => false,
-                'message' => 'Categoría no encontrada'
+                'message' => 'Categoría no encontrada',
             ], 404);
         }
 
@@ -77,10 +77,10 @@ class CategoriaController extends Controller
     {
         $categoria = Categoria::find($id);
 
-        if (!$categoria) {
+        if (! $categoria) {
             return response()->json([
                 'success' => false,
-                'message' => 'Categoría no encontrada'
+                'message' => 'Categoría no encontrada',
             ], 404);
         }
 
@@ -94,7 +94,7 @@ class CategoriaController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -107,7 +107,7 @@ class CategoriaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $categoria
+            'data' => $categoria,
         ]);
     }
 
@@ -115,10 +115,10 @@ class CategoriaController extends Controller
     {
         $categoria = Categoria::find($id);
 
-        if (!$categoria) {
+        if (! $categoria) {
             return response()->json([
                 'success' => false,
-                'message' => 'Categoría no encontrada'
+                'message' => 'Categoría no encontrada',
             ], 404);
         }
 
@@ -126,7 +126,7 @@ class CategoriaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Categoría eliminada exitosamente'
+            'message' => 'Categoría eliminada exitosamente',
         ]);
     }
 }

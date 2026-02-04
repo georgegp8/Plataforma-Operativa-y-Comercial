@@ -18,11 +18,11 @@ class AtributoController extends Controller
         }
 
         if ($request->has('descripcion')) {
-            $query->where('descripcion', 'like', '%' . $request->descripcion . '%');
+            $query->where('descripcion', 'like', '%'.$request->descripcion.'%');
         }
 
         if ($request->has('codigo')) {
-            $query->where('codigo', 'like', '%' . $request->codigo . '%');
+            $query->where('codigo', 'like', '%'.$request->codigo.'%');
         }
 
         $atributos = $query->orderBy('created_at', 'desc')->get();
@@ -42,7 +42,7 @@ class AtributoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -55,7 +55,7 @@ class AtributoController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $atributo
+            'data' => $atributo,
         ], 201);
     }
 
@@ -63,10 +63,10 @@ class AtributoController extends Controller
     {
         $atributo = Atributo::find($id);
 
-        if (!$atributo) {
+        if (! $atributo) {
             return response()->json([
                 'success' => false,
-                'message' => 'Atributo no encontrado'
+                'message' => 'Atributo no encontrado',
             ], 404);
         }
 
@@ -77,10 +77,10 @@ class AtributoController extends Controller
     {
         $atributo = Atributo::find($id);
 
-        if (!$atributo) {
+        if (! $atributo) {
             return response()->json([
                 'success' => false,
-                'message' => 'Atributo no encontrado'
+                'message' => 'Atributo no encontrado',
             ], 404);
         }
 
@@ -94,7 +94,7 @@ class AtributoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -107,7 +107,7 @@ class AtributoController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $atributo
+            'data' => $atributo,
         ]);
     }
 
@@ -115,10 +115,10 @@ class AtributoController extends Controller
     {
         $atributo = Atributo::find($id);
 
-        if (!$atributo) {
+        if (! $atributo) {
             return response()->json([
                 'success' => false,
-                'message' => 'Atributo no encontrado'
+                'message' => 'Atributo no encontrado',
             ], 404);
         }
 
@@ -126,7 +126,7 @@ class AtributoController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Atributo eliminado exitosamente'
+            'message' => 'Atributo eliminado exitosamente',
         ]);
     }
 }

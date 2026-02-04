@@ -18,7 +18,7 @@ return new class extends Migration
             $table->boolean('activo')->default(true);
             $table->string('created_by', 100)->nullable();
             $table->timestamps();
-            
+
             $table->index('activo');
             $table->index('tipo');
         });

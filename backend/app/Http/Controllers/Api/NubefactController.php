@@ -25,7 +25,7 @@ class NubefactController extends Controller
     /**
      * Emitir un comprobante (factura/boleta/nota) mediante NubeFact
      * POST /api/nubefact/comprobantes
-     * 
+     *
      * Acepta dos modos:
      * 1. Con comprobante_id: Emite un comprobante ya existente en BD
      * 2. Con datos completos: Crea el comprobante en BD y luego lo emite
@@ -33,7 +33,7 @@ class NubefactController extends Controller
     public function emitirComprobante(EmitirComprobanteRequest $request)
     {
         DB::beginTransaction();
-        
+
         try {
             // Modo 1: Comprobante existente
             if ($request->has('comprobante_id')) {
@@ -43,13 +43,14 @@ class NubefactController extends Controller
                 // Verificar si ya fue emitido
                 if ($comprobante->nubefact_enlace) {
                     DB::rollBack();
+
                     return response()->json([
                         'success' => false,
                         'message' => 'Este comprobante ya fue emitido mediante NubeFact',
                         'enlace' => $comprobante->nubefact_enlace,
                     ], 400);
                 }
-            } 
+            }
             // Modo 2: Crear comprobante desde datos
             else {
                 $validatedData = $request->validated();
@@ -63,7 +64,7 @@ class NubefactController extends Controller
                 ];
 
                 // Crear el comprobante en la BD
-                $comprobante = new Comprobante();
+                $comprobante = new Comprobante;
                 $comprobante->empresa_id = $request->empresa_id;
                 $comprobante->tipo_doc = $tipoDocMap[$request->tipo_de_comprobante];
                 $comprobante->serie = $request->serie;
@@ -72,18 +73,18 @@ class NubefactController extends Controller
                 $comprobante->fecha_vencimiento = $request->fecha_de_vencimiento ?? $request->fecha_de_emision;
                 $comprobante->hora_emision = now()->format('H:i:s');
                 $comprobante->codigo_tipo_operacion = $request->sunat_transaction ?? '0101';
-                
+
                 // Cliente
                 $comprobante->cliente_tipo_doc = $request->cliente_tipo_de_documento ?? '1';
                 $comprobante->cliente_num_doc = $request->cliente_numero_de_documento;
                 $comprobante->cliente_razon_social = $request->cliente_denominacion;
                 $comprobante->cliente_direccion = $request->cliente_direccion;
                 $comprobante->cliente_email = $request->cliente_email;
-                
+
                 // Moneda y tipo de cambio
                 $comprobante->codigo_tipo_moneda = $request->moneda == 1 ? 'PEN' : 'USD';
                 $comprobante->tipo_de_cambio = $request->tipo_de_cambio;
-                
+
                 // Totales
                 $comprobante->mto_igv = $request->total_igv ?? 0;
                 $comprobante->mto_oper_gravadas = $request->total_gravada ?? 0;
@@ -93,20 +94,20 @@ class NubefactController extends Controller
                 $comprobante->mto_imp_venta = $request->total;
                 $comprobante->total_descuentos = $request->total_descuento ?? 0;
                 $comprobante->mto_otros_cargos = $request->total_otros_cargos ?? 0;
-                
+
                 // Campos opcionales
                 $comprobante->observaciones = $request->observaciones;
                 $comprobante->orden_compra = $request->orden_compra_servicio;
-                
+
                 // Estados
                 $comprobante->estado = 'PENDIENTE';
                 $comprobante->estado_sunat = 'PENDIENTE';
-                
+
                 $comprobante->save();
-                
+
                 // Guardar items
                 foreach ($request->items as $index => $itemData) {
-                    $item = new \App\Models\ComprobanteItem();
+                    $item = new \App\Models\ComprobanteItem;
                     $item->comprobante_id = $comprobante->id;
                     $item->item = $index + 1;
                     $item->codigo_producto = $itemData['codigo'] ?? '';
@@ -122,7 +123,7 @@ class NubefactController extends Controller
                     $item->descuento = $itemData['descuento'] ?? 0;
                     $item->save();
                 }
-                
+
                 // Recargar con relaciones
                 $comprobante->load(['items', 'empresa']);
             }
@@ -158,7 +159,7 @@ class NubefactController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             Log::channel('nubefact')->error('Error al emitir comprobante', [
                 'request_data' => $request->all(),
                 'error' => $e->getMessage(),
@@ -167,7 +168,7 @@ class NubefactController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error al emitir comprobante: ' . $e->getMessage(),
+                'message' => 'Error al emitir comprobante: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -180,7 +181,7 @@ class NubefactController extends Controller
     {
         try {
             $tipoInt = NubefactClient::mapearTipoComprobante($tipo);
-            $response = $this->nubefactClient->consultarComprobante($tipoInt, $serie, (int)$numero);
+            $response = $this->nubefactClient->consultarComprobante($tipoInt, $serie, (int) $numero);
 
             // Buscar comprobante local
             $comprobante = Comprobante::where('tipo_doc', $tipo)
@@ -210,7 +211,7 @@ class NubefactController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error al consultar: ' . $e->getMessage(),
+                'message' => 'Error al consultar: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -222,7 +223,6 @@ class NubefactController extends Controller
     public function anularComprobante(AnularComprobanteRequest $request, $tipo, $serie, $numero)
     {
 
-
         try {
 
             $tipoInt = NubefactClient::mapearTipoComprobante($tipo);
@@ -230,7 +230,7 @@ class NubefactController extends Controller
             $response = $this->nubefactClient->generarAnulacion(
                 $tipoInt,
                 $serie,
-                (int)$numero,
+                (int) $numero,
                 $validated['motivo']
             );
 
@@ -265,7 +265,7 @@ class NubefactController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error al anular: ' . $e->getMessage(),
+                'message' => 'Error al anular: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -276,7 +276,6 @@ class NubefactController extends Controller
      */
     public function emitirGuia(EmitirGuiaRequest $request)
     {
-
 
         try {
 
@@ -305,9 +304,9 @@ class NubefactController extends Controller
             $aceptada = false;
             $intentos = 0;
 
-            while (!$aceptada && $intentos < $maxReintentos) {
+            while (! $aceptada && $intentos < $maxReintentos) {
                 sleep($segundosEspera);
-                
+
                 $consultaResponse = $this->nubefactClient->consultarGuia(
                     $guia->tipo_comprobante,
                     $guia->serie,
@@ -346,7 +345,7 @@ class NubefactController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error al emitir guía: ' . $e->getMessage(),
+                'message' => 'Error al emitir guía: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -358,7 +357,7 @@ class NubefactController extends Controller
     public function consultarGuia($tipo, $serie, $numero)
     {
         try {
-            $response = $this->nubefactClient->consultarGuia((int)$tipo, $serie, (int)$numero);
+            $response = $this->nubefactClient->consultarGuia((int) $tipo, $serie, (int) $numero);
 
             // Buscar guía local y actualizar
             $guia = GuiaRemision::where('tipo_comprobante', $tipo)
@@ -387,7 +386,7 @@ class NubefactController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error al consultar: ' . $e->getMessage(),
+                'message' => 'Error al consultar: '.$e->getMessage(),
             ], 500);
         }
     }

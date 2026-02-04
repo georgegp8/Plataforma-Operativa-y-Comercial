@@ -17,7 +17,7 @@ return new class extends Migration
             $table->boolean('activo')->default(true);
             $table->string('created_by', 100)->nullable(); // Usuario que creó
             $table->timestamps();
-            
+
             // Índices
             $table->index('activo');
             $table->index('nombre');

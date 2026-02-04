@@ -18,11 +18,11 @@ class CuentaBancariaController extends Controller
         }
 
         if ($request->has('descripcion')) {
-            $query->where('descripcion', 'like', '%' . $request->descripcion . '%');
+            $query->where('descripcion', 'like', '%'.$request->descripcion.'%');
         }
 
         if ($request->has('banco')) {
-            $query->where('banco', 'like', '%' . $request->banco . '%');
+            $query->where('banco', 'like', '%'.$request->banco.'%');
         }
 
         $cuentas = $query->orderBy('created_at', 'desc')->get();
@@ -45,7 +45,7 @@ class CuentaBancariaController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -63,7 +63,7 @@ class CuentaBancariaController extends Controller
         return response()->json([
             'success' => true,
             'data' => $cuenta,
-            'message' => 'Cuenta bancaria creada exitosamente'
+            'message' => 'Cuenta bancaria creada exitosamente',
         ], 201);
     }
 
@@ -73,7 +73,7 @@ class CuentaBancariaController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $cuenta
+            'data' => $cuenta,
         ]);
     }
 
@@ -94,7 +94,7 @@ class CuentaBancariaController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -105,13 +105,13 @@ class CuentaBancariaController extends Controller
             'abreviatura',
             'banco',
             'moneda',
-            'activo'
+            'activo',
         ]));
 
         return response()->json([
             'success' => true,
             'data' => $cuenta,
-            'message' => 'Cuenta bancaria actualizada exitosamente'
+            'message' => 'Cuenta bancaria actualizada exitosamente',
         ]);
     }
 
@@ -122,7 +122,7 @@ class CuentaBancariaController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Cuenta bancaria eliminada exitosamente'
+            'message' => 'Cuenta bancaria eliminada exitosamente',
         ]);
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Empresa;
 use Exception;
 
 /**
@@ -14,9 +13,10 @@ class FacturacionService
     /**
      * Emitir un comprobante electrónico (ENFOQUE SIMPLIFICADO DEL TUTORIAL)
      *
-     * @param array $data Data del comprobante en formato Greenter
-     * @param string $tipoComprobante 'invoice', 'note', 'despatch', etc.
+     * @param  array  $data  Data del comprobante en formato Greenter
+     * @param  string  $tipoComprobante  'invoice', 'note', 'despatch', etc.
      * @return array
+     *
      * @throws Exception
      */
     public function emitirComprobante(array $data, string $tipoComprobante = 'invoice')

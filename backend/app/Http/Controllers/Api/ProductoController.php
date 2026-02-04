@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreProductoRequest;
 use App\Http\Requests\UpdateProductoRequest;
 use App\Models\Producto;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ProductoController extends Controller
 {
@@ -18,18 +18,20 @@ class ProductoController extends Controller
     {
         $query = Producto::with('empresa');
 
-        $query->when($request->filled('empresa_id'), fn($q) => $q->where('empresa_id', $request->empresa_id))
-            ->when($request->filled('categoria'), fn($q) => $q->where('categoria', $request->categoria))
-            ->when($request->has('destacado'), fn($q) => $q->where('destacado', $request->boolean('destacado')))
-            ->when($request->filled('buscar'), fn($q) => $q->buscar($request->buscar));
+        $query->when($request->filled('empresa_id'), fn ($q) => $q->where('empresa_id', $request->empresa_id))
+            ->when($request->filled('categoria'), fn ($q) => $q->where('categoria', $request->categoria))
+            ->when($request->has('destacado'), fn ($q) => $q->where('destacado', $request->boolean('destacado')))
+            ->when($request->filled('buscar'), fn ($q) => $q->buscar($request->buscar));
 
-        // Por defecto, solo activos, a menos que se especifique lo contrario
-        $query->where('activo', $request->boolean('activo', true));
+        // Por defecto solo activos; incluir_inactivos=true muestra todos
+        if (! $request->boolean('incluir_inactivos', false)) {
+            $query->where('activo', $request->boolean('activo', true));
+        }
 
         // Ordenamiento
         $sortBy = $request->get('sort_by', 'codigo');
         $sortOrder = $request->get('sort_order', 'asc');
-        
+
         // Ordenamiento especial para código: primero alfabéticos, luego numéricos
         if ($sortBy === 'codigo') {
             $query->orderByRaw("CASE WHEN codigo ~ '^[A-Za-z]' THEN 0 ELSE 1 END, LOWER(codigo) {$sortOrder}");
@@ -55,6 +57,7 @@ class ProductoController extends Controller
     public function show(string $id): JsonResponse
     {
         $producto = Producto::with('empresa')->findOrFail($id);
+
         return response()->json($producto);
     }
 
@@ -68,7 +71,7 @@ class ProductoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Producto creado exitosamente',
-            'data' => $producto->load('empresa')
+            'data' => $producto->load('empresa'),
         ], 201);
     }
 
@@ -84,7 +87,7 @@ class ProductoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Producto actualizado exitosamente',
-            'data' => $producto->load('empresa')
+            'data' => $producto->load('empresa'),
         ]);
     }
 
@@ -98,7 +101,7 @@ class ProductoController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Producto desactivado exitosamente'
+            'message' => 'Producto desactivado exitosamente',
         ]);
     }
 
@@ -113,7 +116,7 @@ class ProductoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Producto activado exitosamente',
-            'data' => $producto->load('empresa')
+            'data' => $producto->load('empresa'),
         ]);
     }
 
@@ -123,12 +126,12 @@ class ProductoController extends Controller
     public function toggleDestacado(string $id): JsonResponse
     {
         $producto = Producto::findOrFail($id);
-        $producto->update(['destacado' => !$producto->destacado]);
+        $producto->update(['destacado' => ! $producto->destacado]);
 
         return response()->json([
             'success' => true,
             'message' => $producto->destacado ? 'Producto marcado como destacado' : 'Producto desmarcado como destacado',
-            'data' => $producto
+            'data' => $producto,
         ]);
     }
 
@@ -138,9 +141,9 @@ class ProductoController extends Controller
     public function destacados(Request $request): JsonResponse
     {
         $empresaId = $request->get('empresa_id');
-        
+
         $query = Producto::destacado()->activo();
-        
+
         if ($empresaId) {
             $query->where('empresa_id', $empresaId);
         }
@@ -161,10 +164,10 @@ class ProductoController extends Controller
         ]);
 
         // TODO: Implementar lógica de importación CSV
-        
+
         return response()->json([
             'success' => false,
-            'message' => 'Funcionalidad de importación en desarrollo'
+            'message' => 'Funcionalidad de importación en desarrollo',
         ], 501);
     }
 }

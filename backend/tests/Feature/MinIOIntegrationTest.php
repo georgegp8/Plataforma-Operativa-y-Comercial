@@ -2,12 +2,11 @@
 
 namespace Tests\Feature;
 
-use Tests\TestCase;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\DocumentoDigitalizado;
+use App\Services\StorageService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
-use App\Services\StorageService;
-use App\Models\DocumentoDigitalizado;
+use Tests\TestCase;
 
 class MinIOIntegrationTest extends TestCase
 {
@@ -26,14 +25,14 @@ class MinIOIntegrationTest extends TestCase
     {
         // Crear archivo de prueba
         Storage::disk('minio')->put('test/connection.txt', 'Hello MinIO!');
-        
+
         // Verificar existencia
         $this->assertTrue(Storage::disk('minio')->exists('test/connection.txt'));
-        
+
         // Leer contenido
         $content = Storage::disk('minio')->get('test/connection.txt');
         $this->assertEquals('Hello MinIO!', $content);
-        
+
         // Limpiar
         Storage::disk('minio')->delete('test/connection.txt');
         $this->assertFalse(Storage::disk('minio')->exists('test/connection.txt'));
@@ -46,20 +45,20 @@ class MinIOIntegrationTest extends TestCase
     {
         // Crear archivo fake
         $file = UploadedFile::fake()->create('test-factura.pdf', 100, 'application/pdf');
-        
+
         // Subir a MinIO
         $result = $this->storage->store($file, 'documentos', 'compra/test');
-        
+
         // Verificar resultado
         $this->assertTrue($result['success']);
         $this->assertArrayHasKey('path', $result);
         $this->assertArrayHasKey('url', $result);
         $this->assertArrayHasKey('size', $result);
-        
+
         // Verificar existencia
         $exists = $this->storage->exists('documentos', $result['path']);
         $this->assertTrue($exists);
-        
+
         // Limpiar
         $this->storage->delete('documentos', $result['path']);
     }
@@ -70,21 +69,21 @@ class MinIOIntegrationTest extends TestCase
     public function test_storage_service_store_content()
     {
         $content = '<?xml version="1.0"?><Invoice><Total>100.00</Total></Invoice>';
-        
+
         $result = $this->storage->storeContent(
             $content,
             'F001-00000001.xml',
             'comprobantes',
             '2026/02'
         );
-        
+
         $this->assertTrue($result['success']);
         $this->assertStringContainsString('2026/02/F001-00000001.xml', $result['path']);
-        
+
         // Leer y verificar contenido
         $stored = $this->storage->get('comprobantes', $result['path']);
         $this->assertEquals($content, $stored);
-        
+
         // Limpiar
         $this->storage->delete('comprobantes', $result['path']);
     }
@@ -102,14 +101,14 @@ class MinIOIntegrationTest extends TestCase
             'documentos',
             'privado'
         );
-        
+
         // Generar URL temporal (60 minutos)
         $url = $this->storage->getTemporaryUrl('documentos', $result['path'], 60);
-        
+
         // Verificar que la URL contiene firma
         $this->assertStringContainsString('X-Amz-Signature', $url);
         $this->assertStringContainsString('X-Amz-Expires', $url);
-        
+
         // Limpiar
         $this->storage->delete('documentos', $result['path']);
     }
@@ -122,7 +121,7 @@ class MinIOIntegrationTest extends TestCase
         $pdfContent = '%PDF-1.4 fake pdf content';
         $xmlContent = '<?xml version="1.0"?><Invoice></Invoice>';
         $cdrContent = 'CDR-ZIP-CONTENT';
-        
+
         $result = $this->storage->storeComprobante(
             'F001',
             '00000123',
@@ -130,17 +129,17 @@ class MinIOIntegrationTest extends TestCase
             $xmlContent,
             $cdrContent
         );
-        
+
         $this->assertTrue($result['success']);
         $this->assertArrayHasKey('pdf', $result['files']);
         $this->assertArrayHasKey('xml', $result['files']);
         $this->assertArrayHasKey('cdr', $result['files']);
-        
+
         // Verificar que los archivos existen
         $this->assertTrue($this->storage->exists('comprobantes', $result['files']['pdf']['path']));
         $this->assertTrue($this->storage->exists('comprobantes', $result['files']['xml']['path']));
         $this->assertTrue($this->storage->exists('comprobantes', $result['files']['cdr']['path']));
-        
+
         // Limpiar
         $this->storage->delete('comprobantes', $result['files']['pdf']['path']);
         $this->storage->delete('comprobantes', $result['files']['xml']['path']);
@@ -154,16 +153,16 @@ class MinIOIntegrationTest extends TestCase
     public function skip_test_documento_digitalizado_upload_endpoint()
     {
         $this->markTestSkipped('Requiere configuración de autenticación');
-        
+
         // Crear archivo fake PDF (no requiere GD)
         $file = UploadedFile::fake()->create('factura.pdf', 100, 'application/pdf');
-        
+
         // Llamar al endpoint
         $response = $this->postJson('/api/documentos-digitalizados/upload', [
             'archivo' => $file,
             'tipo_operacion' => 'compra',
         ]);
-        
+
         // Verificar respuesta
         $response->assertStatus(200);
         $response->assertJsonStructure([
@@ -176,14 +175,14 @@ class MinIOIntegrationTest extends TestCase
                 'tipo_archivo',
                 'tamano_archivo',
                 'estado_procesamiento',
-            ]
+            ],
         ]);
-        
+
         // Verificar que el archivo se guardó en MinIO
         $data = $response->json('data');
         $exists = $this->storage->exists('documentos', $data['ruta_archivo']);
         $this->assertTrue($exists);
-        
+
         // Limpiar
         $documento = DocumentoDigitalizado::find($data['id']);
         $this->storage->delete('documentos', $documento->ruta_archivo);
@@ -197,30 +196,30 @@ class MinIOIntegrationTest extends TestCase
     public function skip_test_documento_digitalizado_download()
     {
         $this->markTestSkipped('Requiere configuración de autenticación');
-        
+
         // Crear documento de prueba
         $file = UploadedFile::fake()->create('test.pdf', 50, 'application/pdf');
         $uploadResponse = $this->postJson('/api/documentos-digitalizados/upload', [
             'archivo' => $file,
             'tipo_operacion' => 'compra',
         ]);
-        
+
         $documentoId = $uploadResponse->json('data.id');
-        
+
         // Descargar
         $downloadResponse = $this->getJson("/api/documentos-digitalizados/{$documentoId}/descargar");
-        
+
         // Verificar que retorna URL temporal
         $downloadResponse->assertStatus(200);
         $downloadResponse->assertJsonStructure([
             'success',
             'url',
-            'nombre_archivo'
+            'nombre_archivo',
         ]);
-        
+
         $url = $downloadResponse->json('url');
         $this->assertStringContainsString('X-Amz-Signature', $url);
-        
+
         // Limpiar
         $documento = DocumentoDigitalizado::find($documentoId);
         $this->storage->delete('documentos', $documento->ruta_archivo);
@@ -239,14 +238,14 @@ class MinIOIntegrationTest extends TestCase
             'documentos',
             'test'
         );
-        
+
         $metadata = $this->storage->metadata('documentos', $result['path']);
-        
+
         $this->assertArrayHasKey('size', $metadata);
         $this->assertArrayHasKey('last_modified', $metadata);
         $this->assertArrayHasKey('type', $metadata);
         $this->assertEquals(strlen($content), $metadata['size']);
-        
+
         // Limpiar
         $this->storage->delete('documentos', $result['path']);
     }
@@ -263,22 +262,22 @@ class MinIOIntegrationTest extends TestCase
             'documentos',
             'test'
         );
-        
+
         $source = $result['path'];
         $destination = 'test/copia.txt';
-        
+
         // Copiar
         $copied = $this->storage->copy('documentos', $source, 'documentos', $destination);
         $this->assertTrue($copied);
-        
+
         // Verificar que ambos existen
         $this->assertTrue($this->storage->exists('documentos', $source));
         $this->assertTrue($this->storage->exists('documentos', $destination));
-        
+
         // Verificar contenido
         $copiedContent = $this->storage->get('documentos', $destination);
         $this->assertEquals($content, $copiedContent);
-        
+
         // Limpiar
         $this->storage->delete('documentos', $source);
         $this->storage->delete('documentos', $destination);
@@ -290,7 +289,7 @@ class MinIOIntegrationTest extends TestCase
     public function test_specialized_disks()
     {
         $disks = ['documentos', 'comprobantes', 'adjuntos'];
-        
+
         foreach ($disks as $disk) {
             $result = $this->storage->storeContent(
                 "Test content for {$disk}",
@@ -298,10 +297,10 @@ class MinIOIntegrationTest extends TestCase
                 $disk,
                 'test'
             );
-            
+
             $this->assertTrue($result['success']);
             $this->assertTrue($this->storage->exists($disk, $result['path']));
-            
+
             // Limpiar
             $this->storage->delete($disk, $result['path']);
         }

@@ -5,10 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Documento;
 use App\Models\Oportunidad;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class DocumentoController extends Controller
 {
@@ -52,7 +52,7 @@ class DocumentoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -62,12 +62,12 @@ class DocumentoController extends Controller
         if ($request->hasFile('archivo')) {
             $archivo = $request->file('archivo');
             $oportunidad = Oportunidad::findOrFail($data['oportunidad_id']);
-            
-            $filename = time() . '_' . $archivo->getClientOriginalName();
-            $path = "documentos/oportunidad_{$oportunidad->id}/" . $filename;
-            
+
+            $filename = time().'_'.$archivo->getClientOriginalName();
+            $path = "documentos/oportunidad_{$oportunidad->id}/".$filename;
+
             Storage::disk('minio')->put($path, file_get_contents($archivo));
-            
+
             $data['nombre_archivo'] = $archivo->getClientOriginalName();
             $data['storage_path'] = $path;
             $data['mime_type'] = $archivo->getMimeType();
@@ -83,7 +83,7 @@ class DocumentoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Documento subido exitosamente',
-            'data' => $documento->load('oportunidad')
+            'data' => $documento->load('oportunidad'),
         ], 201);
     }
 
@@ -96,7 +96,7 @@ class DocumentoController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $documento
+            'data' => $documento,
         ]);
     }
 
@@ -116,7 +116,7 @@ class DocumentoController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -131,7 +131,7 @@ class DocumentoController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Documento actualizado exitosamente',
-            'data' => $documento
+            'data' => $documento,
         ]);
     }
 
@@ -151,7 +151,7 @@ class DocumentoController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Documento eliminado exitosamente'
+            'message' => 'Documento eliminado exitosamente',
         ]);
     }
 
@@ -162,17 +162,17 @@ class DocumentoController extends Controller
     {
         $documento = Documento::findOrFail($id);
 
-        if (!$documento->storage_path) {
+        if (! $documento->storage_path) {
             return response()->json([
                 'success' => false,
-                'message' => 'Archivo no encontrado'
+                'message' => 'Archivo no encontrado',
             ], 404);
         }
 
-        if (!Storage::disk('minio')->exists($documento->storage_path)) {
+        if (! Storage::disk('minio')->exists($documento->storage_path)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Archivo no existe en el storage'
+                'message' => 'Archivo no existe en el storage',
             ], 404);
         }
 
@@ -180,7 +180,7 @@ class DocumentoController extends Controller
 
         return response($file, 200)
             ->header('Content-Type', $documento->mime_type)
-            ->header('Content-Disposition', 'attachment; filename="' . $documento->nombre_archivo . '"');
+            ->header('Content-Disposition', 'attachment; filename="'.$documento->nombre_archivo.'"');
     }
 
     /**
@@ -190,10 +190,10 @@ class DocumentoController extends Controller
     {
         $documento = Documento::findOrFail($id);
 
-        if (!$documento->storage_path) {
+        if (! $documento->storage_path) {
             return response()->json([
                 'success' => false,
-                'message' => 'Archivo no encontrado'
+                'message' => 'Archivo no encontrado',
             ], 404);
         }
 
@@ -202,7 +202,7 @@ class DocumentoController extends Controller
 
         return response()->json([
             'success' => true,
-            'url' => $url
+            'url' => $url,
         ]);
     }
 
@@ -217,7 +217,7 @@ class DocumentoController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $documentos
+            'data' => $documentos,
         ]);
     }
 }

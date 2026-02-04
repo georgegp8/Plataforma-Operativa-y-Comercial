@@ -2,44 +2,44 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class StorageService
 {
     /**
      * Almacena un archivo en MinIO
-     * 
-     * @param UploadedFile $file Archivo a subir
-     * @param string $disk Disk de almacenamiento (documentos, comprobantes, adjuntos)
-     * @param string|null $path Ruta dentro del bucket (ej: 2026/02/03)
-     * @param string|null $filename Nombre personalizado del archivo
+     *
+     * @param  UploadedFile  $file  Archivo a subir
+     * @param  string  $disk  Disk de almacenamiento (documentos, comprobantes, adjuntos)
+     * @param  string|null  $path  Ruta dentro del bucket (ej: 2026/02/03)
+     * @param  string|null  $filename  Nombre personalizado del archivo
      * @return array ['success' => bool, 'path' => string, 'url' => string, 'error' => string]
      */
     public function store(UploadedFile $file, string $disk = 'documentos', ?string $path = null, ?string $filename = null): array
     {
         try {
             // Generar path automático basado en fecha si no se proporciona
-            if (!$path) {
+            if (! $path) {
                 $path = date('Y/m/d');
             }
 
             // Generar nombre único si no se proporciona
-            if (!$filename) {
-                $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+            if (! $filename) {
+                $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
             }
 
             // Ruta completa
-            $fullPath = $path . '/' . $filename;
+            $fullPath = $path.'/'.$filename;
 
             // Almacenar archivo
             $stored = Storage::disk($disk)->put($fullPath, file_get_contents($file->getRealPath()));
 
-            if (!$stored) {
+            if (! $stored) {
                 return [
                     'success' => false,
-                    'error' => 'Error al almacenar el archivo'
+                    'error' => 'Error al almacenar el archivo',
                 ];
             }
 
@@ -49,41 +49,40 @@ class StorageService
                 'url' => $this->getUrl($disk, $fullPath),
                 'size' => $file->getSize(),
                 'mime_type' => $file->getMimeType(),
-                'original_name' => $file->getClientOriginalName()
+                'original_name' => $file->getClientOriginalName(),
             ];
 
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'error' => 'Error al subir archivo: ' . $e->getMessage()
+                'error' => 'Error al subir archivo: '.$e->getMessage(),
             ];
         }
     }
 
     /**
      * Almacena contenido directo (ej: PDF generado, XML)
-     * 
-     * @param string $content Contenido del archivo
-     * @param string $filename Nombre del archivo
-     * @param string $disk Disk de almacenamiento
-     * @param string|null $path Ruta dentro del bucket
-     * @return array
+     *
+     * @param  string  $content  Contenido del archivo
+     * @param  string  $filename  Nombre del archivo
+     * @param  string  $disk  Disk de almacenamiento
+     * @param  string|null  $path  Ruta dentro del bucket
      */
     public function storeContent(string $content, string $filename, string $disk = 'comprobantes', ?string $path = null): array
     {
         try {
-            if (!$path) {
+            if (! $path) {
                 $path = date('Y/m/d');
             }
 
-            $fullPath = $path . '/' . $filename;
+            $fullPath = $path.'/'.$filename;
 
             $stored = Storage::disk($disk)->put($fullPath, $content);
 
-            if (!$stored) {
+            if (! $stored) {
                 return [
                     'success' => false,
-                    'error' => 'Error al almacenar el contenido'
+                    'error' => 'Error al almacenar el contenido',
                 ];
             }
 
@@ -91,23 +90,20 @@ class StorageService
                 'success' => true,
                 'path' => $fullPath,
                 'url' => $this->getUrl($disk, $fullPath),
-                'size' => strlen($content)
+                'size' => strlen($content),
             ];
 
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'error' => 'Error al guardar contenido: ' . $e->getMessage()
+                'error' => 'Error al guardar contenido: '.$e->getMessage(),
             ];
         }
     }
 
     /**
      * Obtiene URL del archivo en MinIO
-     * 
-     * @param string $disk
-     * @param string $path
-     * @return string
+     *
      * @phpstan-ignore-next-line
      */
     public function getUrl(string $disk, string $path): string
@@ -118,11 +114,9 @@ class StorageService
 
     /**
      * Genera URL temporal firmada (válida por tiempo limitado)
-     * 
-     * @param string $disk
-     * @param string $path
-     * @param int $minutes Minutos de validez (default: 60)
-     * @return string
+     *
+     * @param  int  $minutes  Minutos de validez (default: 60)
+     *
      * @phpstan-ignore-next-line
      */
     public function getTemporaryUrl(string $disk, string $path, int $minutes = 60): string
@@ -133,9 +127,7 @@ class StorageService
 
     /**
      * Descarga archivo desde MinIO
-     * 
-     * @param string $disk
-     * @param string $path
+     *
      * @return string|null Contenido del archivo
      */
     public function get(string $disk, string $path): ?string
@@ -149,10 +141,6 @@ class StorageService
 
     /**
      * Verifica si un archivo existe
-     * 
-     * @param string $disk
-     * @param string $path
-     * @return bool
      */
     public function exists(string $disk, string $path): bool
     {
@@ -161,10 +149,6 @@ class StorageService
 
     /**
      * Elimina un archivo
-     * 
-     * @param string $disk
-     * @param string $path
-     * @return bool
      */
     public function delete(string $disk, string $path): bool
     {
@@ -177,17 +161,12 @@ class StorageService
 
     /**
      * Copia archivo a otro disco/ruta
-     * 
-     * @param string $fromDisk
-     * @param string $fromPath
-     * @param string $toDisk
-     * @param string $toPath
-     * @return bool
      */
     public function copy(string $fromDisk, string $fromPath, string $toDisk, string $toPath): bool
     {
         try {
             $content = Storage::disk($fromDisk)->get($fromPath);
+
             return Storage::disk($toDisk)->put($toPath, $content);
         } catch (\Exception $e) {
             return false;
@@ -196,10 +175,6 @@ class StorageService
 
     /**
      * Lista archivos en una ruta
-     * 
-     * @param string $disk
-     * @param string $path
-     * @return array
      */
     public function listFiles(string $disk, string $path = ''): array
     {
@@ -212,10 +187,6 @@ class StorageService
 
     /**
      * Obtiene tamaño del archivo en bytes
-     * 
-     * @param string $disk
-     * @param string $path
-     * @return int
      */
     public function size(string $disk, string $path): int
     {
@@ -228,10 +199,6 @@ class StorageService
 
     /**
      * Obtiene metadatos del archivo
-     * 
-     * @param string $disk
-     * @param string $path
-     * @return array
      */
     public function metadata(string $disk, string $path): array
     {
@@ -242,7 +209,7 @@ class StorageService
                 'last_modified' => Storage::disk($disk)->lastModified($path),
                 // @phpstan-ignore-next-line
                 'type' => Storage::disk($disk)->mimeType($path),
-                'url' => $this->getUrl($disk, $path)
+                'url' => $this->getUrl($disk, $path),
             ];
         } catch (\Exception $e) {
             return [];
@@ -251,61 +218,60 @@ class StorageService
 
     /**
      * Almacena comprobante electrónico (PDF + XML + CDR)
-     * 
-     * @param string $serie Serie del comprobante (ej: F001)
-     * @param string $numero Número del comprobante (ej: 00000123)
-     * @param string|null $pdfContent Contenido PDF
-     * @param string|null $xmlContent Contenido XML
-     * @param string|null $cdrContent Contenido CDR
-     * @return array
+     *
+     * @param  string  $serie  Serie del comprobante (ej: F001)
+     * @param  string  $numero  Número del comprobante (ej: 00000123)
+     * @param  string|null  $pdfContent  Contenido PDF
+     * @param  string|null  $xmlContent  Contenido XML
+     * @param  string|null  $cdrContent  Contenido CDR
      */
     public function storeComprobante(string $serie, string $numero, ?string $pdfContent = null, ?string $xmlContent = null, ?string $cdrContent = null): array
     {
         $results = [
             'success' => true,
-            'files' => []
+            'files' => [],
         ];
 
-        $path = 'comprobantes/' . date('Y/m');
-        $baseFilename = $serie . '-' . $numero;
+        $path = 'comprobantes/'.date('Y/m');
+        $baseFilename = $serie.'-'.$numero;
 
         try {
             // Guardar PDF
             if ($pdfContent) {
-                $pdfResult = $this->storeContent($pdfContent, $baseFilename . '.pdf', 'comprobantes', $path);
+                $pdfResult = $this->storeContent($pdfContent, $baseFilename.'.pdf', 'comprobantes', $path);
                 if ($pdfResult['success']) {
                     $results['files']['pdf'] = $pdfResult;
                 } else {
                     $results['success'] = false;
-                    $results['error'] = 'Error al guardar PDF: ' . $pdfResult['error'];
+                    $results['error'] = 'Error al guardar PDF: '.$pdfResult['error'];
                 }
             }
 
             // Guardar XML
             if ($xmlContent) {
-                $xmlResult = $this->storeContent($xmlContent, $baseFilename . '.xml', 'comprobantes', $path);
+                $xmlResult = $this->storeContent($xmlContent, $baseFilename.'.xml', 'comprobantes', $path);
                 if ($xmlResult['success']) {
                     $results['files']['xml'] = $xmlResult;
                 } else {
                     $results['success'] = false;
-                    $results['error'] = 'Error al guardar XML: ' . $xmlResult['error'];
+                    $results['error'] = 'Error al guardar XML: '.$xmlResult['error'];
                 }
             }
 
             // Guardar CDR
             if ($cdrContent) {
-                $cdrResult = $this->storeContent($cdrContent, 'R-' . $baseFilename . '.zip', 'comprobantes', $path);
+                $cdrResult = $this->storeContent($cdrContent, 'R-'.$baseFilename.'.zip', 'comprobantes', $path);
                 if ($cdrResult['success']) {
                     $results['files']['cdr'] = $cdrResult;
                 } else {
                     $results['success'] = false;
-                    $results['error'] = 'Error al guardar CDR: ' . $cdrResult['error'];
+                    $results['error'] = 'Error al guardar CDR: '.$cdrResult['error'];
                 }
             }
 
         } catch (\Exception $e) {
             $results['success'] = false;
-            $results['error'] = 'Error general al guardar comprobante: ' . $e->getMessage();
+            $results['error'] = 'Error general al guardar comprobante: '.$e->getMessage();
         }
 
         return $results;
