@@ -16,6 +16,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -28,8 +33,11 @@ interface ProductoCompra {
   id: string;
   codigo: string;
   descripcion: string;
+  unidad_medida: string;
   cantidad: number;
-  precio: number;
+  precio_unitario: number;
+  valor_unitario: number;
+  igv_item: number;
   total: number;
 }
 
@@ -110,13 +118,20 @@ export default function NuevaCompra() {
   };
 
   const handleSelectProducto = (producto: ProductoType) => {
+    const precioUnitario = producto.precio_compra_unitario || 0;
+    const valorUnitario = incluyeIgv ? precioUnitario / 1.18 : precioUnitario;
+    const igvItem = incluyeIgv ? precioUnitario - valorUnitario : valorUnitario * 0.18;
+    
     const nuevoProducto: ProductoCompra = {
       id: `${Date.now()}-${Math.random()}`,
       codigo: producto.codigo,
       descripcion: producto.descripcion,
+      unidad_medida: producto.unidad_medida || 'NIU',
       cantidad: 1,
-      precio: producto.precio_compra_unitario || 0,
-      total: producto.precio_compra_unitario || 0,
+      precio_unitario: precioUnitario,
+      valor_unitario: valorUnitario,
+      igv_item: igvItem,
+      total: precioUnitario,
     };
     setProductosCompra([...productosCompra, nuevoProducto]);
     setIsProductoModalOpen(false);
@@ -128,11 +143,16 @@ export default function NuevaCompra() {
     toast.success('Producto eliminado');
   };
 
-  const handleProductoChange = (id: string, field: 'cantidad' | 'precio', value: number) => {
+  const handleProductoChange = (id: string, field: 'cantidad' | 'precio_unitario', value: number) => {
     setProductosCompra(productosCompra.map(p => {
       if (p.id === id) {
         const updated = { ...p, [field]: value };
-        updated.total = updated.cantidad * updated.precio;
+        // Recalcular valores según incluye IGV
+        if (field === 'precio_unitario') {
+          updated.valor_unitario = incluyeIgv ? value / 1.18 : value;
+          updated.igv_item = incluyeIgv ? value - updated.valor_unitario : updated.valor_unitario * 0.18;
+        }
+        updated.total = updated.cantidad * updated.precio_unitario;
         return updated;
       }
       return p;
@@ -179,9 +199,62 @@ export default function NuevaCompra() {
     handleResetForm();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const calcularTotales = () => {
+    const subtotal = productosCompra.reduce((sum, p) => sum + (p.valor_unitario * p.cantidad), 0);
+    const totalIgv = productosCompra.reduce((sum, p) => sum + (p.igv_item * p.cantidad), 0);
+    const total = subtotal + totalIgv;
+    return { subtotal, totalIgv, total };
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.info('Funcionalidad de guardar compra en desarrollo');
+    
+    // Validaciones
+    if (!proveedorSeleccionado) {
+      toast.error('Debe seleccionar un proveedor');
+      return;
+    }
+    if (!serie || !numero) {
+      toast.error('Debe ingresar serie y número de comprobante');
+      return;
+    }
+    if (productosCompra.length === 0) {
+      toast.error('Debe agregar al menos un producto');
+      return;
+    }
+
+    try {
+      const totales = calcularTotales();
+      const compraData = {
+        proveedor_id: proveedorSeleccionado.id,
+        proveedor_nombre: proveedorSeleccionado.denominacion,
+        proveedor_ruc: proveedorSeleccionado.num_doc,
+        actividad: 'Compra manual',
+        fecha_actividad: fechaEmision,
+        estado: agregarPagos && pagos.length > 0 ? 'Pagado' : 'Pendiente de pago',
+        tipo_comprobante: serie.substring(0, 1), // F, B, etc.
+        serie_comprobante: serie,
+        numero_comprobante: numero,
+        comprobante_completo: `${serie}-${numero}`,
+        tipo_comprobante_desc: tipoComprobante,
+        moneda: moneda === 'Soles' ? 'PEN' : 'USD',
+        total: totales.total,
+        cantidad_productos: productosCompra.length,
+        activo: true,
+      };
+
+      const response = await api.compras.crear(compraData);
+      if (response.data.success) {
+        toast.success('Compra registrada exitosamente');
+        handleResetForm();
+      }
+    } catch (error: unknown) {
+      console.error('Error al guardar compra:', error);
+      const errorMessage = error && typeof error === 'object' && 'response' in error
+        ? (error as {response?: {data?: {message?: string}}}).response?.data?.message
+        : undefined;
+      toast.error(errorMessage || 'Error al guardar la compra');
+    }
   };
 
   return (
@@ -206,10 +279,13 @@ export default function NuevaCompra() {
                     <SelectTrigger id="tipo_comprobante" className="bg-background">
                       <SelectValue placeholder="Seleccione tipo de comprobante" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="factura">Factura</SelectItem>
-                      <SelectItem value="boleta">Boleta</SelectItem>
-                      <SelectItem value="otro">Otro</SelectItem>
+                    <SelectContent className="max-w-md">
+                      <SelectItem value="FACTURA ELECTRONICA">Factura Electrónica</SelectItem>
+                      <SelectItem value="BOLETA DE VENTA ELECTRONICA">Boleta de Venta Electrónica</SelectItem>
+                      <SelectItem value="NOTA DE CREDITO ELECTRONICA">Nota de Crédito Electrónica</SelectItem>
+                      <SelectItem value="NOTA DE DEBITO ELECTRONICA">Nota de Débito Electrónica</SelectItem>
+                      <SelectItem value="RECIBO POR HONORARIOS ELECTRONICO">Recibo por Honorarios Electrónico</SelectItem>
+                      <SelectItem value="GUIA DE REMISION ELECTRONICA">Guía de Remisión Electrónica</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -257,7 +333,16 @@ export default function NuevaCompra() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tipo_cambio">T.C.</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Label htmlFor="tipo_cambio" className="cursor-help inline-flex items-center gap-1">
+                        T.C. <span className="text-xs text-muted-foreground">ⓘ</span>
+                      </Label>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Tipo de Cambio</p>
+                    </TooltipContent>
+                  </Tooltip>
                   <Input
                     id="tipo_cambio"
                     type="number"
@@ -270,12 +355,13 @@ export default function NuevaCompra() {
                 <div className="space-y-2">
                   <Label htmlFor="moneda">Moneda</Label>
                   <Select value={moneda} onValueChange={setMoneda}>
-                    <SelectTrigger id="moneda" className="bg-background">
+                    <SelectTrigger id="moneda" className="bg-background w-full">
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="PEN">PEN - Soles</SelectItem>
-                      <SelectItem value="USD">USD - Dólares</SelectItem>
+                    <SelectContent className="w-auto min-w-full">
+                      <SelectItem value="PEN">PEN - Nuevos Soles</SelectItem>
+                      <SelectItem value="USD">USD - Dólares Americanos</SelectItem>
+                      <SelectItem value="EUR">EUR - Euros</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -375,49 +461,81 @@ export default function NuevaCompra() {
                   <table className="w-full">
                     <thead className="bg-muted/50">
                       <tr className="border-b border-border">
-                        <th className="text-left px-4 py-2 text-sm font-semibold">Código</th>
-                        <th className="text-left px-4 py-2 text-sm font-semibold">Descripción</th>
-                        <th className="text-center px-4 py-2 text-sm font-semibold">Cantidad</th>
-                        <th className="text-right px-4 py-2 text-sm font-semibold">Precio</th>
-                        <th className="text-right px-4 py-2 text-sm font-semibold">Total</th>
-                        <th className="text-center px-4 py-2 text-sm font-semibold">Acciones</th>
+                        <th className="text-left px-2 py-2 text-xs font-semibold">Código</th>
+                        <th className="text-left px-2 py-2 text-xs font-semibold">Descripción</th>
+                        <th className="text-center px-2 py-2 text-xs font-semibold">UM</th>
+                        <th className="text-center px-2 py-2 text-xs font-semibold">Cant.</th>
+                        <th className="text-right px-2 py-2 text-xs font-semibold">P. Unit.</th>
+                        <th className="text-right px-2 py-2 text-xs font-semibold">Valor</th>
+                        <th className="text-right px-2 py-2 text-xs font-semibold">IGV</th>
+                        <th className="text-right px-2 py-2 text-xs font-semibold">Total</th>
+                        <th className="text-center px-2 py-2 text-xs font-semibold">-</th>
                       </tr>
                     </thead>
                     <tbody>
                       {productosCompra.map((producto) => (
-                        <tr key={producto.id} className="border-b border-border">
-                          <td className="px-4 py-2 text-sm">{producto.codigo}</td>
-                          <td className="px-4 py-2 text-sm">{producto.descripcion}</td>
-                          <td className="px-4 py-2 text-center">
+                        <tr key={producto.id} className="border-b border-border hover:bg-muted/30">
+                          <td className="px-2 py-2 text-xs">{producto.codigo}</td>
+                          <td className="px-2 py-2 text-xs max-w-xs truncate" title={producto.descripcion}>
+                            {producto.descripcion}
+                          </td>
+                          <td className="px-2 py-2 text-xs text-center">{producto.unidad_medida}</td>
+                          <td className="px-2 py-2 text-center">
                             <Input
                               type="number"
+                              min="0"
+                              step="0.01"
                               value={producto.cantidad}
                               onChange={(e) => handleProductoChange(producto.id, 'cantidad', Number(e.target.value))}
-                              className="w-20 text-center"
+                              className="w-16 text-center text-xs h-8"
                             />
                           </td>
-                          <td className="px-4 py-2 text-right">
+                          <td className="px-2 py-2 text-right">
                             <Input
                               type="number"
+                              min="0"
                               step="0.01"
-                              value={producto.precio}
-                              onChange={(e) => handleProductoChange(producto.id, 'precio', Number(e.target.value))}
-                              className="w-24 text-right"
+                              value={producto.precio_unitario}
+                              onChange={(e) => handleProductoChange(producto.id, 'precio_unitario', Number(e.target.value))}
+                              className="w-20 text-right text-xs h-8"
                             />
                           </td>
-                          <td className="px-4 py-2 text-sm text-right">{producto.total.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-center">
+                          <td className="px-2 py-2 text-xs text-right text-muted-foreground">
+                            {(producto.valor_unitario * producto.cantidad).toFixed(2)}
+                          </td>
+                          <td className="px-2 py-2 text-xs text-right text-muted-foreground">
+                            {(producto.igv_item * producto.cantidad).toFixed(2)}
+                          </td>
+                          <td className="px-2 py-2 text-xs text-right font-semibold">
+                            {producto.total.toFixed(2)}
+                          </td>
+                          <td className="px-2 py-2 text-center">
                             <button
                               type="button"
                               onClick={() => handleRemoveProducto(producto.id)}
                               className="text-red-600 hover:text-red-700"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3 w-3" />
                             </button>
                           </td>
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot className="bg-muted/50">
+                      <tr className="border-t-2 border-border">
+                        <td colSpan={5} className="px-2 py-2 text-sm font-semibold text-right">Subtotal:</td>
+                        <td className="px-2 py-2 text-sm text-right font-semibold">
+                          {calcularTotales().subtotal.toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 text-sm text-right font-semibold">
+                          {calcularTotales().totalIgv.toFixed(2)}
+                        </td>
+                        <td className="px-2 py-2 text-sm text-right font-bold text-primary">
+                          {calcularTotales().total.toFixed(2)}
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               )}
@@ -513,23 +631,39 @@ export default function NuevaCompra() {
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
-              <Button
-                type="button"
-                onClick={handleResetForm}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Restaurar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleCancel}
-                variant="destructive"
-              >
-                <X className="h-4 w-4 mr-2" />
-                Cancelar
-              </Button>
+            <div className="flex items-center justify-between pt-4 border-t border-border">
+              <div className="text-sm text-muted-foreground">
+                {productosCompra.length > 0 && (
+                  <span>
+                    <strong>{productosCompra.length}</strong> producto(s) | Total: <strong className="text-primary">{moneda === 'Soles' ? 'S/' : '$'} {calcularTotales().total.toFixed(2)}</strong>
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <Button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Limpiar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleCancel}
+                  variant="outline"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  disabled={!proveedorSeleccionado || productosCompra.length === 0}
+                >
+                  💾 Guardar Compra
+                </Button>
+              </div>
             </div>
           </div>
         </form>
@@ -580,11 +714,11 @@ export default function NuevaCompra() {
 
         {/* Modal Seleccionar Producto */}
         <Dialog open={isProductoModalOpen} onOpenChange={setIsProductoModalOpen}>
-          <DialogContent className="sm:max-w-150">
+          <DialogContent className="sm:max-w-3xl">
             <DialogHeader>
               <DialogTitle>Seleccionar Producto</DialogTitle>
               <DialogDescription>
-                Seleccione un producto de la lista
+                Seleccione un producto de la lista para agregarlo a la compra
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-96 overflow-y-auto">
@@ -603,16 +737,27 @@ export default function NuevaCompra() {
                       key={producto.id}
                       type="button"
                       onClick={() => handleSelectProducto(producto)}
-                      className="w-full text-left p-3 rounded border border-border hover:bg-muted transition-colors"
+                      className="w-full text-left p-3 rounded border border-border hover:bg-accent hover:border-primary transition-colors"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{producto.descripcion}</div>
-                          <div className="text-sm text-muted-foreground">Código: {producto.codigo}</div>
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{producto.descripcion}</div>
+                          <div className="flex items-center gap-4 mt-1">
+                            <span className="text-xs text-muted-foreground">Código: <strong>{producto.codigo}</strong></span>
+                            {producto.unidad_medida && (
+                              <span className="text-xs text-muted-foreground">UM: <strong>{producto.unidad_medida}</strong></span>
+                            )}
+                            {producto.stock_actual > 0 && (
+                              <span className="text-xs text-muted-foreground">Stock: <strong>{producto.stock_actual}</strong></span>
+                            )}
+                          </div>
                         </div>
                         {producto.precio_compra_unitario && (
-                          <div className="text-sm font-medium">
-                            S/ {producto.precio_compra_unitario.toFixed(2)}
+                          <div className="text-right">
+                            <div className="text-sm font-semibold text-primary">
+                              S/ {producto.precio_compra_unitario.toFixed(2)}
+                            </div>
+                            <div className="text-xs text-muted-foreground">Precio compra</div>
                           </div>
                         )}
                       </div>

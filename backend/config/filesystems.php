@@ -56,15 +56,61 @@ return [
             'throw' => false,
         ],
 
+        // MinIO - Almacenamiento principal (S3 Compatible)
         'minio' => [
             'driver' => 's3',
-            'key' => env('MINIO_ACCESS_KEY', env('AWS_ACCESS_KEY_ID')),
-            'secret' => env('MINIO_SECRET_KEY', env('AWS_SECRET_ACCESS_KEY')),
+            'key' => env('MINIO_ACCESS_KEY', 'minio'),
+            'secret' => env('MINIO_SECRET_KEY', 'minio123'),
             'region' => env('MINIO_REGION', 'us-east-1'),
             'bucket' => env('MINIO_BUCKET', 'facturacion'),
-            'url' => env('MINIO_ENDPOINT'),
-            'endpoint' => env('MINIO_ENDPOINT', 'http://127.0.0.1:9000'),
+            'url' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
+            'endpoint' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
+            'use_path_style_endpoint' => env('MINIO_USE_PATH_STYLE_ENDPOINT', true),
+            'throw' => false,
+        ],
+
+        // MinIO - Documentos Digitalizados (PDFs/Imágenes para OCR)
+        'documentos' => [
+            'driver' => 's3',
+            'key' => env('MINIO_ACCESS_KEY', 'minio'),
+            'secret' => env('MINIO_SECRET_KEY', 'minio123'),
+            'region' => env('MINIO_REGION', 'us-east-1'),
+            'bucket' => env('MINIO_BUCKET', 'facturacion'),
+            'url' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
+            'endpoint' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
             'use_path_style_endpoint' => true,
+            'root' => 'documentos-digitalizados',
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
+        // MinIO - Comprobantes Electrónicos (PDFs/XMLs de NubeFact)
+        'comprobantes' => [
+            'driver' => 's3',
+            'key' => env('MINIO_ACCESS_KEY', 'minio'),
+            'secret' => env('MINIO_SECRET_KEY', 'minio123'),
+            'region' => env('MINIO_REGION', 'us-east-1'),
+            'bucket' => env('MINIO_BUCKET', 'facturacion'),
+            'url' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
+            'endpoint' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
+            'use_path_style_endpoint' => true,
+            'root' => 'comprobantes',
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
+        // MinIO - Archivos Adjuntos (Contratos, O/C, etc.)
+        'adjuntos' => [
+            'driver' => 's3',
+            'key' => env('MINIO_ACCESS_KEY', 'minio'),
+            'secret' => env('MINIO_SECRET_KEY', 'minio123'),
+            'region' => env('MINIO_REGION', 'us-east-1'),
+            'bucket' => env('MINIO_BUCKET', 'facturacion'),
+            'url' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
+            'endpoint' => env('MINIO_ENDPOINT', 'http://localhost:9000'),
+            'use_path_style_endpoint' => true,
+            'root' => 'adjuntos',
+            'visibility' => 'private',
             'throw' => false,
         ],
 

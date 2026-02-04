@@ -282,6 +282,8 @@ Route::prefix('v1')->group(function () {
     // Documentos Digitalizados (OCR de facturas)
     Route::get('documentos-digitalizados', [DocumentoDigitalizadoController::class, 'index']);
     Route::post('documentos-digitalizados/upload', [DocumentoDigitalizadoController::class, 'upload']);
+    Route::post('documentos-digitalizados/{id}/procesar-ocr', [DocumentoDigitalizadoController::class, 'procesarConOCRManual']);
+    Route::get('documentos-digitalizados/{id}/descargar', [DocumentoDigitalizadoController::class, 'descargar']);
     Route::get('documentos-digitalizados/{id}', [DocumentoDigitalizadoController::class, 'show']);
     Route::put('documentos-digitalizados/{id}', [DocumentoDigitalizadoController::class, 'update']);
     Route::post('documentos-digitalizados/{id}/validar', [DocumentoDigitalizadoController::class, 'validar']);

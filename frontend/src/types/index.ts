@@ -350,15 +350,69 @@ export interface DocumentoDigitalizado {
   compra_id: number | null;
   venta_id: number | null;
   activo: boolean;
+  // Nuevos campos de NubeFact API (34 campos adicionales)
+  sunat_transaction: string | null;
+  tipo_documento_cliente: '1' | '4' | '6' | '7' | '0' | null; // DNI, CE, RUC, Pasaporte, Sin Doc
+  fecha_vencimiento: string | null;
+  tipo_cambio: number | null;
+  porcentaje_igv: number | null;
+  total_gravada: number | null;
+  total_exonerada: number | null;
+  total_inafecta: number | null;
+  total_gratuita: number | null;
+  total_otros_cargos: number | null;
+  total_descuentos: number | null;
+  suma_igv: number | null;
+  suma_isc: number | null;
+  suma_otros_tributos: number | null;
+  mto_operaciones_gravadas: number | null;
+  mto_operaciones_exoneradas: number | null;
+  mto_operaciones_inafectas: number | null;
+  mto_operaciones_gratuitas: number | null;
+  detraccion: boolean | null;
+  detraccion_codigo: string | null;
+  detraccion_porcentaje: number | null;
+  detraccion_monto: number | null;
+  percepcion_tipo: string | null;
+  percepcion_monto: number | null;
+  condiciones_pago: string | null;
+  orden_compra_servicio: string | null;
+  observaciones: string | null;
+  // Notas de crédito/débito
+  documento_modifica_tipo: string | null;
+  documento_modifica_serie: string | null;
+  documento_modifica_numero: string | null;
+  tipo_nota: '1' | '2' | null; // 1=Crédito, 2=Débito
+  motivo_nota: string | null;
+  // Venta a crédito
+  venta_al_credito: boolean;
+  venta_credito_cuotas: CuotaCredito[] | null;
+  // Guías relacionadas
+  guias_relacionadas: GuiaRelacionada[] | null;
   readonly created_at?: string;
   readonly created_by?: string;
 }
 
+export interface CuotaCredito {
+  cuota: number;
+  fecha_pago: string;
+  importe: number;
+}
+
+export interface GuiaRelacionada {
+  tipo: string; // '09' para guía de remisión
+  serie: string;
+  numero: string;
+}
+
 export interface ItemExtraido {
-  codigo: string;
+  codigo?: string;
   descripcion: string;
   cantidad: number;
+  unidad_medida?: string; // NIU, ZZ, KGM, etc.
+  valor_unitario?: number;
   precio_unitario: number;
+  tipo_igv?: string; // 10=Gravado, 20=Exonerado, 30=Inafecto, 40=Gratuito
   subtotal: number;
   igv?: number;
   total?: number;

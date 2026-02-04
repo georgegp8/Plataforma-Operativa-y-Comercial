@@ -5,14 +5,23 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\DocumentoDigitalizado;
 use App\Models\Compra;
+use App\Services\StorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class DocumentoDigitalizadoController extends Controller
 {
+    protected $storageService;
+
+    public function __construct(StorageService $storageService)
+    {
+        $this->storageService = $storageService;
+    }
+
     /**
      * Listar documentos digitalizados con filtros
      */
@@ -78,33 +87,38 @@ class DocumentoDigitalizadoController extends Controller
             $archivo = $request->file('archivo');
             $tipoOperacion = $request->tipo_operacion;
             
-            // Generar nombre único para el archivo
-            $nombreOriginal = $archivo->getClientOriginalName();
-            $extension = $archivo->getClientOriginalExtension();
-            $nombreUnico = Str::uuid() . '_' . time() . '.' . $extension;
+            // Generar path organizado por fecha
+            $path = $tipoOperacion . '/' . date('Y/m/d');
             
-            // Guardar archivo en storage
-            $ruta = $archivo->storeAs('documentos_digitalizados/' . $tipoOperacion, $nombreUnico, 'public');
+            // Subir archivo a MinIO usando StorageService
+            $uploadResult = $this->storageService->store($archivo, 'documentos', $path);
+            
+            if (!$uploadResult['success']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $uploadResult['error']
+                ], 500);
+            }
             
             // Crear registro en BD
             $documento = DocumentoDigitalizado::create([
-                'nombre_archivo' => $nombreOriginal,
-                'ruta_archivo' => $ruta,
-                'tipo_archivo' => $extension,
-                'tamano_archivo' => $archivo->getSize(),
+                'nombre_archivo' => $uploadResult['original_name'],
+                'ruta_archivo' => $uploadResult['path'],
+                'tipo_archivo' => pathinfo($uploadResult['original_name'], PATHINFO_EXTENSION),
+                'tamano_archivo' => $uploadResult['size'],
                 'tipo_operacion' => $tipoOperacion,
                 'estado_procesamiento' => 'pendiente',
                 'created_by' => $request->user()->email ?? 'sistema',
             ]);
 
-            // TODO: Aquí se llamaría al servicio de OCR/procesamiento
-            // Por ahora retornamos el documento creado
-            $this->procesarDocumentoMock($documento);
+            // Procesar con OCR (si está habilitado)
+            $this->procesarConOCR($documento);
 
             return response()->json([
                 'success' => true,
                 'data' => $documento,
-                'message' => 'Documento subido exitosamente. El procesamiento iniciará en breve.'
+                'message' => 'Documento subido exitosamente a MinIO. Procesamiento OCR iniciado.',
+                'minio_url' => $uploadResult['url']
             ]);
 
         } catch (\Exception $e) {
@@ -258,11 +272,33 @@ class DocumentoDigitalizadoController extends Controller
         }
 
         try {
+            // Buscar o crear proveedor en la tabla entidades
+            $tipoDoc = strlen($documento->entidad_num_doc ?? '') === 11 ? '6' : '1'; // 6=RUC, 1=DNI
+            $proveedor = \App\Models\Entidad::where('num_doc', $documento->entidad_num_doc)
+                ->where('tipo_doc', $tipoDoc)
+                ->first();
+
+            if (!$proveedor) {
+                // Crear nuevo proveedor si no existe
+                $proveedor = \App\Models\Entidad::create([
+                    'empresa_id' => 1, // TODO: usar empresa del usuario autenticado
+                    'tipo_doc' => $tipoDoc,
+                    'num_doc' => $documento->entidad_num_doc,
+                    'denominacion' => $documento->entidad_razon_social ?? 'Proveedor sin nombre',
+                    'direccion' => $documento->entidad_direccion,
+                    'es_cliente' => false,
+                    'es_proveedor' => true,
+                ]);
+            } else if (!$proveedor->es_proveedor) {
+                // Marcar como proveedor si solo era cliente
+                $proveedor->update(['es_proveedor' => true]);
+            }
+
             // Crear compra desde los datos extraídos
             $compra = Compra::create([
                 'actividad' => 'Compra desde documento digitalizado',
                 'fecha_actividad' => $documento->fecha_emision ?? now(),
-                'proveedor_id' => null, // Buscar o crear proveedor
+                'proveedor_id' => $proveedor->id,
                 'proveedor_nombre' => $documento->entidad_razon_social,
                 'proveedor_ruc' => $documento->entidad_num_doc,
                 'estado' => 'Pendiente de pago',
@@ -447,18 +483,28 @@ class DocumentoDigitalizadoController extends Controller
      */
     private function procesarConDockerOCR($rutaArchivo)
     {
-        // Ruta relativa dentro del contenedor
-        $rutaRelativa = str_replace(storage_path('app/public'), '/app/storage', $rutaArchivo);
+        // Copiar archivo temporal al volumen compartido de Docker
+        $publicPath = storage_path('app/public');
+        $fileName = 'ocr_temp_' . uniqid() . '.' . pathinfo($rutaArchivo, PATHINFO_EXTENSION);
+        $sharedPath = $publicPath . '/' . $fileName;
+        
+        copy($rutaArchivo, $sharedPath);
+        
+        // Ruta dentro del contenedor
+        $containerPath = '/app/storage/' . $fileName;
         
         // Ejecutar en contenedor Docker
         $command = sprintf(
             'docker exec facturacion_ocr python ocr_service.py "%s"',
-            $rutaRelativa
+            $containerPath
         );
         
         $output = [];
         $returnCode = 0;
         exec($command . ' 2>&1', $output, $returnCode);
+        
+        // Limpiar archivo temporal
+        @unlink($sharedPath);
         
         $jsonOutput = implode("\n", $output);
         
@@ -562,5 +608,182 @@ class DocumentoDigitalizadoController extends Controller
         }
         
         return $datos;
+    }
+
+    /**
+     * Endpoint para procesar documento con OCR
+     * 
+     * @param int $id ID del documento
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function procesarConOCRManual($id)
+    {
+        $documento = DocumentoDigitalizado::find($id);
+        
+        if (!$documento) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Documento no encontrado'
+            ], 404);
+        }
+
+        try {
+            $this->procesarConOCR($documento);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $documento->fresh(),
+                'message' => 'Documento procesado con OCR exitosamente'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al procesar documento: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Procesar documento con OCR usando Python + Gemini AI
+     */
+    private function procesarConOCR($documento)
+    {
+        try {
+            $documento->estado_procesamiento = 'procesando';
+            $documento->save();
+
+            // Procesar con Python + Gemini AI
+            $resultado = $this->procesarConOCRService($documento);
+
+            if ($resultado['success']) {
+                // Actualizar documento con datos extraídos
+                $datosExtraidos = $resultado['datos'] ?? [];
+                
+                // Mapear campos del OCR a la base de datos
+                $documento->tipo_comprobante = $datosExtraidos['tipo_comprobante'] ?? null;
+                $documento->serie = $datosExtraidos['serie'] ?? null;
+                $documento->numero = $datosExtraidos['numero'] ?? null;
+                $documento->comprobante_completo = $datosExtraidos['comprobante_completo'] ?? null;
+                $documento->fecha_emision = $datosExtraidos['fecha_emision'] ?? null;
+                $documento->fecha_vencimiento = $datosExtraidos['fecha_vencimiento'] ?? null;
+                
+                // Datos de la entidad (cliente)
+                $documento->entidad_num_doc = $datosExtraidos['entidad_num_doc'] ?? null;
+                $documento->entidad_razon_social = $datosExtraidos['entidad_razon_social'] ?? null;
+                $documento->entidad_direccion = $datosExtraidos['entidad_direccion'] ?? null;
+                
+                // Datos monetarios
+                $documento->moneda = $datosExtraidos['moneda'] ?? 'PEN';
+                $documento->tipo_cambio = $datosExtraidos['tipo_cambio'] ?? null;
+                $documento->porcentaje_igv = $datosExtraidos['porcentaje_igv'] ?? 18;
+                
+                // Totales
+                $documento->subtotal = $datosExtraidos['subtotal'] ?? $datosExtraidos['total_gravada'] ?? null;
+                $documento->total_gravada = $datosExtraidos['total_gravada'] ?? null;
+                $documento->total_exonerada = $datosExtraidos['total_exonerada'] ?? null;
+                $documento->total_inafecta = $datosExtraidos['total_inafecta'] ?? null;
+                $documento->total_gratuita = $datosExtraidos['total_gratuita'] ?? null;
+                $documento->igv = $datosExtraidos['igv'] ?? null;
+                $documento->total = $datosExtraidos['total'] ?? null;
+                
+                // Guardar todos los datos extraídos como JSON (incluye importe_letras, forma_pago, etc.)
+                $documento->datos_extraidos = $datosExtraidos;
+                $documento->confianza_ocr = $resultado['confianza_ocr'] ?? null;
+                $documento->estado_procesamiento = 'completado';
+                
+                // Marcar para validación si confianza es baja
+                if (($resultado['confianza_ocr'] ?? 100) < 80) {
+                    $documento->requiere_validacion = true;
+                }
+            } else {
+                $documento->estado_procesamiento = 'error';
+                $documento->error_mensaje = $resultado['error'] ?? 'Error desconocido';
+            }
+
+            $documento->save();
+
+        } catch (\Exception $e) {
+            Log::error('Error en procesamiento OCR: ' . $e->getMessage());
+            $documento->estado_procesamiento = 'error';
+            $documento->error_mensaje = $e->getMessage();
+            $documento->save();
+        }
+    }
+
+    /**
+     * Descargar archivo desde MinIO
+     */
+    public function descargar($id)
+    {
+        $documento = DocumentoDigitalizado::find($id);
+        
+        if (!$documento) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Documento no encontrado'
+            ], 404);
+        }
+
+        try {
+            // Generar URL temporal firmada (válida por 1 hora)
+            $url = $this->storageService->getTemporaryUrl('documentos', $documento->ruta_archivo, 60);
+            
+            return response()->json([
+                'success' => true,
+                'url' => $url,
+                'nombre_archivo' => $documento->nombre_archivo
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al generar enlace de descarga: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Procesar documento con servicio OCR (Docker o Python local)
+     * 
+     * @param DocumentoDigitalizado $documento
+     * @return array
+     */
+    private function procesarConOCRService(DocumentoDigitalizado $documento): array
+    {
+        try {
+            // Descargar archivo desde MinIO
+            Log::info("Descargando archivo desde MinIO: documentos / {$documento->ruta_archivo}");
+            $contenidoArchivo = $this->storageService->get('documentos', $documento->ruta_archivo);
+            
+            if (!$contenidoArchivo) {
+                return [
+                    'success' => false,
+                    'error' => "No se pudo descargar el archivo desde MinIO: {$documento->ruta_archivo}"
+                ];
+            }
+            
+            // Guardar en archivo temporal
+            $tempPath = tempnam(sys_get_temp_dir(), 'ocr_');
+            $tempFile = $tempPath . '.' . $documento->tipo_archivo;
+            @unlink($tempPath); // Eliminar archivo temporal vacío
+            file_put_contents($tempFile, $contenidoArchivo);
+            
+            Log::info("Archivo temporal creado: {$tempFile}, tamaño: " . filesize($tempFile) . " bytes");
+
+            // Procesar con Python + Gemini AI
+            $resultado = $this->procesarConPython($tempFile);
+            
+            // Limpiar archivo temporal
+            @unlink($tempFile);
+
+            return $resultado;
+
+        } catch (\Exception $e) {
+            Log::error('Error en procesarConOCRService: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
     }
 }

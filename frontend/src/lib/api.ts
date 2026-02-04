@@ -298,6 +298,7 @@ export interface Producto {
   destacado: boolean;
   activo: boolean;
   stock_actual: number;
+  stock?: number; // Alias para compatibilidad
 }
 
 export interface ProductoFormData {

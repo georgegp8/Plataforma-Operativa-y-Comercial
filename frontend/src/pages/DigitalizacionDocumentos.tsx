@@ -11,6 +11,17 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import type { DocumentoDigitalizado } from '@/types';
 
+interface InvoiceItem {
+  numero?: number;
+  codigo?: string;
+  descripcion: string;
+  unidad_medida?: string;
+  cantidad: number;
+  precio_unitario: number;
+  valor_unitario?: number;
+  importe: number;
+}
+
 export default function DigitalizacionDocumentos() {
   const [documentos, setDocumentos] = useState<DocumentoDigitalizado[]>([]);
   const [loading, setLoading] = useState(false);
@@ -432,10 +443,10 @@ export default function DigitalizacionDocumentos() {
           <DialogHeader>
             <DialogTitle>Subir Documento</DialogTitle>
             <DialogDescription>
-              Selecciona un PDF o imagen de factura. El sistema procesará el documento y extraerá los datos automáticamente usando OCR.
+              Selecciona un PDF o imagen de factura. El sistema procesará el documento automáticamente usando IA (Gemini 2.5) y extraerá todos los datos estructurados.
               <br />
-              <span className="text-blue-600 dark:text-blue-400 text-xs mt-1 block">
-                💡 Tip: Para activar OCR real (Tesseract Python), sigue las instrucciones en backend/python_ocr/INSTALACION.md
+              <span className="text-green-600 dark:text-green-400 text-xs mt-1 block font-medium">
+                ✨ Extracción automática: RUC, razón social, items, totales, fechas, forma de pago y más
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -536,14 +547,26 @@ export default function DigitalizacionDocumentos() {
                   />
                 </div>
                 <div>
+                  <Label>Fecha Vencimiento</Label>
+                  <Input 
+                    type="date" 
+                    value={selectedDocumento.fecha_vencimiento ? new Date(selectedDocumento.fecha_vencimiento).toISOString().split('T')[0] : ''} 
+                    disabled={!editMode} 
+                  />
+                </div>
+                <div>
                   <Label>Moneda</Label>
-                  <Input value={selectedDocumento.moneda || ''} disabled={!editMode} />
+                  <Input value={selectedDocumento.moneda || 'PEN'} disabled={!editMode} />
+                </div>
+                <div>
+                  <Label>Forma de Pago</Label>
+                  <Input value={selectedDocumento.datos_extraidos?.forma_pago || 'CONTADO'} disabled={!editMode} />
                 </div>
               </div>
               
               {/* Datos de entidad */}
               <div>
-                <h3 className="font-semibold mb-2">Entidad</h3>
+                <h3 className="font-semibold mb-2">Entidad (Cliente)</h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>RUC/DNI</Label>
@@ -552,6 +575,10 @@ export default function DigitalizacionDocumentos() {
                   <div>
                     <Label>Razón Social</Label>
                     <Input value={selectedDocumento.entidad_razon_social || ''} disabled={!editMode} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Dirección</Label>
+                    <Input value={selectedDocumento.entidad_direccion || ''} disabled={!editMode} />
                   </div>
                 </div>
               </div>
@@ -576,9 +603,42 @@ export default function DigitalizacionDocumentos() {
               </div>
               
               {/* Items */}
+              {selectedDocumento.datos_extraidos?.items && selectedDocumento.datos_extraidos.items.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-2">Items ({selectedDocumento.datos_extraidos.items.length})</h3>
+                  <div className="border rounded-lg overflow-hidden max-h-64 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted sticky top-0">
+                        <tr>
+                          <th className="px-2 py-1 text-left">#</th>
+                          <th className="px-2 py-1 text-left">Código</th>
+                          <th className="px-2 py-1 text-left">Descripción</th>
+                          <th className="px-2 py-1 text-center">UM</th>
+                          <th className="px-2 py-1 text-right">Cant.</th>
+                          <th className="px-2 py-1 text-right">P. Unit.</th>
+                          <th className="px-2 py-1 text-right">Importe</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedDocumento.datos_extraidos.items.map((item: InvoiceItem, idx: number) => (
+                          <tr key={idx} className="border-t hover:bg-muted/50">
+                            <td className="px-2 py-1">{item.numero || idx + 1}</td>
+                            <td className="px-2 py-1">{item.codigo || '-'}</td>
+                            <td className="px-2 py-1">{item.descripcion}</td>
+                            <td className="px-2 py-1 text-center">{item.unidad_medida || 'NIU'}</td>
+                            <td className="px-2 py-1 text-right">{item.cantidad}</td>
+                            <td className="px-2 py-1 text-right">{Number(item.precio_unitario || 0).toFixed(2)}</td>
+                            <td className="px-2 py-1 text-right font-semibold">{Number(item.importe || 0).toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
               {selectedDocumento.items_extraidos && selectedDocumento.items_extraidos.length > 0 && (
                 <div>
-                  <h3 className="font-semibold mb-2">Items</h3>
+                  <h3 className="font-semibold mb-2">Items (Legacy)</h3>
                   <div className="border rounded-lg overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-muted">
