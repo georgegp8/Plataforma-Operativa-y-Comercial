@@ -498,9 +498,13 @@ class DocumentoDigitalizadoController extends Controller
         // Ruta dentro del contenedor
         $containerPath = '/app/storage/' . $fileName;
         
+        // Usar script optimizado que solo requiere Gemini
+        $scriptName = 'ocr_gemini_only.py';
+        
         // Ejecutar en contenedor Docker
         $command = sprintf(
-            'docker exec facturacion_ocr python ocr_service.py "%s"',
+            'docker exec facturacion_ocr python %s "%s"',
+            $scriptName,
             $containerPath
         );
         
