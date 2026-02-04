@@ -333,16 +333,18 @@ export default function NuevaCompra() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Label htmlFor="tipo_cambio" className="cursor-help inline-flex items-center gap-1">
-                        T.C. <span className="text-xs text-muted-foreground">ⓘ</span>
-                      </Label>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Tipo de Cambio</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <div className="h-5 flex items-center">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Label htmlFor="tipo_cambio" className="cursor-help inline-flex items-center gap-1">
+                          T.C. <span className="text-xs text-muted-foreground">ⓘ</span>
+                        </Label>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Tipo de Cambio</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="tipo_cambio"
                     type="number"
