@@ -11,6 +11,7 @@ import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Download, ChevronLeft, ChevronRight, Loader2, Printer, RotateCcw, Inbox, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
+import api from '@/lib/api';
 import { format } from 'date-fns';
 
 
@@ -21,6 +22,8 @@ interface MovimientoInventario {
     codigo_producto: string;
     nombre_producto: string;
     almacen: string;
+    categoria_id?: number;
+    categoria_nombre?: string;
     cantidad: number;
     tipo: 'INGRESO' | 'SALIDA' | 'DEVOLUCION';
     ticket_id?: string;
@@ -36,41 +39,62 @@ export default function IngresoSalidaProductos() {
 
     // Filters
     const [filtroTipo, setFiltroTipo] = useState('todos');
+    const [categorias, setCategorias] = useState<any[]>([]);
+    const [filtroCategoria, setFiltroCategoria] = useState('todos');
+    const [filtroAlmacen, setFiltroAlmacen] = useState('todos');
     // const [fechaInicio, setFechaInicio] = useState('');
     // const [fechaFin, setFechaFin] = useState('');
 
     // Seed data generator
     const generateSeedData = () => {
         const baseData: MovimientoInventario[] = [
-            { id: 1, fecha: '2025-07-04T06:14:11', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Oficina Principal', cantidad: 0.00, tipo: 'SALIDA' },
-            { id: 2, fecha: '2025-07-04T06:14:11', codigo_producto: '100033', nombre_producto: 'SVR XERIAL 10 LAIT 400ML', almacen: 'Oficina Principal', cantidad: 6.00, tipo: 'SALIDA' },
-            { id: 3, fecha: '2025-07-04T06:13:01', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Oficina Principal', cantidad: 20.00, tipo: 'SALIDA' },
-            { id: 4, fecha: '2025-07-04T05:47:27', codigo_producto: '100389', nombre_producto: 'XERIAL 50 EXTREME CREME PIEDS X50ML SVR', almacen: 'Oficina Principal', cantidad: 1.00, tipo: 'SALIDA' },
-            { id: 5, fecha: '2025-07-04T05:47:27', codigo_producto: '100391', nombre_producto: 'MINI CAPITAL SOLEIL UV AGE DAILY', almacen: 'Oficina Principal', cantidad: 14.00, tipo: 'SALIDA' },
-            { id: 6, fecha: '2025-07-03T18:30:00', codigo_producto: '100101', nombre_producto: 'CETAPHIL LOCION LIMPIADORA 237ML', almacen: 'Almacén Central', cantidad: 50.00, tipo: 'INGRESO' },
-            { id: 7, fecha: '2025-07-03T15:20:15', codigo_producto: '100205', nombre_producto: 'LA ROCHE POSAY ANTHELIOS 50+', almacen: 'Oficina Principal', cantidad: 2.00, tipo: 'DEVOLUCION' },
-            { id: 8, fecha: '2025-07-02T09:10:00', codigo_producto: '100389', nombre_producto: 'XERIAL 50 EXTREME CREME PIEDS X50ML SVR', almacen: 'Almacén Central', cantidad: 100.00, tipo: 'INGRESO' },
-            { id: 9, fecha: '2025-07-01T14:45:30', codigo_producto: '100033', nombre_producto: 'SVR XERIAL 10 LAIT 400ML', almacen: 'Oficina Principal', cantidad: 5.00, tipo: 'SALIDA' },
-            { id: 10, fecha: '2025-07-01T11:00:00', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Almacén Central', cantidad: 10.00, tipo: 'SALIDA' },
-            { id: 11, fecha: '2025-06-30T16:20:00', codigo_producto: '100101', nombre_producto: 'CETAPHIL LOCION LIMPIADORA 237ML', almacen: 'Oficina Principal', cantidad: 1.00, tipo: 'DEVOLUCION' },
-            { id: 12, fecha: '2025-06-29T10:00:00', codigo_producto: '100391', nombre_producto: 'MINI CAPITAL SOLEIL UV AGE DAILY', almacen: 'Almacén Central', cantidad: 25.00, tipo: 'INGRESO' },
+            { id: 1, fecha: '2025-07-04T06:14:11', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 0.00, tipo: 'SALIDA' },
+            { id: 2, fecha: '2025-07-04T06:14:11', codigo_producto: '100033', nombre_producto: 'SVR XERIAL 10 LAIT 400ML', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 6.00, tipo: 'SALIDA' },
+            { id: 3, fecha: '2025-07-04T06:13:01', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 20.00, tipo: 'SALIDA' },
+            { id: 4, fecha: '2025-07-04T05:47:27', codigo_producto: '100389', nombre_producto: 'XERIAL 50 EXTREME CREME PIEDS X50ML SVR', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 1.00, tipo: 'SALIDA' },
+            { id: 5, fecha: '2025-07-04T05:47:27', codigo_producto: '100391', nombre_producto: 'MINI CAPITAL SOLEIL UV AGE DAILY', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 14.00, tipo: 'SALIDA' },
+            { id: 6, fecha: '2025-07-03T18:30:00', codigo_producto: '100101', nombre_producto: 'CETAPHIL LOCION LIMPIADORA 237ML', almacen: 'Almacén Central', categoria_id: 2, categoria_nombre: 'INSUMO', cantidad: 50.00, tipo: 'INGRESO' },
+            { id: 7, fecha: '2025-07-03T15:20:15', codigo_producto: '100205', nombre_producto: 'LA ROCHE POSAY ANTHELIOS 50+', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 2.00, tipo: 'DEVOLUCION' },
+            { id: 8, fecha: '2025-07-02T09:10:00', codigo_producto: '100389', nombre_producto: 'XERIAL 50 EXTREME CREME PIEDS X50ML SVR', almacen: 'Almacén Central', categoria_id: 2, categoria_nombre: 'INSUMO', cantidad: 100.00, tipo: 'INGRESO' },
+            { id: 9, fecha: '2025-07-01T14:45:30', codigo_producto: '100033', nombre_producto: 'SVR XERIAL 10 LAIT 400ML', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 5.00, tipo: 'SALIDA' },
+            { id: 10, fecha: '2025-07-01T11:00:00', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Almacén Central', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 10.00, tipo: 'SALIDA' },
+            { id: 11, fecha: '2025-06-30T16:20:00', codigo_producto: '100101', nombre_producto: 'CETAPHIL LOCION LIMPIADORA 237ML', almacen: 'Oficina Principal', categoria_id: 29, categoria_nombre: 'MATERIAL', cantidad: 1.00, tipo: 'DEVOLUCION' },
+            { id: 12, fecha: '2025-06-29T10:00:00', codigo_producto: '100391', nombre_producto: 'MINI CAPITAL SOLEIL UV AGE DAILY', almacen: 'Almacén Central', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 25.00, tipo: 'INGRESO' },
         ];
         return baseData;
     };
 
     // Load data
     useEffect(() => {
-        setLoading(true);
-        setTimeout(() => {
-            setItems(generateSeedData());
-            setLoading(false);
-        }, 500);
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                // Fetch Items (Mock for now, but simulated async)
+                setItems(generateSeedData());
+
+                // Fetch Categories (Real API)
+                const response = await api.categorias.listar();
+                if (Array.isArray(response.data)) {
+                    setCategorias(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading data:', error);
+                toast.error('Error al cargar datos iniciales');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
     }, []);
 
     // Filter logic
     const filteredItems = items.filter(item => {
         if (filtroTipo !== 'todos' && item.tipo !== filtroTipo) return false;
-        // Basic implementation for other filters which are mostly visual in mock
+        if (filtroCategoria !== 'todos' && item.categoria_id !== Number(filtroCategoria)) return false;
+        if (filtroAlmacen !== 'todos' && item.almacen.toLowerCase().includes(filtroAlmacen.toLowerCase()) === false && filtroAlmacen !== 'principal' && filtroAlmacen !== 'central') return false;
+        // Simple mock match for almacen
+
         return true;
     });
 
@@ -152,15 +176,28 @@ export default function IngresoSalidaProductos() {
                 <div className="bg-muted/50 px-4 py-4 border-x border-border">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                         <div>
-                            <select className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm">
+                            <select
+                                className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm"
+                                value={filtroAlmacen}
+                                onChange={(e) => setFiltroAlmacen(e.target.value)}
+                            >
                                 <option value="todos">Seleccione Almacén</option>
                                 <option value="principal">Oficina Principal</option>
                                 <option value="central">Almacén Central</option>
                             </select>
                         </div>
                         <div>
-                            <select className="w-full px-3 py-2 border border-border rounded-md bg-white dark:bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm">
+                            <select
+                                className="w-full px-3 py-2 border border-border rounded-md bg-white dark:bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm"
+                                value={filtroCategoria}
+                                onChange={(e) => setFiltroCategoria(e.target.value)}
+                            >
                                 <option value="todos">Seleccione Categoría</option>
+                                {categorias.map((cat) => (
+                                    <option key={cat.id} value={cat.id}>
+                                        {cat.nombre}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                         <div>
@@ -230,6 +267,7 @@ export default function IngresoSalidaProductos() {
                                             <TableHead className="w-12 py-2 px-2 text-primary-foreground">#</TableHead>
                                             <TableHead className="min-w-32 py-2 px-2 text-primary-foreground">Fecha</TableHead>
                                             <TableHead className="min-w-24 py-2 px-2 text-primary-foreground">Código</TableHead>
+                                            <TableHead className="min-w-32 py-2 px-2 text-primary-foreground">Categoría</TableHead>
                                             <TableHead className="w-full py-2 px-2 text-primary-foreground">Producto</TableHead>
                                             <TableHead className="min-w-32 py-2 px-2 text-primary-foreground">Almacén</TableHead>
                                             <TableHead className="min-w-24 py-2 px-2 text-primary-foreground">Cantidad</TableHead>
@@ -249,6 +287,9 @@ export default function IngresoSalidaProductos() {
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 font-mono text-xs text-muted-foreground font-medium">
                                                     {item.codigo_producto}
+                                                </TableCell>
+                                                <TableCell className="py-2 px-2 text-xs text-muted-foreground">
+                                                    {item.categoria_nombre || '-'}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 font-medium text-xs text-foreground">
                                                     {item.nombre_producto}
