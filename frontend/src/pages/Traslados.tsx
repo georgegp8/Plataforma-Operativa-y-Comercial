@@ -193,13 +193,16 @@ export default function Traslados() {
   };
 
   const getEstadoBadge = (estado: string) => {
-    const estados: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline', label: string }> = {
-      'aceptado': { variant: 'default', label: 'Aceptado' },
-      'enviado': { variant: 'secondary', label: 'Enviado' },
-      'pendiente': { variant: 'outline', label: 'Pendiente' },
-    };
-    const config = estados[estado] || { variant: 'outline' as const, label: estado };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    switch (estado) {
+      case 'aceptado':
+        return <Badge className="bg-green-500 text-white dark:bg-green-400 dark:text-gray-900 border-0">Aceptado</Badge>;
+      case 'enviado':
+        return <Badge className="bg-blue-500 text-white dark:bg-blue-400 dark:text-gray-900 border-0">Enviado</Badge>;
+      case 'pendiente':
+        return <Badge className="bg-yellow-500 text-white dark:bg-yellow-400 dark:text-gray-900 border-0">Pendiente</Badge>;
+      default:
+        return <Badge variant="outline">{estado}</Badge>;
+    }
   };
 
   const handleLimpiarFiltros = () => {
@@ -236,13 +239,12 @@ export default function Traslados() {
         {/* Header */}
         <div className="bg-primary text-primary-foreground rounded-t-lg px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-semibold flex items-center gap-2">
-            <Truck className="h-5 w-5" />
-            Listado de Traslados
+            <Truck className="h-5 w-5 dark:text-white" />
+            <span className="dark:text-white">Listado de Traslados</span>
           </h1>
           <Button
             size="sm"
-            variant="ghost"
-            className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground border border-primary-foreground/20"
+            className="bg-green-500 hover:bg-green-600 text-white dark:bg-green-400 dark:hover:bg-green-500 dark:text-gray-900 border-0"
             onClick={handleNuevoTraslado}
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -368,11 +370,11 @@ export default function Traslados() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-50"
+                            className="h-8 w-8 text-blue-600 hover:bg-blue-50 dark:text-white dark:hover:bg-blue-900/20"
                             onClick={() => handleVerDetalles(guia)}
                             title="Ver detalles"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-4 w-4 dark:stroke-white" />
                           </Button>
                           <Button
                             variant="ghost"

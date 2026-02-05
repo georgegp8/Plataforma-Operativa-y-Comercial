@@ -160,13 +160,12 @@ export default function GuiasRemision() {
                 {/* Header */}
                 <div className="bg-primary text-primary-foreground rounded-t-lg px-4 py-3 flex items-center justify-between">
                     <h1 className="text-xl font-semibold flex items-center gap-2">
-                        <Printer className="h-5 w-5" />
-                        Listado de Guias de Remisión
+                        <Printer className="h-5 w-5 dark:text-white" />
+                        <span className="dark:text-white">Guías de Remisión</span>
                     </h1>
                     <Button
                         size="sm"
-                        variant="ghost"
-                        className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground border border-primary-foreground/20"
+                        className="bg-green-500 hover:bg-green-600 text-white dark:bg-green-400 dark:hover:bg-green-500 dark:text-gray-900 border-0"
                         onClick={() => setIsModalOpen(true)}
                     >
                         <Plus className="h-4 w-4 mr-1" />
@@ -330,7 +329,7 @@ export default function GuiasRemision() {
                                                         <Button 
                                                             variant="ghost" 
                                                             size="sm" 
-                                                            className="text-primary hover:text-primary/80 h-7 px-2 text-xs" 
+                                                            className="text-primary hover:text-primary/80 dark:text-white dark:hover:text-white/80 h-7 px-2 text-xs" 
                                                             onClick={() => {
                                                                 setSelectedGuia(guia);
                                                                 setIsDetailModalOpen(true);
