@@ -9,7 +9,7 @@ class Auditoria extends Model
 {
     use HasFactory;
 
-    protected $table = 'auditoria';
+    protected $table = 'auditorias'; // Cambiado de 'auditoria' a 'auditorias'
 
     protected $fillable = [
         'user_id',

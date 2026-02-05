@@ -71,6 +71,19 @@ class GuiaRemision extends Model
         'nubefact_consultado_at' => 'datetime',
     ];
 
+    protected $appends = ['estado'];
+
+    public function getEstadoAttribute()
+    {
+        if ($this->nubefact_aceptada_por_sunat) {
+            return 'aceptado';
+        }
+        if ($this->nubefact_enviado_at) {
+            return 'enviado';
+        }
+        return 'pendiente';
+    }
+
     public function empresa(): BelongsTo
     {
         return $this->belongsTo(Empresa::class);
@@ -83,7 +96,7 @@ class GuiaRemision extends Model
 
     public function usuario(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'usuario_id');
+        return $this->belongsTo(User::class , 'usuario_id');
     }
 
     public function items(): HasMany

@@ -304,19 +304,19 @@ export default function GuiasRemision() {
                                                 </TableCell>
                                                 <TableCell className="py-3 px-4 text-center">
                                                     <div className="flex justify-center gap-1">
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="h-7 w-7 text-red-600 hover:bg-red-50" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-red-500 hover:bg-red-50"
                                                             onClick={() => guia.nubefact_pdf_url ? window.open(guia.nubefact_pdf_url, '_blank') : toast.error('PDF no disponible')}
                                                             title="Descargar PDF"
                                                         >
                                                             <Download className="h-3.5 w-3.5" />
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="h-7 w-7 text-blue-600 hover:bg-blue-50" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-[#a4e102] hover:bg-[#256080]"
                                                             onClick={() => guia.nubefact_xml_url ? window.open(guia.nubefact_xml_url, '_blank') : toast.error('XML no disponible')}
                                                             title="Descargar XML"
                                                         >
@@ -326,10 +326,10 @@ export default function GuiasRemision() {
                                                 </TableCell>
                                                 <TableCell className="py-3 px-4 text-center">
                                                     <div className="flex justify-center gap-1">
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="sm" 
-                                                            className="text-blue-600 hover:text-blue-800 dark:text-white dark:hover:text-white/80 h-7 px-2 text-xs font-medium" 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="text-blue-600 hover:text-blue-800 dark:text-[#f38644] dark:hover:bg-[#f38644]/80 h-7 px-2 text-xs font-medium"
                                                             onClick={() => {
                                                                 setSelectedGuia(guia);
                                                                 setIsDetailModalOpen(true);
@@ -337,11 +337,11 @@ export default function GuiasRemision() {
                                                         >
                                                             Ver Detalles
                                                         </Button>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="h-7 w-7 text-orange-600 hover:bg-orange-50" 
-                                                            onClick={() => handleVerificar(guia)} 
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-7 w-7 text-orange-600 hover:bg-orange-50"
+                                                            onClick={() => handleVerificar(guia)}
                                                             title="Verificar estado SUNAT"
                                                         >
                                                             <RefreshCw className="h-3.5 w-3.5" />
@@ -546,8 +546,8 @@ export default function GuiasRemision() {
                                         <div className="col-span-2">
                                             <Label className="text-xs text-muted-foreground">Conductor</Label>
                                             <p className="text-sm font-medium">
-                                                {selectedGuia.conductor_nombre || selectedGuia.conductor_apellidos 
-                                                    ? `${selectedGuia.conductor_nombre || ''} ${selectedGuia.conductor_apellidos || ''}`.trim() 
+                                                {selectedGuia.conductor_nombre || selectedGuia.conductor_apellidos
+                                                    ? `${selectedGuia.conductor_nombre || ''} ${selectedGuia.conductor_apellidos || ''}`.trim()
                                                     : '-'}
                                             </p>
                                         </div>
@@ -626,9 +626,9 @@ export default function GuiasRemision() {
                                     <h3 className="font-semibold mb-3">Archivos</h3>
                                     <div className="flex gap-2">
                                         {selectedGuia.nubefact_pdf_url && (
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
                                                 onClick={() => window.open(selectedGuia.nubefact_pdf_url, '_blank')}
                                                 className="text-red-600 border-red-200"
                                             >
@@ -637,9 +637,9 @@ export default function GuiasRemision() {
                                             </Button>
                                         )}
                                         {selectedGuia.nubefact_xml_url && (
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
                                                 onClick={() => window.open(selectedGuia.nubefact_xml_url, '_blank')}
                                                 className="text-blue-600 border-blue-200"
                                             >
@@ -648,9 +648,9 @@ export default function GuiasRemision() {
                                             </Button>
                                         )}
                                         {selectedGuia.nubefact_cdr_url && (
-                                            <Button 
-                                                variant="outline" 
-                                                size="sm" 
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
                                                 onClick={() => window.open(selectedGuia.nubefact_cdr_url, '_blank')}
                                                 className="text-green-600 border-green-200"
                                             >

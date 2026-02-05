@@ -9,12 +9,15 @@ import type {
 } from '@/types';
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api',
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
+
+// Utilidad para obtener la URL base
+export const apiBaseUrl = (api.defaults.baseURL ?? '').replace(/\/$/, '');
 
 // Interceptor para agregar token si existe
 api.interceptors.request.use((config) => {

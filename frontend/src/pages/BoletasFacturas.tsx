@@ -102,7 +102,7 @@ export default function BoletasFacturas() {
     direccion: 'Av. Los Pinos 456 - Miraflores - Lima',
     email: 'ventas@spacedev.com.pe',
     telefono: '01-4567890',
-    direccion_completa: 'Av. Los Pinos 456, Miraflores, Lima - PerÃº'
+    direccion_completa: 'Av. Los Pinos 456, Miraflores, Lima - Perú',
   });
   const [filtroTipoDoc, setFiltroTipoDoc] = useState<'todos' | '01' | '03'>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'aceptado' | 'pendiente' | 'rechazado'>('todos');
@@ -238,8 +238,8 @@ export default function BoletasFacturas() {
 
   const handleGuardarCPE = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.info('PrÃ³ximamente', {
-      description: 'La funcionalidad de guardar comprobantes estarÃ¡ disponible pronto',
+    toast.info('Próximamente', {
+      description: 'La funcionalidad de guardar comprobantes estará disponible pronto',
     });
   };
 
@@ -266,8 +266,8 @@ export default function BoletasFacturas() {
     switch (tipo) {
       case '01': return 'Factura';
       case '03': return 'Boleta';
-      case '07': return 'N. CrÃ©dito';
-      case '08': return 'N. DÃ©bito';
+      case '07': return 'N. Crédito';
+      case '08': return 'N. Débito';
       default: return tipo;
     }
   };
@@ -482,8 +482,8 @@ export default function BoletasFacturas() {
                               size="icon"
                               className="h-8 w-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                               onClick={() => {
-                                toast.info('PrÃ³ximamente', {
-                                  description: 'La funcionalidad de anular comprobantes estarÃ¡ disponible pronto',
+                                toast.info('Próximamente', {
+                                  description: 'La funcionalidad de anular comprobantes estará disponible pronto',
                                 });
                               }}
                               title="Anular"
@@ -500,7 +500,7 @@ export default function BoletasFacturas() {
             </div>
           )}
 
-          {/* PaginaciÃ³n - Estilo Clientes */}
+          {/* Paginación - Estilo Clientes */}
           <div className="px-4 py-3 border-t border-border bg-white dark:bg-card">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-2">
@@ -580,18 +580,18 @@ export default function BoletasFacturas() {
             </DialogHeader>
             {selectedComprobante && (
               <div className="space-y-6 py-4">
-                {/* InformaciÃ³n General */}
+                {/* Información General */}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">Tipo</Label>
                     <p className="text-sm font-medium">{getTipoDocLabel(selectedComprobante.tipo_doc)}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">NÃºmero</Label>
+                    <Label className="text-xs text-muted-foreground">Número</Label>
                     <p className="text-sm font-medium">{selectedComprobante.numero_completo}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Fecha EmisiÃ³n</Label>
+                    <Label className="text-xs text-muted-foreground">Fecha Emisión</Label>
                     <p className="text-sm font-medium">{formatDate(selectedComprobante.fecha_emision)}</p>
                   </div>
                   <div>
@@ -613,7 +613,7 @@ export default function BoletasFacturas() {
                   <h3 className="font-semibold mb-3">Cliente</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-xs text-muted-foreground">RazÃ³n Social</Label>
+                      <Label className="text-xs text-muted-foreground">Razón Social</Label>
                       <p className="text-sm font-medium">{selectedComprobante.cliente_razon_social}</p>
                     </div>
                     <div>
@@ -697,14 +697,14 @@ export default function BoletasFacturas() {
             <DialogHeader>
               <DialogTitle>Comprobante de Pago</DialogTitle>
               <DialogDescription>
-                Complete los datos del comprobante electrÃ³nico. Los campos marcados son obligatorios.
+                Complete los datos del comprobante electrónico. Los campos marcados son obligatorios.
               </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleGuardarCPE} className="space-y-6">
-              {/* InformaciÃ³n de la Empresa */}
+              {/* Información de la Empresa */}
               <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ“‹ InformaciÃ³n de la Empresa</h3>
+                <h3 className="text-lg font-semibold mb-4 ">📋 Información de la Empresa</h3>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Logo */}
@@ -757,7 +757,7 @@ export default function BoletasFacturas() {
                               }
                             }}
                           />
-                          <p className="text-xs text-muted-foreground">PNG/JPG â€¢ MÃ¡x 2MB</p>
+                          <p className="text-xs text-muted-foreground">PNG/JPG • Máx 2MB</p>
                         </div>
                       )}
                     </div>
@@ -767,7 +767,7 @@ export default function BoletasFacturas() {
                   <div className="lg:col-span-2 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="empresa_razon_social" className="text-sm font-medium">RazÃ³n Social *</Label>
+                        <Label htmlFor="empresa_razon_social" className="text-sm font-medium">Razón Social *</Label>
                         <Input
                           id="empresa_razon_social"
                           value={empresaData.razon_social}
@@ -787,7 +787,7 @@ export default function BoletasFacturas() {
                     </div>
                     
                     <div>
-                      <Label htmlFor="empresa_direccion" className="text-sm font-medium">DirecciÃ³n Fiscal *</Label>
+                      <Label htmlFor="empresa_direccion" className="text-sm font-medium">Dirección Fiscal *</Label>
                       <Input
                         id="empresa_direccion"
                         value={empresaData.direccion_completa}
@@ -808,7 +808,7 @@ export default function BoletasFacturas() {
                         />
                       </div>
                       <div>
-                        <Label htmlFor="empresa_telefono" className="text-sm font-medium">TelÃ©fono</Label>
+                        <Label htmlFor="empresa_telefono" className="text-sm font-medium">Teléfono</Label>
                         <Input
                           id="empresa_telefono"
                           value={empresaData.telefono}
@@ -819,18 +819,11 @@ export default function BoletasFacturas() {
                     </div>
                   </div>
                 </div>
-                
-                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                  <p className="text-xs text-blue-700 dark:text-blue-300">
-                    ðŸ’¡ <strong>Tip:</strong> Esta informaciÃ³n aparecerÃ¡ en todos los comprobantes. 
-                    PrÃ³ximamente podrÃ¡s guardar esta configuraciÃ³n en las preferencias.
-                  </p>
-                </div>
               </div>
 
-              {/* ConfiguraciÃ³n del Comprobante */}
+              {/* Configuración del Comprobante */}
               <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 text-primary">âš™ï¸ ConfiguraciÃ³n del Comprobante</h3>
+                <h3 className="text-lg font-semibold mb-4 ">🛟 Configuración del Comprobante</h3>
                 {/* Checkboxes especiales */}
                 <div className="flex flex-wrap gap-6 mb-4">
                   <div className="flex items-center space-x-2">
@@ -842,7 +835,7 @@ export default function BoletasFacturas() {
                       }
                     />
                     <label htmlFor="contingencia" className="text-sm font-medium">
-                      ðŸš¨ Comprobante de contingencia
+                      Comprobante de contingencia
                     </label>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -854,7 +847,7 @@ export default function BoletasFacturas() {
                       }
                     />
                     <label htmlFor="pago-anticipado" className="text-sm font-medium">
-                      ðŸ’° Pago anticipado
+                      Pago anticipado
                     </label>
                   </div>
                 </div>
@@ -862,7 +855,7 @@ export default function BoletasFacturas() {
 
               {/* Datos del Comprobante */}
               <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ“œ Datos del Comprobante</h3>
+                <h3 className="text-lg font-semibold mb-4 ">📜 Datos del Comprobante</h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
                   <div>
@@ -872,10 +865,10 @@ export default function BoletasFacturas() {
                       value={formData.tipo_doc}
                       onChange={(e) => setFormData(prev => ({ ...prev, tipo_doc: e.target.value }))}
                     >
-                      <option value="01">ðŸ§¾ Factura ElectrÃ³nica</option>
-                      <option value="03">ðŸŽ« Boleta ElectrÃ³nica</option>
-                      <option value="07">âš ï¸ Nota de CrÃ©dito</option>
-                      <option value="08">âš¡ Nota de DÃ©bito</option>
+                      <option value="01">Factura Electrónica</option>
+                      <option value="03">Boleta Electrónica</option>
+                      <option value="07">Nota de Crédito</option>
+                      <option value="08">Nota de Débito</option>
                     </select>
                   </div>
                   <div>
@@ -893,19 +886,19 @@ export default function BoletasFacturas() {
                       value={formData.establecimiento}
                       onChange={(e) => setFormData(prev => ({ ...prev, establecimiento: e.target.value }))}
                       >
-                      <option value="principal">ðŸ¢ Oficina Principal</option>
-                      <option value="sucursal1">ðŸ¢ Sucursal 1</option>
+                      <option value="principal">🏢 Oficina Principal</option>
+                      <option value="sucursal1">🏢 Sucursal 1</option>
                     </select>
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">Tipo OperaciÃ³n *</Label>
+                    <Label className="text-sm font-medium">Tipo Operación *</Label>
                     <select
                       className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                       value={formData.tipo_operacion}
                       onChange={(e) => setFormData(prev => ({ ...prev, tipo_operacion: e.target.value }))}
                     >
-                      <option value="0101">ðŸ‡µðŸ‡ª Venta Interna</option>
-                      <option value="0200">ðŸŒ ExportaciÃ³n</option>
+                      <option value="0101">🇵🇪 Venta Interna</option>
+                      <option value="0200">🌍 Exportación</option>
                     </select>
                   </div>
                   <div>
@@ -915,19 +908,19 @@ export default function BoletasFacturas() {
                       value={formData.moneda}
                       onChange={(e) => setFormData(prev => ({ ...prev, moneda: e.target.value }))}
                     >
-                      <option value="PEN">ðŸ’µ Soles (PEN)</option>
-                      <option value="USD">ðŸ’µ DÃ³lares (USD)</option>
+                      <option value="PEN">💵 Soles (PEN)</option>
+                      <option value="USD">💵 Dólares (USD)</option>
                     </select>
                   </div>
                 </div>
               </div>
 
-              {/* InformaciÃ³n del Cliente */}
+              {/* Información del Cliente */}
               <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ‘¥ InformaciÃ³n del Cliente</h3>
+                <h3 className="text-lg font-semibold mb-4 ">👥 Información del Cliente</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <Label className="text-sm font-medium">NÃºmero de Documento *</Label>
+                    <Label className="text-sm font-medium">Número de Documento *</Label>
                     <Input
                       value={formData.cliente_num_doc}
                       onChange={(e) => setFormData(prev => ({ ...prev, cliente_num_doc: e.target.value }))}
@@ -935,7 +928,7 @@ export default function BoletasFacturas() {
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <Label className="text-sm font-medium">RazÃ³n Social / Nombre *</Label>
+                    <Label className="text-sm font-medium">Razón Social / Nombre *</Label>
                     <Input
                       value={formData.cliente_razon_social}
                       onChange={(e) => setFormData(prev => ({ ...prev, cliente_razon_social: e.target.value }))}
@@ -945,21 +938,21 @@ export default function BoletasFacturas() {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium">DirecciÃ³n *</Label>
+                  <Label className="text-sm font-medium">Dirección *</Label>
                   <Input
                     value={formData.cliente_direccion}
                     onChange={(e) => setFormData(prev => ({ ...prev, cliente_direccion: e.target.value }))}
-                    placeholder="DirecciÃ³n del cliente"
+                    placeholder="Dirección del cliente"
                   />
                 </div>
               </div>
 
               {/* Fechas y Condiciones */}
               <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ—º Fechas y Condiciones de Pago</h3>
+                <h3 className="text-lg font-semibold mb-4 ">⏰ Fechas y Condiciones de Pago</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div>
-                    <Label className="text-sm font-medium">Fecha EmisiÃ³n *</Label>
+                    <Label className="text-sm font-medium">Fecha Emisión *</Label>
                     <Input
                       type="date"
                       value={formData.fecha_emision}
@@ -985,14 +978,14 @@ export default function BoletasFacturas() {
                     />
                   </div>
                   <div>
-                    <Label className="text-sm font-medium">CondiciÃ³n de Pago *</Label>
+                    <Label className="text-sm font-medium">Condición de Pago *</Label>
                     <select
                       className="w-full border rounded-md px-3 py-2 text-sm bg-background"
                       value={formData.condicion_pago}
                       onChange={(e) => setFormData(prev => ({ ...prev, condicion_pago: e.target.value }))}
                     >
-                      <option value="Contado">ðŸ’µ Contado</option>
-                      <option value="Credito">ðŸ“… CrÃ©dito</option>
+                      <option value="Contado">💵 Contado</option>
+                      <option value="Credito">🏦 Crédito</option>
                     </select>
                   </div>
                   <div>
@@ -1008,7 +1001,7 @@ export default function BoletasFacturas() {
 
               {/* Modalidad de Pago */}
               <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ’³ Modalidad de Pago</h3>
+                <h3 className="text-lg font-semibold mb-4 ">💳 Modalidad de Pago</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label className="text-sm font-medium">Modalidad de Pago</Label>
@@ -1017,9 +1010,9 @@ export default function BoletasFacturas() {
                       value={formData.modalidad_pago}
                       onChange={(e) => setFormData(prev => ({ ...prev, modalidad_pago: e.target.value }))}
                     >
-                      <option value="Efectivo">ðŸ’µ Efectivo</option>
-                      <option value="Transferencia">ðŸ¦ Transferencia</option>
-                      <option value="Tarjeta">ðŸ’³ Tarjeta</option>
+                      <option value="Efectivo">💵 Efectivo</option>
+                      <option value="Transferencia">🏦 Transferencia</option>
+                      <option value="Tarjeta">💳 Tarjeta</option>
                     </select>
                   </div>
                   <div>
@@ -1029,10 +1022,10 @@ export default function BoletasFacturas() {
                       value={formData.banco_destino}
                       onChange={(e) => setFormData(prev => ({ ...prev, banco_destino: e.target.value }))}
                     >
-                      <option value="CAJA GENERAL - MARURI">ðŸ¦ Caja General - Maruri</option>
-                      <option value="BCP">ðŸ¦ BCP</option>
-                      <option value="BBVA">ðŸ¦ BBVA</option>
-                      <option value="Interbank">ðŸ¦ Interbank</option>
+                      <option value="CAJA GENERAL - MARURI">🏦 Caja General - Maruri</option>
+                      <option value="BCP">🏦 BCP</option>
+                      <option value="BBVA">🏦 BBVA</option>
+                      <option value="Interbank">🏦 Interbank</option>
                     </select>
                   </div>
                   <div>
@@ -1051,12 +1044,12 @@ export default function BoletasFacturas() {
               {/* Detalle de Productos/Servicios */}
               <div className="bg-muted/50 p-6 rounded-lg border">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold text-primary">ðŸ“¦ Detalle de Productos/Servicios</h3>
+                  <h3 className="text-lg font-semibold mb-4 ">📦 Detalle de Productos/Servicios</h3>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleAgregarItem}
-                    className="bg-green-500 hover:bg-green-600 text-white border-green-500"
+                    className="bg-green-500 hover:bg-green-600 border-green-500"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Agregar Producto
@@ -1069,20 +1062,20 @@ export default function BoletasFacturas() {
                       <TableRow className="bg-muted/50">
                         <TableHead className="w-12 text-center">#</TableHead>
                         <TableHead className="w-20 text-center">Stock</TableHead>
-                        <TableHead className="w-32">CÃ³digo</TableHead>
-                        <TableHead className="min-w-50">DescripciÃ³n</TableHead>
+                        <TableHead className="w-32">Código</TableHead>
+                        <TableHead className="min-w-50">Descripción</TableHead>
                         <TableHead className="w-24">Unidad</TableHead>
                         <TableHead className="w-24 text-right">Cantidad</TableHead>
                         <TableHead className="w-28 text-right">P. Unitario</TableHead>
                         <TableHead className="w-28 text-right">Subtotal</TableHead>
-                        <TableHead className="w-16 text-center">AcciÃ³n</TableHead>
+                        <TableHead className="w-16 text-center">Acción</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {detalleItems.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                            ðŸ“¦ No hay productos agregados
+                            📦 No hay productos agregados
                             <br />
                             <span className="text-sm">Haz clic en "Agregar Producto" para comenzar</span>
                           </TableCell>
@@ -1116,7 +1109,7 @@ export default function BoletasFacturas() {
                                 onChange={(e) =>
                                   handleItemChange(item.id, 'descripcion', e.target.value)
                                 }
-                                placeholder="DescripciÃ³n del producto"
+                                placeholder="Descripción del producto"
                                 className="h-8 text-sm"
                               />
                             </TableCell>
@@ -1175,16 +1168,16 @@ export default function BoletasFacturas() {
                                 <X className="h-4 w-4" />
                               </Button>
                             </TableCell>
-                        </TableRow>
-                      ))}
+                          </TableRow>
+                        ))
+                      )}
                     </TableBody>
                   </Table>
                 </div>
               </div>
-
               {/* Observaciones */}
               <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ“ Observaciones</h3>
+                <h3 className="text-lg font-semibold mb-4">📝 Observaciones</h3>
                 <textarea
                   className="w-full border rounded-md px-3 py-2 text-sm min-h-20 bg-background"
                   value={formData.observaciones}

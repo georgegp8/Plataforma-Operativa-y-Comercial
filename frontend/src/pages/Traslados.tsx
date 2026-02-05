@@ -370,7 +370,7 @@ export default function Traslados() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-50 dark:text-white dark:hover:bg-blue-900/20"
+                            className="h-8 w-8 text-blue-600 hover:bg-blue-50 dark:text-[#f38644] dark:hover:bg-[#17eddc]/80"
                             onClick={() => handleVerDetalles(guia)}
                             title="Ver detalles"
                           >

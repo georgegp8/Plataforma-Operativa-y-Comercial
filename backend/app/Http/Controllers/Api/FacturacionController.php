@@ -75,66 +75,30 @@ class FacturacionController extends Controller
     }
 
     /**
-     * Emitir una factura electrónica
+     * @deprecated Usar NubefactController::emitirComprobante() en su lugar
+     * Este método está deshabilitado porque FacturacionService no está implementado.
+     * La emisión de comprobantes se realiza mediante /api/nubefact/comprobantes
      */
     public function emitirFactura(Request $request): JsonResponse
     {
-        $validator = $this->validarFactura($request);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        try {
-            $data = $request->all();
-            $data['tipoDoc'] = '01'; // Factura
-
-            // Llamar al servicio (enfoque simplificado del tutorial)
-            $resultado = $this->facturacionService->emitirComprobante($data, 'invoice');
-
-            return response()->json($resultado, 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => $e->getCode(),
-            ], 500);
-        }
+        return response()->json([
+            'success' => false,
+            'message' => 'Este endpoint está deshabilitado. Use /api/nubefact/comprobantes para emitir comprobantes.',
+            'endpoint_recomendado' => '/api/nubefact/comprobantes',
+        ], 410); // 410 Gone - recurso que ya no está disponible
     }
 
     /**
-     * Emitir una boleta electrónica
+     * @deprecated Usar NubefactController::emitirComprobante() en su lugar
+     * Este método está deshabilitado porque FacturacionService no está implementado.
      */
     public function emitirBoleta(Request $request): JsonResponse
     {
-        $validator = $this->validarBoleta($request);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        try {
-            $data = $request->all();
-            $data['tipoDoc'] = '03'; // Boleta
-
-            $resultado = $this->facturacionService->emitirComprobante($data, 'invoice');
-
-            return response()->json($resultado, 200);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-                'code' => $e->getCode(),
-            ], 500);
-        }
+        return response()->json([
+            'success' => false,
+            'message' => 'Este endpoint está deshabilitado. Use /api/nubefact/comprobantes para emitir comprobantes.',
+            'endpoint_recomendado' => '/api/nubefact/comprobantes',
+        ], 410);
     }
 
     /**
