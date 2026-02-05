@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
 import api from '@/lib/api';
 import { format } from 'date-fns';
+import type { Categoria } from '@/types';
 
 
 // Mock data types
@@ -39,7 +40,7 @@ export default function IngresoSalidaProductos() {
 
     // Filters
     const [filtroTipo, setFiltroTipo] = useState('todos');
-    const [categorias, setCategorias] = useState<any[]>([]);
+    const [categorias, setCategorias] = useState<Categoria[]>([]);
     const [filtroCategoria, setFiltroCategoria] = useState('todos');
     const [filtroAlmacen, setFiltroAlmacen] = useState('todos');
     // const [fechaInicio, setFechaInicio] = useState('');
@@ -372,7 +373,7 @@ export default function IngresoSalidaProductos() {
                                         variant={currentPage === page ? "default" : "outline"}
                                         size="sm"
                                         onClick={() => setCurrentPage(page)}
-                                        className={`h-8 min-w-[2rem] ${currentPage === page
+                                        className={`h-8 min-w-8 ${currentPage === page
                                             ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                                             : ''
                                             }`}
