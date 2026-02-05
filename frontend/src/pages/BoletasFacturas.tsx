@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+﻿import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { Pencil, Trash2, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText, X, Save } from 'lucide-react';
@@ -95,6 +95,15 @@ export default function BoletasFacturas() {
     monto_pago: '',
     observaciones: '',
   });
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [empresaData, setEmpresaData] = useState({
+    razon_social: 'SPACEDEVPR S.A.C.',
+    ruc: '20434906301',
+    direccion: 'Av. Los Pinos 456 - Miraflores - Lima',
+    email: 'ventas@spacedev.com.pe',
+    telefono: '01-4567890',
+    direccion_completa: 'Av. Los Pinos 456, Miraflores, Lima - PerÃº'
+  });
   const [filtroTipoDoc, setFiltroTipoDoc] = useState<'todos' | '01' | '03'>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'aceptado' | 'pendiente' | 'rechazado'>('todos');
   const [currentPage, setCurrentPage] = useState(1);
@@ -160,7 +169,7 @@ export default function BoletasFacturas() {
       if (filtroEstado === 'rechazado' && (comp.nubefact_aceptada_por_sunat || comp.estado_sunat === 'pendiente')) return false;
     }
 
-    // Filtro por búsqueda
+    // Filtro por bÃºsqueda
     if (!valorFiltro) return true;
 
     const valorBusqueda = valorFiltro.toLowerCase();
@@ -178,7 +187,7 @@ export default function BoletasFacturas() {
     }
   });
 
-  // Paginación
+  // PaginaciÃ³n
   const totalPages = Math.ceil(comprobantesFiltrados.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const comprobantesPaginados = comprobantesFiltrados.slice(startIndex, startIndex + itemsPerPage);
@@ -229,8 +238,8 @@ export default function BoletasFacturas() {
 
   const handleGuardarCPE = (e: React.FormEvent) => {
     e.preventDefault();
-    toast.info('Próximamente', {
-      description: 'La funcionalidad de guardar comprobantes estará disponible pronto',
+    toast.info('PrÃ³ximamente', {
+      description: 'La funcionalidad de guardar comprobantes estarÃ¡ disponible pronto',
     });
   };
 
@@ -257,8 +266,8 @@ export default function BoletasFacturas() {
     switch (tipo) {
       case '01': return 'Factura';
       case '03': return 'Boleta';
-      case '07': return 'N. Crédito';
-      case '08': return 'N. Débito';
+      case '07': return 'N. CrÃ©dito';
+      case '08': return 'N. DÃ©bito';
       default: return tipo;
     }
   };
@@ -327,7 +336,7 @@ export default function BoletasFacturas() {
                 className="w-full px-3 py-2 text-sm border border-border rounded bg-white dark:bg-background"
               >
                 <option value="cliente">Por Cliente</option>
-                <option value="numero">Por Número</option>
+                <option value="numero">Por NÃºmero</option>
                 <option value="fecha">Por Fecha</option>
                 <option value="tipo">Por Tipo</option>
               </select>
@@ -396,7 +405,7 @@ export default function BoletasFacturas() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">#</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Fecha</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Tipo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Número</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">NÃºmero</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Cliente</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Moneda</th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-primary-foreground">Total</th>
@@ -473,8 +482,8 @@ export default function BoletasFacturas() {
                               size="icon"
                               className="h-8 w-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                               onClick={() => {
-                                toast.info('Próximamente', {
-                                  description: 'La funcionalidad de anular comprobantes estará disponible pronto',
+                                toast.info('PrÃ³ximamente', {
+                                  description: 'La funcionalidad de anular comprobantes estarÃ¡ disponible pronto',
                                 });
                               }}
                               title="Anular"
@@ -491,7 +500,7 @@ export default function BoletasFacturas() {
             </div>
           )}
 
-          {/* Paginación - Estilo Clientes */}
+          {/* PaginaciÃ³n - Estilo Clientes */}
           <div className="px-4 py-3 border-t border-border bg-white dark:bg-card">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-2">
@@ -571,18 +580,18 @@ export default function BoletasFacturas() {
             </DialogHeader>
             {selectedComprobante && (
               <div className="space-y-6 py-4">
-                {/* Información General */}
+                {/* InformaciÃ³n General */}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">Tipo</Label>
                     <p className="text-sm font-medium">{getTipoDocLabel(selectedComprobante.tipo_doc)}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Número</Label>
+                    <Label className="text-xs text-muted-foreground">NÃºmero</Label>
                     <p className="text-sm font-medium">{selectedComprobante.numero_completo}</p>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">Fecha Emisión</Label>
+                    <Label className="text-xs text-muted-foreground">Fecha EmisiÃ³n</Label>
                     <p className="text-sm font-medium">{formatDate(selectedComprobante.fecha_emision)}</p>
                   </div>
                   <div>
@@ -604,7 +613,7 @@ export default function BoletasFacturas() {
                   <h3 className="font-semibold mb-3">Cliente</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-xs text-muted-foreground">Razón Social</Label>
+                      <Label className="text-xs text-muted-foreground">RazÃ³n Social</Label>
                       <p className="text-sm font-medium">{selectedComprobante.cliente_razon_social}</p>
                     </div>
                     <div>
@@ -688,392 +697,511 @@ export default function BoletasFacturas() {
             <DialogHeader>
               <DialogTitle>Comprobante de Pago</DialogTitle>
               <DialogDescription>
-                Complete los datos del comprobante electrónico. Los campos marcados son obligatorios.
+                Complete los datos del comprobante electrÃ³nico. Los campos marcados son obligatorios.
               </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleGuardarCPE} className="space-y-6">
-              {/* Información de la empresa */}
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="font-semibold text-lg">SPACEDEVPR S.A.C.</p>
-                    <p className="text-sm text-muted-foreground">RUC: 20434906301</p>
-                    <p className="text-sm text-muted-foreground">Av. Los Pinos 456 - Miraflores - Lima</p>
+              {/* InformaciÃ³n de la Empresa */}
+              <div className="bg-muted/50 p-6 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ“‹ InformaciÃ³n de la Empresa</h3>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Logo */}
+                  <div className="space-y-3">
+                    <Label htmlFor="logo" className="text-sm font-medium">Logo de la Empresa</Label>
+                    <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4 text-center">
+                      {logoPreview ? (
+                        <div className="space-y-2">
+                          <img 
+                            src={logoPreview} 
+                            alt="Logo preview" 
+                            className="w-24 h-24 object-contain mx-auto rounded"
+                          />
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => {
+                              setLogoPreview(null);
+                              const input = document.getElementById('logo') as HTMLInputElement;
+                              if (input) input.value = '';
+                            }}
+                          >
+                            Cambiar logo
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Input
+                            id="logo"
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg"
+                            className="cursor-pointer"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 2 * 1024 * 1024) {
+                                  toast.error('Archivo muy grande', {
+                                    description: 'El logo no debe superar los 2MB'
+                                  });
+                                  e.target.value = '';
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                  setLogoPreview(e.target?.result as string);
+                                };
+                                reader.readAsDataURL(file);
+                                toast.success('Logo cargado correctamente');
+                              }
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground">PNG/JPG â€¢ MÃ¡x 2MB</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-right text-sm text-muted-foreground">
-                    <p>ventas@spacedev.com.pe</p>
-                    <p>01-4567890</p>
+
+                  {/* Datos principales */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="empresa_razon_social" className="text-sm font-medium">RazÃ³n Social *</Label>
+                        <Input
+                          id="empresa_razon_social"
+                          value={empresaData.razon_social}
+                          onChange={(e) => setEmpresaData(prev => ({ ...prev, razon_social: e.target.value }))}
+                          className="font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="empresa_ruc" className="text-sm font-medium">RUC *</Label>
+                        <Input
+                          id="empresa_ruc"
+                          value={empresaData.ruc}
+                          onChange={(e) => setEmpresaData(prev => ({ ...prev, ruc: e.target.value }))}
+                          placeholder="20123456789"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="empresa_direccion" className="text-sm font-medium">DirecciÃ³n Fiscal *</Label>
+                      <Input
+                        id="empresa_direccion"
+                        value={empresaData.direccion_completa}
+                        onChange={(e) => setEmpresaData(prev => ({ ...prev, direccion_completa: e.target.value }))}
+                        placeholder="Av. Ejemplo 123, Distrito, Provincia - Departamento"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="empresa_email" className="text-sm font-medium">Email</Label>
+                        <Input
+                          id="empresa_email"
+                          type="email"
+                          value={empresaData.email}
+                          onChange={(e) => setEmpresaData(prev => ({ ...prev, email: e.target.value }))}
+                          placeholder="ventas@empresa.com"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="empresa_telefono" className="text-sm font-medium">TelÃ©fono</Label>
+                        <Input
+                          id="empresa_telefono"
+                          value={empresaData.telefono}
+                          onChange={(e) => setEmpresaData(prev => ({ ...prev, telefono: e.target.value }))}
+                          placeholder="01-1234567"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
                 
-                {/* Logo de la empresa */}
-                <div className="mt-4 pt-4 border-t border-muted-foreground/20">
-                  <Label htmlFor="logo" className="text-sm font-medium">Logo de la Empresa (Opcional)</Label>
-                  <p className="text-xs text-muted-foreground mb-2">Formato PNG o JPG, tamaño máximo 2MB. Dimensiones recomendadas: 200x200px</p>
-                  <Input
-                    id="logo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/jpg"
-                    className="cursor-pointer"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 2 * 1024 * 1024) {
-                          toast.error('Archivo muy grande', {
-                            description: 'El logo no debe superar los 2MB'
-                          });
-                          e.target.value = '';
-                          return;
-                        }
-                        toast.success('Logo cargado', {
-                          description: `${file.name} listo para incluir en el comprobante`
-                        });
+                <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    ðŸ’¡ <strong>Tip:</strong> Esta informaciÃ³n aparecerÃ¡ en todos los comprobantes. 
+                    PrÃ³ximamente podrÃ¡s guardar esta configuraciÃ³n en las preferencias.
+                  </p>
+                </div>
+              </div>
+
+              {/* ConfiguraciÃ³n del Comprobante */}
+              <div className="bg-muted/50 p-6 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-4 text-primary">âš™ï¸ ConfiguraciÃ³n del Comprobante</h3>
+                {/* Checkboxes especiales */}
+                <div className="flex flex-wrap gap-6 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="contingencia"
+                      checked={formData.es_contingencia}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, es_contingencia: checked as boolean }))
                       }
-                    }}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">El logo aparecerá en el PDF del comprobante según requisitos de SUNAT</p>
+                    />
+                    <label htmlFor="contingencia" className="text-sm font-medium">
+                      ðŸš¨ Comprobante de contingencia
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="pago-anticipado"
+                      checked={formData.es_pago_anticipado}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, es_pago_anticipado: checked as boolean }))
+                      }
+                    />
+                    <label htmlFor="pago-anticipado" className="text-sm font-medium">
+                      ðŸ’° Pago anticipado
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              {/* Checkboxes de contingencia y pago anticipado */}
-              <div className="flex gap-6">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="contingencia"
-                    checked={formData.es_contingencia}
-                    onCheckedChange={(checked) => 
-                      setFormData(prev => ({ ...prev, es_contingencia: checked as boolean }))
-                    }
-                  />
-                  <label htmlFor="contingencia" className="text-sm font-medium">
-                    ¿Es comprobante de contingencia?
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="pago-anticipado"
-                    checked={formData.es_pago_anticipado}
-                    onCheckedChange={(checked) => 
-                      setFormData(prev => ({ ...prev, es_pago_anticipado: checked as boolean }))
-                    }
-                  />
-                  <label htmlFor="pago-anticipado" className="text-sm font-medium">
-                    ¿Es un pago anticipado?
-                  </label>
-                </div>
-              </div>
-
-              {/* Primera fila: Tipo, Serie, Establecimiento, Operación, Moneda */}
-              <div className="grid grid-cols-5 gap-4">
-                <div>
-                  <Label>Tipo de Comprobante</Label>
-                  <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                    value={formData.tipo_doc}
-                    onChange={(e) => setFormData(prev => ({ ...prev, tipo_doc: e.target.value }))}
-                  >
-                    <option value="01">FACTURA ELECTRONICA</option>
-                    <option value="03">BOLETA ELECTRONICA</option>
-                    <option value="07">NOTA DE CREDITO</option>
-                    <option value="08">NOTA DE DEBITO</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Serie</Label>
-                  <Input
-                    value={formData.serie}
-                    onChange={(e) => setFormData(prev => ({ ...prev, serie: e.target.value }))}
-                    placeholder="F001"
-                  />
-                </div>
-                <div>
-                  <Label>Establecimiento</Label>
-                  <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                    value={formData.establecimiento}
-                    onChange={(e) => setFormData(prev => ({ ...prev, establecimiento: e.target.value }))}
-                  >
-                    <option value="principal">Oficina Principal</option>
-                    <option value="sucursal1">Sucursal 1</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Tipo Operación</Label>
-                  <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                    value={formData.tipo_operacion}
-                    onChange={(e) => setFormData(prev => ({ ...prev, tipo_operacion: e.target.value }))}
-                  >
-                    <option value="0101">Venta Interna</option>
-                    <option value="0200">Exportación</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Moneda</Label>
-                  <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                    value={formData.moneda}
-                    onChange={(e) => setFormData(prev => ({ ...prev, moneda: e.target.value }))}
-                  >
-                    <option value="PEN">Soles (PEN)</option>
-                    <option value="USD">Dólares (USD)</option>
-                  </select>
+              {/* Datos del Comprobante */}
+              <div className="bg-muted/50 p-6 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ“œ Datos del Comprobante</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                  <div>
+                    <Label className="text-sm font-medium">Tipo de Comprobante *</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      value={formData.tipo_doc}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tipo_doc: e.target.value }))}
+                    >
+                      <option value="01">ðŸ§¾ Factura ElectrÃ³nica</option>
+                      <option value="03">ðŸŽ« Boleta ElectrÃ³nica</option>
+                      <option value="07">âš ï¸ Nota de CrÃ©dito</option>
+                      <option value="08">âš¡ Nota de DÃ©bito</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Serie *</Label>
+                    <Input
+                      value={formData.serie}
+                      onChange={(e) => setFormData(prev => ({ ...prev, serie: e.target.value }))}
+                      placeholder="F001"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Establecimiento *</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      value={formData.establecimiento}
+                      onChange={(e) => setFormData(prev => ({ ...prev, establecimiento: e.target.value }))}
+                      >
+                      <option value="principal">ðŸ¢ Oficina Principal</option>
+                      <option value="sucursal1">ðŸ¢ Sucursal 1</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Tipo OperaciÃ³n *</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      value={formData.tipo_operacion}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tipo_operacion: e.target.value }))}
+                    >
+                      <option value="0101">ðŸ‡µðŸ‡ª Venta Interna</option>
+                      <option value="0200">ðŸŒ ExportaciÃ³n</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Moneda *</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      value={formData.moneda}
+                      onChange={(e) => setFormData(prev => ({ ...prev, moneda: e.target.value }))}
+                    >
+                      <option value="PEN">ðŸ’µ Soles (PEN)</option>
+                      <option value="USD">ðŸ’µ DÃ³lares (USD)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Segunda fila: Cliente */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>Número de Documento</Label>
-                  <Input
-                    value={formData.cliente_num_doc}
-                    onChange={(e) => setFormData(prev => ({ ...prev, cliente_num_doc: e.target.value }))}
-                    placeholder="RUC o DNI"
-                  />
+              {/* InformaciÃ³n del Cliente */}
+              <div className="bg-muted/50 p-6 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ‘¥ InformaciÃ³n del Cliente</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <Label className="text-sm font-medium">NÃºmero de Documento *</Label>
+                    <Input
+                      value={formData.cliente_num_doc}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cliente_num_doc: e.target.value }))}
+                      placeholder="RUC o DNI"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label className="text-sm font-medium">RazÃ³n Social / Nombre *</Label>
+                    <Input
+                      value={formData.cliente_razon_social}
+                      onChange={(e) => setFormData(prev => ({ ...prev, cliente_razon_social: e.target.value }))}
+                      placeholder="Nombre del cliente"
+                    />
+                  </div>
                 </div>
-                <div className="col-span-2">
-                  <Label>Razón Social / Nombre</Label>
-                  <Input
-                    value={formData.cliente_razon_social}
-                    onChange={(e) => setFormData(prev => ({ ...prev, cliente_razon_social: e.target.value }))}
-                    placeholder="Nombre del cliente"
-                  />
-                </div>
-              </div>
 
-              {/* Tercera fila: Dirección */}
-              <div>
-                <Label>Dirección</Label>
-                <Input
-                  value={formData.cliente_direccion}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cliente_direccion: e.target.value }))}
-                  placeholder="Dirección del cliente"
-                />
-              </div>
-
-              {/* Cuarta fila: Fechas, tipo cambio, condición pago, vendedor */}
-              <div className="grid grid-cols-5 gap-4">
                 <div>
-                  <Label>Fecha Emisión</Label>
+                  <Label className="text-sm font-medium">DirecciÃ³n *</Label>
                   <Input
-                    type="date"
-                    value={formData.fecha_emision}
-                    onChange={(e) => setFormData(prev => ({ ...prev, fecha_emision: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label>Fecha Vencimiento</Label>
-                  <Input
-                    type="date"
-                    value={formData.fecha_vencimiento}
-                    onChange={(e) => setFormData(prev => ({ ...prev, fecha_vencimiento: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label>Tipo de Cambio</Label>
-                  <Input
-                    type="number"
-                    step="0.001"
-                    value={formData.tipo_cambio}
-                    onChange={(e) => setFormData(prev => ({ ...prev, tipo_cambio: e.target.value }))}
-                    placeholder="3.750"
-                  />
-                </div>
-                <div>
-                  <Label>Condición de Pago</Label>
-                  <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                    value={formData.condicion_pago}
-                    onChange={(e) => setFormData(prev => ({ ...prev, condicion_pago: e.target.value }))}
-                  >
-                    <option value="Contado">Contado</option>
-                    <option value="Credito">Crédito</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Vendedor</Label>
-                  <Input
-                    value={formData.vendedor}
-                    onChange={(e) => setFormData(prev => ({ ...prev, vendedor: e.target.value }))}
-                    placeholder="Nombre del vendedor"
+                    value={formData.cliente_direccion}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cliente_direccion: e.target.value }))}
+                    placeholder="DirecciÃ³n del cliente"
                   />
                 </div>
               </div>
 
-              {/* Quinta fila: Modalidad y monto de pago */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label>Modalidad de Pago</Label>
-                  <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                    value={formData.modalidad_pago}
-                    onChange={(e) => setFormData(prev => ({ ...prev, modalidad_pago: e.target.value }))}
-                  >
-                    <option value="Efectivo">Efectivo</option>
-                    <option value="Transferencia">Transferencia</option>
-                    <option value="Tarjeta">Tarjeta</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Banco Destino</Label>
-                  <select
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                    value={formData.banco_destino}
-                    onChange={(e) => setFormData(prev => ({ ...prev, banco_destino: e.target.value }))}
-                  >
-                    <option value="CAJA GENERAL - MARURI">CAJA GENERAL - MARURI</option>
-                    <option value="BCP">BCP</option>
-                    <option value="BBVA">BBVA</option>
-                    <option value="Interbank">Interbank</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Monto</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={formData.monto_pago}
-                    onChange={(e) => setFormData(prev => ({ ...prev, monto_pago: e.target.value }))}
-                    placeholder="0.00"
-                  />
+              {/* Fechas y Condiciones */}
+              <div className="bg-muted/50 p-6 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ—º Fechas y Condiciones de Pago</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Fecha EmisiÃ³n *</Label>
+                    <Input
+                      type="date"
+                      value={formData.fecha_emision}
+                      onChange={(e) => setFormData(prev => ({ ...prev, fecha_emision: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Fecha Vencimiento</Label>
+                    <Input
+                      type="date"
+                      value={formData.fecha_vencimiento}
+                      onChange={(e) => setFormData(prev => ({ ...prev, fecha_vencimiento: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Tipo de Cambio</Label>
+                    <Input
+                      type="number"
+                      step="0.001"
+                      value={formData.tipo_cambio}
+                      onChange={(e) => setFormData(prev => ({ ...prev, tipo_cambio: e.target.value }))}
+                      placeholder="3.750"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">CondiciÃ³n de Pago *</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      value={formData.condicion_pago}
+                      onChange={(e) => setFormData(prev => ({ ...prev, condicion_pago: e.target.value }))}
+                    >
+                      <option value="Contado">ðŸ’µ Contado</option>
+                      <option value="Credito">ðŸ“… CrÃ©dito</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Vendedor</Label>
+                    <Input
+                      value={formData.vendedor}
+                      onChange={(e) => setFormData(prev => ({ ...prev, vendedor: e.target.value }))}
+                      placeholder="Nombre del vendedor"
+                    />
+                  </div>
                 </div>
               </div>
 
-              {/* Tabla de items */}
-              <div className="space-y-4">
-                <Label className="text-base font-semibold">Detalle de Productos/Servicios</Label>
-                <div className="border rounded-md overflow-hidden">
+              {/* Modalidad de Pago */}
+              <div className="bg-muted/50 p-6 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ’³ Modalidad de Pago</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-sm font-medium">Modalidad de Pago</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      value={formData.modalidad_pago}
+                      onChange={(e) => setFormData(prev => ({ ...prev, modalidad_pago: e.target.value }))}
+                    >
+                      <option value="Efectivo">ðŸ’µ Efectivo</option>
+                      <option value="Transferencia">ðŸ¦ Transferencia</option>
+                      <option value="Tarjeta">ðŸ’³ Tarjeta</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Banco Destino</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
+                      value={formData.banco_destino}
+                      onChange={(e) => setFormData(prev => ({ ...prev, banco_destino: e.target.value }))}
+                    >
+                      <option value="CAJA GENERAL - MARURI">ðŸ¦ Caja General - Maruri</option>
+                      <option value="BCP">ðŸ¦ BCP</option>
+                      <option value="BBVA">ðŸ¦ BBVA</option>
+                      <option value="Interbank">ðŸ¦ Interbank</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium">Monto</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={formData.monto_pago}
+                      onChange={(e) => setFormData(prev => ({ ...prev, monto_pago: e.target.value }))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalle de Productos/Servicios */}
+              <div className="bg-muted/50 p-6 rounded-lg border">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-primary">ðŸ“¦ Detalle de Productos/Servicios</h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAgregarItem}
+                    className="bg-green-500 hover:bg-green-600 text-white border-green-500"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar Producto
+                  </Button>
+                </div>
+                
+                <div className="border rounded-lg overflow-hidden bg-background">
                   <Table>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead className="w-24">Afecto Stock</TableHead>
-                        <TableHead className="w-32">Código</TableHead>
-                        <TableHead>Descripción</TableHead>
+                      <TableRow className="bg-muted/50">
+                        <TableHead className="w-12 text-center">#</TableHead>
+                        <TableHead className="w-20 text-center">Stock</TableHead>
+                        <TableHead className="w-32">CÃ³digo</TableHead>
+                        <TableHead className="min-w-50">DescripciÃ³n</TableHead>
                         <TableHead className="w-24">Unidad</TableHead>
-                        <TableHead className="w-24">Cantidad</TableHead>
-                        <TableHead className="w-28">P. Unitario</TableHead>
-                        <TableHead className="w-28">Subtotal</TableHead>
-                        <TableHead className="w-16">Acciones</TableHead>
+                        <TableHead className="w-24 text-right">Cantidad</TableHead>
+                        <TableHead className="w-28 text-right">P. Unitario</TableHead>
+                        <TableHead className="w-28 text-right">Subtotal</TableHead>
+                        <TableHead className="w-16 text-center">AcciÃ³n</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {detalleItems.map((item, index) => (
-                        <TableRow key={item.id}>
-                          <TableCell>{index + 1}</TableCell>
-                          <TableCell>
-                            <Checkbox
-                              checked={item.afecto_stock}
-                              onCheckedChange={(checked) =>
-                                handleItemChange(item.id, 'afecto_stock', checked)
-                              }
-                            />
+                      {detalleItems.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                            ðŸ“¦ No hay productos agregados
+                            <br />
+                            <span className="text-sm">Haz clic en "Agregar Producto" para comenzar</span>
                           </TableCell>
-                          <TableCell>
-                            <Input
-                              value={item.codigo_producto}
-                              onChange={(e) =>
-                                handleItemChange(item.id, 'codigo_producto', e.target.value)
-                              }
-                              placeholder="Código"
-                              className="h-8"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={item.descripcion}
-                              onChange={(e) =>
-                                handleItemChange(item.id, 'descripcion', e.target.value)
-                              }
-                              placeholder="Descripción"
-                              className="h-8"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <select
-                              className="w-full border rounded-md px-2 py-1 text-sm h-8"
-                              value={item.unidad}
-                              onChange={(e) =>
-                                handleItemChange(item.id, 'unidad', e.target.value)
-                              }
-                            >
-                              <option value="NIU">Unidad</option>
-                              <option value="ZZ">Servicio</option>
-                              <option value="KGM">Kilogramo</option>
-                              <option value="MTR">Metro</option>
-                            </select>
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={item.cantidad}
-                              onChange={(e) =>
-                                handleItemChange(item.id, 'cantidad', parseFloat(e.target.value) || 0)
-                              }
-                              className="h-8"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={item.precio_unitario}
-                              onChange={(e) =>
-                                handleItemChange(item.id, 'precio_unitario', parseFloat(e.target.value) || 0)
-                              }
-                              className="h-8"
-                            />
-                          </TableCell>
-                          <TableCell className="font-semibold">
-                            {formatCurrency(item.subtotal)}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEliminarItem(item.id)}
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        detalleItems.map((item, index) => (
+                          <TableRow key={item.id} className="hover:bg-muted/30">
+                            <TableCell className="text-center font-medium">{index + 1}</TableCell>
+                            <TableCell className="text-center">
+                              <Checkbox
+                                checked={item.afecto_stock}
+                                onCheckedChange={(checked) =>
+                                  handleItemChange(item.id, 'afecto_stock', checked)
+                                }
+                                title="Afecto a stock"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={item.codigo_producto}
+                                onChange={(e) =>
+                                  handleItemChange(item.id, 'codigo_producto', e.target.value)
+                                }
+                                placeholder="COD001"
+                                className="h-8 text-sm"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={item.descripcion}
+                                onChange={(e) =>
+                                  handleItemChange(item.id, 'descripcion', e.target.value)
+                                }
+                                placeholder="DescripciÃ³n del producto"
+                                className="h-8 text-sm"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <select
+                                className="w-full border rounded-md px-2 py-1 text-sm h-8 bg-background"
+                                value={item.unidad}
+                                onChange={(e) =>
+                                  handleItemChange(item.id, 'unidad', e.target.value)
+                                }
+                              >
+                                <option value="NIU">Unidad</option>
+                                <option value="ZZ">Servicio</option>
+                                <option value="KGM">Kilogramo</option>
+                                <option value="MTR">Metro</option>
+                              </select>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.cantidad}
+                                onChange={(e) =>
+                                  handleItemChange(item.id, 'cantidad', parseFloat(e.target.value) || 0)
+                                }
+                                className="h-8 text-right text-sm"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={item.precio_unitario}
+                                onChange={(e) =>
+                                  handleItemChange(item.id, 'precio_unitario', parseFloat(e.target.value) || 0)
+                                }
+                                className="h-8 text-right text-sm"
+                              />
+                            </TableCell>
+                            <TableCell className="font-semibold text-right">
+                              <span className="text-primary">
+                                {formatCurrency(item.subtotal)}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEliminarItem(item.id)}
+                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                title="Eliminar producto"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleAgregarItem}
-                  className="w-full"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar Producto
-                </Button>
               </div>
 
               {/* Observaciones */}
-              <div>
-                <Label>Observaciones</Label>
+              <div className="bg-muted/50 p-6 rounded-lg border">
+                <h3 className="text-lg font-semibold mb-4 text-primary">ðŸ“ Observaciones</h3>
                 <textarea
-                  className="w-full border rounded-md px-3 py-2 text-sm min-h-20"
+                  className="w-full border rounded-md px-3 py-2 text-sm min-h-20 bg-background"
                   value={formData.observaciones}
                   onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
-                  placeholder="Observaciones adicionales..."
+                  placeholder="Observaciones adicionales del comprobante..."
                 />
               </div>
 
               {/* Total */}
               <div className="flex justify-end">
-                <div className="bg-muted/50 px-6 py-4 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">TOTAL {formData.moneda === 'PEN' ? 'SOLES' : 'DÓLARES'}</p>
-                  <p className="text-3xl font-bold text-primary">
+                <div className="bg-primary/10 dark:bg-primary/20 px-8 py-6 rounded-lg border-2 border-primary/20">
+                  <p className="text-sm text-muted-foreground mb-2 text-center">TOTAL {formData.moneda === 'PEN' ? 'SOLES' : 'DÃ“LARES'}</p>
+                  <p className="text-4xl font-bold text-primary text-center">
                     {formatCurrency(calcularTotal())}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 text-center">
+                    {detalleItems.length} {detalleItems.length === 1 ? 'producto' : 'productos'}
                   </p>
                 </div>
               </div>
