@@ -296,43 +296,49 @@ export default function ConsultaNotaVenta() {
                     </span>
                 </div>
 
-                <div className="flex bg-background rounded border border-border shadow-sm">
-                   <button 
-                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                     disabled={currentPage === 1}
-                     className="px-2 py-1 text-muted-foreground hover:text-primary border-r border-border disabled:opacity-50 transition-colors"
-                   >
-                     <ChevronLeft className="h-4 w-4" />
-                   </button>
-                   
-                   {totalPages > 0 && Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                        let pageNum = i + 1;
-                        if (totalPages > 5 && currentPage > 3) pageNum = currentPage - 2 + i;
-                        if (pageNum > totalPages) pageNum = totalPages;
-                        
-                        return (
-                            <button
-                                key={i}
-                                onClick={() => setCurrentPage(pageNum)}
-                                className={`px-3 py-1 text-sm font-medium transition-colors ${
-                                    currentPage === pageNum 
-                                    ? 'text-primary bg-primary/10' 
-                                    : 'text-muted-foreground hover:text-primary'
-                                }`}
-                            >
-                                {pageNum}
-                            </button>
-                        );
-                   })}
-
-                   <button 
-                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                     disabled={currentPage === totalPages || totalPages === 0}
-                     className="px-2 py-1 text-muted-foreground hover:text-primary border-l border-border disabled:opacity-50 transition-colors"
-                   >
-                     <ChevronRight className="h-4 w-4" />
-                   </button>
-                </div>
+              <div className="flex gap-1 flex-wrap">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1 || totalPages === 0}
+                  className="px-3 py-1 text-sm border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </button>
+                {totalPages > 0 && Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let page;
+                  if (totalPages <= 5) {
+                    page = i + 1;
+                  } else if (currentPage <= 3) {
+                    page = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    page = totalPages - 4 + i;
+                  } else {
+                    page = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 text-sm border border-border rounded transition-colors ${
+                        currentPage === page
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-background hover:bg-muted text-foreground'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages || totalPages === 0}
+                  className="px-3 py-1 text-sm border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                >
+                  Siguiente
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
             </div>
             
             <div className="absolute bottom-0 left-0 w-full h-1"></div>
