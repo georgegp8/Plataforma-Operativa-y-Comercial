@@ -181,9 +181,10 @@ export default function CuentasBancarias() {
     setShowModal(true);
   };
 
-  const formatCurrency = (value: number, currency: string = 'PEN') => {
+  const formatCurrency = (value: number | string | null | undefined, currency: string = 'PEN') => {
     const symbol = currency === 'PEN' ? 'S/' : currency === 'USD' ? '$' : currency;
-    return `${symbol} ${value.toFixed(2)}`;
+    const numValue = typeof value === 'number' ? value : parseFloat(String(value || 0));
+    return `${symbol} ${numValue.toFixed(2)}`;
   };
 
   const handleItemsPerPageChange = (newItemsPerPage: number) => {
