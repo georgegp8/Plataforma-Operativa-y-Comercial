@@ -76,7 +76,7 @@ export default function IngresoSalidaProductos() {
                 // Fetch Categories (Real API)
                 const response = await api.categorias.listar();
                 if (Array.isArray(response.data)) {
-                    setCategorias(response.data);
+                    setCategorias(response.data as Categoria[]);
                 }
             } catch (error) {
                 console.error('Error loading data:', error);

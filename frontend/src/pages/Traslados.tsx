@@ -234,15 +234,15 @@ export default function Traslados() {
       <NubofactHeader />
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
-        <div className="bg-[#0f2c4c] text-white rounded-t-lg px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-semibold flex items-center gap-2">
+        <div className="bg-primary text-primary-foreground rounded-t-lg px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl font-semibold flex items-center gap-2">
             <Truck className="h-5 w-5" />
             Listado de Traslados
           </h1>
           <Button
             size="sm"
-            variant="secondary"
-            className="bg-white text-[#0f2c4c] hover:bg-gray-100"
+            variant="ghost"
+            className="text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground border border-primary-foreground/20"
             onClick={handleNuevoTraslado}
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -251,7 +251,7 @@ export default function Traslados() {
         </div>
 
         {/* Filtros */}
-        <div className="bg-[#e5ddd5] dark:bg-muted/20 px-4 py-4 border-x border-b border-border">
+        <div className="bg-muted/50 px-4 py-4 border-x border-border">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
               <Input
@@ -288,7 +288,7 @@ export default function Traslados() {
             </div>
             <div className="flex gap-2">
               <Button
-                className="flex-1 bg-[#0f2c4c] hover:bg-[#0f2c4c]/90 text-white"
+                className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                 onClick={() => {
                   setCurrentPage(1);
                   fetchGuias();
@@ -317,17 +317,17 @@ export default function Traslados() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-[#0f2c4c] text-white">
-                    <th className="px-4 py-3 text-left text-xs font-medium">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium">Fecha</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium">Número</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium">Destinatario</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium">Almacén Origen</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium">Almacén Destino</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium">Motivo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium">Código</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium">Estado</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium">Acciones</th>
+                  <tr className="bg-primary hover:bg-primary">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Fecha</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Número</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Destinatario</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Almacén Origen</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Almacén Destino</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Motivo</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Código</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Estado</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-primary-foreground">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -449,7 +449,7 @@ export default function Traslados() {
                       onClick={() => setCurrentPage(page)}
                       className={`px-3 py-1 text-sm border border-border rounded transition-colors ${
                         currentPage === page
-                          ? 'bg-[#0f2c4c] text-white'
+                          ? 'bg-primary text-primary-foreground'
                           : 'bg-background hover:bg-muted text-foreground'
                       }`}
                     >
@@ -927,7 +927,7 @@ export default function Traslados() {
                   id="observaciones"
                   value={formData.observaciones}
                   onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-border rounded bg-background min-h-[80px]"
+                  className="w-full px-3 py-2 text-sm border border-border rounded bg-background min-h-20"
                   placeholder="Información adicional sobre el traslado..."
                 />
               </div>
