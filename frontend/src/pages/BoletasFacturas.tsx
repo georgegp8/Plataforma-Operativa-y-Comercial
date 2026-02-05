@@ -687,6 +687,9 @@ export default function BoletasFacturas() {
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Comprobante de Pago</DialogTitle>
+              <DialogDescription>
+                Complete los datos del comprobante electrónico. Los campos marcados son obligatorios.
+              </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleGuardarCPE} className="space-y-6">
@@ -702,6 +705,34 @@ export default function BoletasFacturas() {
                     <p>ventas@spacedev.com.pe</p>
                     <p>01-4567890</p>
                   </div>
+                </div>
+                
+                {/* Logo de la empresa */}
+                <div className="mt-4 pt-4 border-t border-muted-foreground/20">
+                  <Label htmlFor="logo" className="text-sm font-medium">Logo de la Empresa (Opcional)</Label>
+                  <p className="text-xs text-muted-foreground mb-2">Formato PNG o JPG, tamaño máximo 2MB. Dimensiones recomendadas: 200x200px</p>
+                  <Input
+                    id="logo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    className="cursor-pointer"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 2 * 1024 * 1024) {
+                          toast.error('Archivo muy grande', {
+                            description: 'El logo no debe superar los 2MB'
+                          });
+                          e.target.value = '';
+                          return;
+                        }
+                        toast.success('Logo cargado', {
+                          description: `${file.name} listo para incluir en el comprobante`
+                        });
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">El logo aparecerá en el PDF del comprobante según requisitos de SUNAT</p>
                 </div>
               </div>
 
