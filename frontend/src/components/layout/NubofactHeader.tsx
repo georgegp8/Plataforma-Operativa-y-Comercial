@@ -27,6 +27,14 @@ import {
   Gift,
   Inbox,
   MoveHorizontal,
+  Receipt,
+  ShoppingBag,
+  FileEdit,
+  DollarSign,
+  TrendingUp,
+  XCircle,
+  FileCheck,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -35,6 +43,7 @@ interface DropdownItem {
   label: string;
   path: string;
   icon: React.ElementType;
+  isSectionTitle?: boolean;
 }
 
 interface NavItem {
@@ -71,15 +80,28 @@ const inventarioItems: DropdownItem[] = [
   { label: 'Productos', path: '/productos', icon: Package },
   { label: 'Productos Compuestos', path: '/inventario/productos-compuestos', icon: Gift },
   { label: 'Ingreso y Salida de Productos', path: '/inventario/ingreso-salida', icon: Inbox },
-  { label: 'Guías de Remisión', path: '/facturacion', icon: FileText },
+  { label: 'Guías de Remisión', path: '/inventario/guias-remision', icon: FileText },
   { label: 'Traslados', path: '/inventario/traslados', icon: MoveHorizontal },
+];
+
+const cpeItems: DropdownItem[] = [
+  { label: 'COMPROBANTES ELECTRÓNICOS', path: '', icon: FileText, isSectionTitle: true },
+  { label: 'Boletas y Facturas', path: '/cpes/boletas-facturas', icon: Receipt },
+  { label: 'Nota de Venta', path: '/cpes/nota-venta', icon: ShoppingBag },
+  { label: 'Nota Crédito/Débito - Otros', path: '/cpes/notas-credito-debito', icon: FileEdit },
+  { label: 'Cotizaciones', path: '/cpes/cotizaciones', icon: DollarSign },
+  { label: 'Finanzas', path: '/cpes/finanzas', icon: TrendingUp },
+  { label: 'PROCESOS SUNAT', path: '', icon: FileCheck, isSectionTitle: true },
+  { label: 'No Enviados Sunat', path: '/cpes/no-enviados-sunat', icon: XCircle },
+  { label: 'Resumenes Sunat', path: '/cpes/resumenes-sunat', icon: FileCheck },
+  { label: 'Anulados Sunat', path: '/cpes/anulados-sunat', icon: AlertCircle },
 ];
 
 const navItems: NavItem[] = [
   { label: 'Mantenimiento', icon: Settings, path: '/mantenimiento', hasDropdown: true, dropdownItems: mantenimientoItems },
   { label: 'Compras', icon: ShoppingCart, path: '/compras', hasDropdown: true, dropdownItems: comprasItems },
   { label: 'Inventario', icon: Package, path: '/inventario', hasDropdown: true, dropdownItems: inventarioItems },
-  { label: "CPE's", icon: FileText, path: '/cpes', hasDropdown: true },
+  { label: "CPE's", icon: FileText, path: '/cpes', hasDropdown: true, dropdownItems: cpeItems },
   { label: 'Archivo De Caja', icon: Archive, path: '/archivo-caja', hasDropdown: true },
   { label: 'Reportes', icon: BarChart3, path: '/reportes', hasDropdown: true },
 ];
@@ -170,14 +192,31 @@ export function NubofactHeader() {
 
                   {/* Dropdown Menu */}
                   {item.hasDropdown && item.dropdownItems && isOpen && (
-                    <div className="absolute top-full left-0 w-64 bg-card border border-border rounded-md shadow-lg z-50 pt-1">
-                      {item.dropdownItems.map((dropdownItem) => {
+                    <div className="absolute top-full left-0 w-72 bg-card border border-border rounded-md shadow-lg z-50 pt-1">
+                      {item.dropdownItems.map((dropdownItem, idx) => {
                         const DropdownIcon = dropdownItem.icon;
+                        
+                        // Si es un título de sección
+                        if (dropdownItem.isSectionTitle) {
+                          return (
+                            <div
+                              key={`section-${idx}`}
+                              className={cn(
+                                "px-4 py-2 text-xs font-bold text-primary uppercase tracking-wider",
+                                idx > 0 && "border-t border-border mt-1 pt-3"
+                              )}
+                            >
+                              {dropdownItem.label}
+                            </div>
+                          );
+                        }
+                        
+                        // Item normal
                         return (
                           <Link
                             key={dropdownItem.path}
                             to={dropdownItem.path}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors first:rounded-t-md last:rounded-b-md"
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
                             onClick={() => setOpenDropdown(null)}
                           >
                             <DropdownIcon className="h-4 w-4 text-muted-foreground" />
