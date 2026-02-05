@@ -761,6 +761,16 @@ export const api = {
     verificar: (tipo: string, serie: string, numero: string) =>
       apiClient.get<ApiResponse<unknown>>(`/nubefact/guias/${tipo}/${serie}/${numero}`),
   },
+
+  // Comprobantes (Boletas y Facturas)
+  comprobantes: {
+    listar: (params?: Record<string, unknown>) =>
+      apiClient.get<PaginatedResponse<ComprobanteEmitido>>('/facturacion/comprobantes', { params }),
+    obtener: (id: number) =>
+      apiClient.get<ApiResponse<ComprobanteEmitido>>(`/facturacion/comprobantes/${id}`),
+    exportar: (params?: Record<string, unknown>) =>
+      window.open(`${apiBaseUrl}/facturacion/comprobantes/export?${new URLSearchParams(params as Record<string, string>).toString()}`, '_blank'),
+  },
 };
 
 export default api;
