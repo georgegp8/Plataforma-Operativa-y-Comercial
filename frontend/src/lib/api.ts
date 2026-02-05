@@ -358,6 +358,36 @@ export interface EntidadFormData {
   es_proveedor?: boolean;
 }
 
+export interface GuiaRemision {
+  id: number;
+  serie: string;
+  numero: string;
+  tipo_comprobante?: string;
+  fecha_emision: string;
+  cliente_denominacion: string;
+  destinatario_denominacion: string;
+  destinatario_tipo_documento?: string;
+  destinatario_numero_documento?: string;
+  estado: string; // aceptado, rechazado, pendiente, enviado, anulado
+  fecha_inicio_traslado: string;
+  motivo_traslado?: string;
+  tipo_transporte?: string;
+  vehiculo_placa?: string;
+  vehiculo_tuc?: string;
+  conductor_nombre?: string;
+  conductor_apellidos?: string;
+  conductor_licencia?: string;
+  peso_bruto_total?: number;
+  peso_bruto_unidad?: string;
+  punto_partida_direccion?: string;
+  punto_partida_ubigeo?: string;
+  punto_llegada_direccion?: string;
+  punto_llegada_ubigeo?: string;
+  observaciones?: string;
+  nubefact_pdf_url?: string;
+  nubefact_xml_url?: string;
+}
+
 // Servicios de API
 export const api = {
   // Empresas
@@ -706,6 +736,22 @@ export const api = {
       apiClient.post<ApiResponse<unknown>>('/v1/productos/importar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }),
+  },
+
+  // Guías de Remisión
+  guiasRemision: {
+    listar: (params?: Record<string, unknown>) =>
+      apiClient.get<PaginatedResponse<GuiaRemision>>('/v1/guias-remision', { params }),
+    obtener: (id: number) =>
+      apiClient.get<ApiResponse<GuiaRemision>>(`/v1/guias-remision/${id}`),
+    crear: (data: any) =>
+      apiClient.post<ApiResponse<GuiaRemision>>('/v1/guias-remision', data),
+    actualizar: (id: number, data: any) =>
+      apiClient.put<ApiResponse<GuiaRemision>>(`/v1/guias-remision/${id}`, data),
+    eliminar: (id: number) =>
+      apiClient.delete<ApiResponse<unknown>>(`/v1/guias-remision/${id}`),
+    verificar: (tipo: string, serie: string, numero: string) =>
+      apiClient.get<ApiResponse<any>>(`/nubefact/guias/${tipo}/${serie}/${numero}`),
   },
 };
 
