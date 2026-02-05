@@ -17,7 +17,40 @@ export default function Traslados() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedGuia, setSelectedGuia] = useState<GuiaRemision | null>(null);
+  
+  // Formulario de creación
+  const [formData, setFormData] = useState({
+    empresa_id: 1,
+    serie: 'T001',
+    numero: '',
+    tipo_comprobante: 9,
+    fecha_emision: new Date().toISOString().split('T')[0],
+    fecha_inicio_traslado: new Date().toISOString().split('T')[0],
+    cliente_tipo_documento: '6',
+    cliente_numero_documento: '',
+    cliente_denominacion: '',
+    cliente_direccion: '',
+    destinatario_tipo_documento: '6',
+    destinatario_numero_documento: '',
+    destinatario_denominacion: '',
+    motivo_traslado: '01',
+    tipo_transporte: '02',
+    peso_bruto_total: '',
+    peso_bruto_unidad: 'KGM',
+    vehiculo_placa: '',
+    conductor_tipo_documento: '1',
+    conductor_numero_documento: '',
+    conductor_nombre: '',
+    conductor_apellidos: '',
+    conductor_licencia: '',
+    punto_partida_ubigeo: '',
+    punto_partida_direccion: '',
+    punto_llegada_ubigeo: '',
+    punto_llegada_direccion: '',
+    observaciones: '',
+  });
   
   // Filtros
   const [filtroDestinatario, setFiltroDestinatario] = useState('');
@@ -96,9 +129,61 @@ export default function Traslados() {
   };
 
   const handleNuevoTraslado = () => {
-    toast.info('Próximamente', {
-      description: 'La creación de traslados estará disponible próximamente',
+    setFormData({
+      empresa_id: 1,
+      serie: 'T001',
+      numero: '',
+      tipo_comprobante: 9,
+      fecha_emision: new Date().toISOString().split('T')[0],
+      fecha_inicio_traslado: new Date().toISOString().split('T')[0],
+      cliente_tipo_documento: '6',
+      cliente_numero_documento: '',
+      cliente_denominacion: '',
+      cliente_direccion: '',
+      destinatario_tipo_documento: '6',
+      destinatario_numero_documento: '',
+      destinatario_denominacion: '',
+      motivo_traslado: '01',
+      tipo_transporte: '02',
+      peso_bruto_total: '',
+      peso_bruto_unidad: 'KGM',
+      vehiculo_placa: '',
+      conductor_tipo_documento: '1',
+      conductor_numero_documento: '',
+      conductor_nombre: '',
+      conductor_apellidos: '',
+      conductor_licencia: '',
+      punto_partida_ubigeo: '',
+      punto_partida_direccion: '',
+      punto_llegada_ubigeo: '',
+      punto_llegada_direccion: '',
+      observaciones: '',
     });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleSaveNew = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const payload = {
+        ...formData,
+        numero: parseInt(formData.numero) || 1,
+        peso_bruto_total: parseFloat(formData.peso_bruto_total) || 0,
+      };
+      
+      await api.guiasRemision.crear(payload);
+      toast.success('Éxito', {
+        description: 'Traslado creado correctamente',
+      });
+      setIsCreateModalOpen(false);
+      fetchGuias();
+    } catch (error) {
+      console.error(error);
+      toast.error('Error', {
+        description: 'No se pudo crear el traslado',
+      });
+    }
   };
 
   const handleVerificarEstado = (guia: GuiaRemision) => {
@@ -134,7 +219,7 @@ export default function Traslados() {
     return (
       <div className="min-h-screen bg-background">
         <NubofactHeader />
-        <div className="container mx-auto px-4 py-6 flex items-center justify-center min-h-[400px]">
+        <div className="container mx-auto px-4 py-6 flex items-center justify-center min-h-100">
           <div className="flex flex-col items-center gap-3">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             <p className="text-sm text-muted-foreground">Cargando traslados...</p>
@@ -532,6 +617,334 @@ export default function Traslados() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDetailModalOpen(false)}>Cerrar</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Creación de Traslado */}
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Nuevo Traslado (Guía de Remisión)</DialogTitle>
+              <DialogDescription>
+                Complete los datos del traslado. Los campos marcados con * son obligatorios.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSaveNew} className="space-y-6 py-4">
+              {/* Datos Generales */}
+              <div className="border-b pb-4">
+                <h3 className="font-semibold mb-3 text-sm">Datos Generales</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="serie" className="text-xs">Serie *</Label>
+                    <Input
+                      id="serie"
+                      value={formData.serie}
+                      onChange={(e) => setFormData({ ...formData, serie: e.target.value })}
+                      placeholder="T001"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="numero" className="text-xs">Número *</Label>
+                    <Input
+                      id="numero"
+                      type="number"
+                      value={formData.numero}
+                      onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
+                      placeholder="1"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fecha_emision" className="text-xs">Fecha Emisión *</Label>
+                    <Input
+                      id="fecha_emision"
+                      type="date"
+                      value={formData.fecha_emision}
+                      onChange={(e) => setFormData({ ...formData, fecha_emision: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fecha_inicio_traslado" className="text-xs">Fecha Traslado *</Label>
+                    <Input
+                      id="fecha_inicio_traslado"
+                      type="date"
+                      value={formData.fecha_inicio_traslado}
+                      onChange={(e) => setFormData({ ...formData, fecha_inicio_traslado: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos del Cliente/Remitente */}
+              <div className="border-b pb-4">
+                <h3 className="font-semibold mb-3 text-sm">Cliente / Remitente</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="cliente_tipo_documento" className="text-xs">Tipo Doc *</Label>
+                    <select
+                      id="cliente_tipo_documento"
+                      value={formData.cliente_tipo_documento}
+                      onChange={(e) => setFormData({ ...formData, cliente_tipo_documento: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-border rounded bg-background"
+                      required
+                    >
+                      <option value="1">DNI</option>
+                      <option value="6">RUC</option>
+                      <option value="4">CE</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cliente_numero_documento" className="text-xs">Número Doc *</Label>
+                    <Input
+                      id="cliente_numero_documento"
+                      value={formData.cliente_numero_documento}
+                      onChange={(e) => setFormData({ ...formData, cliente_numero_documento: e.target.value })}
+                      placeholder="20123456789"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="cliente_denominacion" className="text-xs">Razón Social / Nombre *</Label>
+                    <Input
+                      id="cliente_denominacion"
+                      value={formData.cliente_denominacion}
+                      onChange={(e) => setFormData({ ...formData, cliente_denominacion: e.target.value })}
+                      placeholder="Nombre o razón social del remitente"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="cliente_direccion" className="text-xs">Dirección *</Label>
+                    <Input
+                      id="cliente_direccion"
+                      value={formData.cliente_direccion}
+                      onChange={(e) => setFormData({ ...formData, cliente_direccion: e.target.value })}
+                      placeholder="Dirección completa"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos del Destinatario */}
+              <div className="border-b pb-4">
+                <h3 className="font-semibold mb-3 text-sm">Destinatario</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="destinatario_tipo_documento" className="text-xs">Tipo Doc</Label>
+                    <select
+                      id="destinatario_tipo_documento"
+                      value={formData.destinatario_tipo_documento}
+                      onChange={(e) => setFormData({ ...formData, destinatario_tipo_documento: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-border rounded bg-background"
+                    >
+                      <option value="1">DNI</option>
+                      <option value="6">RUC</option>
+                      <option value="4">CE</option>
+                      <option value="-">Sin documento</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="destinatario_numero_documento" className="text-xs">Número Doc</Label>
+                    <Input
+                      id="destinatario_numero_documento"
+                      value={formData.destinatario_numero_documento}
+                      onChange={(e) => setFormData({ ...formData, destinatario_numero_documento: e.target.value })}
+                      placeholder="20987654321"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="destinatario_denominacion" className="text-xs">Razón Social / Nombre</Label>
+                    <Input
+                      id="destinatario_denominacion"
+                      value={formData.destinatario_denominacion}
+                      onChange={(e) => setFormData({ ...formData, destinatario_denominacion: e.target.value })}
+                      placeholder="Nombre del destinatario"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos del Traslado */}
+              <div className="border-b pb-4">
+                <h3 className="font-semibold mb-3 text-sm">Detalles del Traslado</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="motivo_traslado" className="text-xs">Motivo *</Label>
+                    <select
+                      id="motivo_traslado"
+                      value={formData.motivo_traslado}
+                      onChange={(e) => setFormData({ ...formData, motivo_traslado: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-border rounded bg-background"
+                      required
+                    >
+                      <option value="01">Venta</option>
+                      <option value="02">Compra</option>
+                      <option value="03">Traslado entre establecimientos</option>
+                      <option value="04">Traslado emisor itinerante</option>
+                      <option value="08">Importación</option>
+                      <option value="09">Exportación</option>
+                      <option value="13">Otros</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo_transporte" className="text-xs">Tipo Transporte *</Label>
+                    <select
+                      id="tipo_transporte"
+                      value={formData.tipo_transporte}
+                      onChange={(e) => setFormData({ ...formData, tipo_transporte: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-border rounded bg-background"
+                      required
+                    >
+                      <option value="01">Transporte público</option>
+                      <option value="02">Transporte privado</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="peso_bruto_total" className="text-xs">Peso Total (KG) *</Label>
+                    <Input
+                      id="peso_bruto_total"
+                      type="number"
+                      step="0.01"
+                      value={formData.peso_bruto_total}
+                      onChange={(e) => setFormData({ ...formData, peso_bruto_total: e.target.value })}
+                      placeholder="10.5"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Datos del Vehículo y Conductor */}
+              <div className="border-b pb-4">
+                <h3 className="font-semibold mb-3 text-sm">Vehículo y Conductor</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="vehiculo_placa" className="text-xs">Placa Vehículo *</Label>
+                    <Input
+                      id="vehiculo_placa"
+                      value={formData.vehiculo_placa}
+                      onChange={(e) => setFormData({ ...formData, vehiculo_placa: e.target.value.toUpperCase() })}
+                      placeholder="ABC-123"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="conductor_numero_documento" className="text-xs">DNI Conductor</Label>
+                    <Input
+                      id="conductor_numero_documento"
+                      value={formData.conductor_numero_documento}
+                      onChange={(e) => setFormData({ ...formData, conductor_numero_documento: e.target.value })}
+                      placeholder="12345678"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="conductor_licencia" className="text-xs">Licencia</Label>
+                    <Input
+                      id="conductor_licencia"
+                      value={formData.conductor_licencia}
+                      onChange={(e) => setFormData({ ...formData, conductor_licencia: e.target.value.toUpperCase() })}
+                      placeholder="Q12345678"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="conductor_nombre" className="text-xs">Nombre Conductor</Label>
+                    <Input
+                      id="conductor_nombre"
+                      value={formData.conductor_nombre}
+                      onChange={(e) => setFormData({ ...formData, conductor_nombre: e.target.value })}
+                      placeholder="Juan"
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="conductor_apellidos" className="text-xs">Apellidos Conductor</Label>
+                    <Input
+                      id="conductor_apellidos"
+                      value={formData.conductor_apellidos}
+                      onChange={(e) => setFormData({ ...formData, conductor_apellidos: e.target.value })}
+                      placeholder="Pérez García"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Puntos de Traslado */}
+              <div className="border-b pb-4">
+                <h3 className="font-semibold mb-3 text-sm">Puntos de Traslado</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="punto_partida_ubigeo" className="text-xs">Ubigeo Partida *</Label>
+                    <Input
+                      id="punto_partida_ubigeo"
+                      value={formData.punto_partida_ubigeo}
+                      onChange={(e) => setFormData({ ...formData, punto_partida_ubigeo: e.target.value })}
+                      placeholder="150101"
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="punto_partida_direccion" className="text-xs">Dirección Partida *</Label>
+                    <Input
+                      id="punto_partida_direccion"
+                      value={formData.punto_partida_direccion}
+                      onChange={(e) => setFormData({ ...formData, punto_partida_direccion: e.target.value })}
+                      placeholder="Av. Principal 123"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="punto_llegada_ubigeo" className="text-xs">Ubigeo Llegada *</Label>
+                    <Input
+                      id="punto_llegada_ubigeo"
+                      value={formData.punto_llegada_ubigeo}
+                      onChange={(e) => setFormData({ ...formData, punto_llegada_ubigeo: e.target.value })}
+                      placeholder="150102"
+                      maxLength={6}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="punto_llegada_direccion" className="text-xs">Dirección Llegada *</Label>
+                    <Input
+                      id="punto_llegada_direccion"
+                      value={formData.punto_llegada_direccion}
+                      onChange={(e) => setFormData({ ...formData, punto_llegada_direccion: e.target.value })}
+                      placeholder="Av. Destino 456"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Observaciones */}
+              <div>
+                <Label htmlFor="observaciones" className="text-xs">Observaciones</Label>
+                <textarea
+                  id="observaciones"
+                  value={formData.observaciones}
+                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-border rounded bg-background min-h-[80px]"
+                  placeholder="Información adicional sobre el traslado..."
+                />
+              </div>
+
+              <DialogFooter>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsCreateModalOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-[#0f2c4c] hover:bg-[#0f2c4c]/90">
+                  Crear Traslado
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
 
