@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,11 +33,11 @@ export default function GuiasRemision() {
     const [filtroFechaFin, setFiltroFechaFin] = useState('');
 
     // Cargar datos
-    const fetchGuias = async () => {
+    const fetchGuias = useCallback(async () => {
         setLoading(true);
         try {
             // Construir query params
-            const params: any = {
+            const params: Record<string, string | number> = {
                 page: currentPage,
                 per_page: itemsPerPage,
             };
@@ -71,7 +71,7 @@ export default function GuiasRemision() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentPage, itemsPerPage, filtroCliente, filtroSerie, filtroNumero, filtroFechaInicio, filtroFechaFin]);
 
     // Datos Mock (Fallback)
     const generateSeedData = (): GuiaRemision[] => {
@@ -88,7 +88,7 @@ export default function GuiasRemision() {
         }, 300); // Debounce de 300ms para búsqueda más dinámica
 
         return () => clearTimeout(handler);
-    }, [currentPage, itemsPerPage, filtroCliente, filtroSerie, filtroNumero, filtroFechaInicio, filtroFechaFin]);
+    }, [fetchGuias]);
 
     const handleSearch = () => {
         if (currentPage === 1) {

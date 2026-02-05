@@ -379,6 +379,10 @@ export interface GuiaRemision {
   conductor_licencia?: string;
   peso_bruto_total?: number;
   peso_bruto_unidad?: string;
+  numero_bultos?: number;
+  transportista_tipo_documento?: string;
+  transportista_numero_documento?: string;
+  transportista_denominacion?: string;
   punto_partida_direccion?: string;
   punto_partida_ubigeo?: string;
   punto_llegada_direccion?: string;
@@ -386,6 +390,10 @@ export interface GuiaRemision {
   observaciones?: string;
   nubefact_pdf_url?: string;
   nubefact_xml_url?: string;
+  nubefact_cdr_url?: string;
+  nubefact_cadena_qr?: string;
+  nubefact_aceptada_por_sunat?: boolean;
+  nubefact_enviado_at?: string;
 }
 
 // Servicios de API
