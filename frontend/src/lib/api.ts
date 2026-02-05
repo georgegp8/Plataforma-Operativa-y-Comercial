@@ -396,6 +396,23 @@ export interface GuiaRemision {
   nubefact_enviado_at?: string;
 }
 
+export interface NotaVenta {
+  id: number;
+  fecha_emision: string;
+  cliente_razon_social: string;
+  cliente_num_doc: string;
+  serie: string;
+  numero: string; 
+  metodo_pago: string;
+  pagado: boolean; 
+  cpe_relacionado?: string; 
+  motivo?: string;
+  estado_pago: string;
+  moneda: string;
+  total: number;
+  actividad?: string;
+}
+
 // Servicios de API
 export const api = {
   // Empresas
@@ -770,6 +787,18 @@ export const api = {
       apiClient.get<ApiResponse<ComprobanteEmitido>>(`/facturacion/comprobantes/${id}`),
     exportar: (params?: Record<string, unknown>) =>
       window.open(`${apiBaseUrl}/facturacion/comprobantes/export?${new URLSearchParams(params as Record<string, string>).toString()}`, '_blank'),
+  },
+
+  //Notas de Venta
+  notasVenta: {
+    listar: (params?: Record<string, unknown>) =>
+      apiClient.get<PaginatedResponse<NotaVenta>>('/v1/notas-venta', { params }),
+    
+    resumenTotales: (params?: Record<string, unknown>) =>
+      apiClient.get<ApiResponse<{ total_busqueda: number; total_documentos: number; total_por_cobrar: number }>>('/v1/notas-venta/totales', { params }),
+      
+    generarCpeMasivo: (ids: number[]) => 
+      apiClient.post('/v1/notas-venta/generar-cpe-masivo', { ids }),
   },
 };
 

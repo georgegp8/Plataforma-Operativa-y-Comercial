@@ -66,7 +66,7 @@ export default function ListaCompras() {
     try {
       setLoading(true);
       const response = await api.compras.listar();
-      setCompras(response.data || []);
+      setCompras((response.data as Compra[]) || []);
     } catch (error) {
       console.error('Error al cargar compras:', error);
       toast.error('Error al cargar la lista de compras');
@@ -122,10 +122,10 @@ export default function ListaCompras() {
 
     try {
       if (selectedCompra) {
-        await api.compras.actualizar(selectedCompra.id, formData);
+        await api.compras.actualizar(selectedCompra.id, formData as unknown as Record<string, unknown>);
         toast.success('Compra actualizada correctamente');
       } else {
-        await api.compras.crear(formData);
+        await api.compras.crear(formData as unknown as Record<string, unknown>);
         toast.success('Compra creada correctamente');
       }
 

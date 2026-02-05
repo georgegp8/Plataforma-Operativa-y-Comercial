@@ -286,4 +286,11 @@ Route::prefix('v1')->group(function () {
     Route::post('documentos-digitalizados/{id}/validar', [DocumentoDigitalizadoController::class , 'validar']);
     Route::post('documentos-digitalizados/{id}/convertir-compra', [DocumentoDigitalizadoController::class , 'convertirACompra']);
     Route::delete('documentos-digitalizados/{id}', [DocumentoDigitalizadoController::class , 'destroy']);
+
+    // Notas de Venta
+    Route::get('notas-venta', [App\Http\Controllers\Api\NotaVentaController::class, 'index']);
+    Route::post('notas-venta', [App\Http\Controllers\Api\NotaVentaController::class, 'store']);
+    Route::get('notas-venta/totales', [App\Http\Controllers\Api\NotaVentaController::class, 'totales']);
+    Route::post('notas-venta/generar-cpe-masivo', [App\Http\Controllers\Api\NotaVentaController::class, 'generarCpeMasivo']);
+    Route::get('notas-venta/{id}', [App\Http\Controllers\Api\NotaVentaController::class, 'show']);
 });

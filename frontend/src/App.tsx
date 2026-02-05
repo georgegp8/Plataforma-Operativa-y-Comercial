@@ -41,7 +41,7 @@ const IngresoSalidaProductos = lazy(() => import('@/pages/IngresoSalidaProductos
 const GuiasRemision = lazy(() => import('@/pages/GuiasRemision'));
 const Traslados = lazy(() => import('@/pages/Traslados'));
 const BoletasFacturas = lazy(() => import('@/pages/BoletasFacturas'));
-
+const ConsultaNotaVenta = lazy(() => import('@/pages/ConsultaNotaVenta'));
 // Loading fallback component
 const PageLoader = () => (
   <div className="flex items-center justify-center h-screen">
@@ -81,6 +81,7 @@ function App() {
             <Route path="/inventario/guias-remision" element={<GuiasRemision />} />
             <Route path="/inventario/traslados" element={<Traslados />} />
             <Route path="/cpes/boletas-facturas" element={<BoletasFacturas />} />
+            <Route path="/cpes/nota-venta" element={<ConsultaNotaVenta />} />
             <Route path="/app" element={<AppLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="dashboard-tv" element={<DashboardTv />} />
