@@ -329,7 +329,7 @@ export default function GuiasRemision() {
                                                         <Button 
                                                             variant="ghost" 
                                                             size="sm" 
-                                                            className="text-primary hover:text-primary/80 dark:text-white dark:hover:text-white/80 h-7 px-2 text-xs" 
+                                                            className="text-blue-600 hover:text-blue-800 dark:text-white dark:hover:text-white/80 h-7 px-2 text-xs font-medium" 
                                                             onClick={() => {
                                                                 setSelectedGuia(guia);
                                                                 setIsDetailModalOpen(true);

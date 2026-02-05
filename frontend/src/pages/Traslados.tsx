@@ -374,7 +374,7 @@ export default function Traslados() {
                             onClick={() => handleVerDetalles(guia)}
                             title="Ver detalles"
                           >
-                            <Pencil className="h-4 w-4 dark:stroke-white" />
+                            <Pencil className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
