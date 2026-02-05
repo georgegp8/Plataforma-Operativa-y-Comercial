@@ -1,13 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { Pencil, Trash2, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText } from 'lucide-react';
+import { Pencil, Trash2, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText, X, Save } from 'lucide-react';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Comprobante {
   id: number;
@@ -30,17 +32,73 @@ interface Comprobante {
   forma_pago: string;
 }
 
+interface DetalleItem {
+  id: string;
+  codigo_producto: string;
+  descripcion: string;
+  unidad: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+  afecto_stock: boolean;
+}
+
+interface FormDataCPE {
+  tipo_doc: string;
+  serie: string;
+  establecimiento: string;
+  tipo_operacion: string;
+  moneda: string;
+  cliente_num_doc: string;
+  cliente_razon_social: string;
+  cliente_direccion: string;
+  es_contingencia: boolean;
+  es_pago_anticipado: boolean;
+  fecha_emision: string;
+  fecha_vencimiento: string;
+  tipo_cambio: string;
+  condicion_pago: string;
+  vendedor: string;
+  modalidad_pago: string;
+  banco_destino: string;
+  monto_pago: string;
+  observaciones: string;
+}
+
 export default function BoletasFacturas() {
   const [comprobantes, setComprobantes] = useState<Comprobante[]>([]);
   const [loading, setLoading] = useState(true);
   const [tipoFiltro, setTipoFiltro] = useState<'cliente' | 'numero' | 'fecha' | 'tipo'>('cliente');
   const [valorFiltro, setValorFiltro] = useState('');
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedComprobante, setSelectedComprobante] = useState<Comprobante | null>(null);
+  const [detalleItems, setDetalleItems] = useState<DetalleItem[]>([]);
+  const [formData, setFormData] = useState<FormDataCPE>({
+    tipo_doc: '01',
+    serie: 'F001',
+    establecimiento: 'principal',
+    tipo_operacion: '01',
+    moneda: 'PEN',
+    cliente_num_doc: '',
+    cliente_razon_social: '',
+    cliente_direccion: '',
+    es_contingencia: false,
+    es_pago_anticipado: false,
+    fecha_emision: new Date().toISOString().split('T')[0],
+    fecha_vencimiento: new Date().toISOString().split('T')[0],
+    tipo_cambio: '1.00',
+    condicion_pago: 'Contado',
+    vendedor: '',
+    modalidad_pago: 'Efectivo',
+    banco_destino: 'CAJA GENERAL - MARURI',
+    monto_pago: '',
+    observaciones: '',
+  });
   const [filtroTipoDoc, setFiltroTipoDoc] = useState<'todos' | '01' | '03'>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'aceptado' | 'pendiente' | 'rechazado'>('todos');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedComprobante, setSelectedComprobante] = useState<Comprobante | null>(null);
 
   const fetchComprobantes = useCallback(async () => {
     try {
@@ -131,8 +189,48 @@ export default function BoletasFacturas() {
   };
 
   const handleNuevoComprobante = () => {
+    setIsCreateModalOpen(true);
+  };
+
+  const handleAgregarItem = () => {
+    const nuevoItem: DetalleItem = {
+      id: Date.now().toString(),
+      codigo_producto: '',
+      descripcion: '',
+      unidad: 'NIU',
+      cantidad: 1,
+      precio_unitario: 0,
+      subtotal: 0,
+      afecto_stock: true,
+    };
+    setDetalleItems([...detalleItems, nuevoItem]);
+  };
+
+  const handleEliminarItem = (id: string) => {
+    setDetalleItems(detalleItems.filter(item => item.id !== id));
+  };
+
+  const handleItemChange = (id: string, field: keyof DetalleItem, value: string | number | boolean) => {
+    setDetalleItems(detalleItems.map(item => {
+      if (item.id === id) {
+        const updated = { ...item, [field]: value };
+        if (field === 'cantidad' || field === 'precio_unitario') {
+          updated.subtotal = updated.cantidad * updated.precio_unitario;
+        }
+        return updated;
+      }
+      return item;
+    }));
+  };
+
+  const calcularTotal = () => {
+    return detalleItems.reduce((total, item) => total + item.subtotal, 0);
+  };
+
+  const handleGuardarCPE = (e: React.FormEvent) => {
+    e.preventDefault();
     toast.info('Próximamente', {
-      description: 'La funcionalidad de crear comprobantes estará disponible pronto',
+      description: 'La funcionalidad de guardar comprobantes estará disponible pronto',
     });
   };
 
@@ -581,6 +679,384 @@ export default function BoletasFacturas() {
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsDetailModalOpen(false)}>Cerrar</Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Crear CPE */}
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Comprobante de Pago</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleGuardarCPE} className="space-y-6">
+              {/* Información de la empresa */}
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="font-semibold text-lg">SPACEDEVPR S.A.C.</p>
+                    <p className="text-sm text-muted-foreground">RUC: 20434906301</p>
+                    <p className="text-sm text-muted-foreground">Av. Los Pinos 456 - Miraflores - Lima</p>
+                  </div>
+                  <div className="text-right text-sm text-muted-foreground">
+                    <p>ventas@spacedev.com.pe</p>
+                    <p>01-4567890</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Checkboxes de contingencia y pago anticipado */}
+              <div className="flex gap-6">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="contingencia"
+                    checked={formData.es_contingencia}
+                    onCheckedChange={(checked) => 
+                      setFormData(prev => ({ ...prev, es_contingencia: checked as boolean }))
+                    }
+                  />
+                  <label htmlFor="contingencia" className="text-sm font-medium">
+                    ¿Es comprobante de contingencia?
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="pago-anticipado"
+                    checked={formData.es_pago_anticipado}
+                    onCheckedChange={(checked) => 
+                      setFormData(prev => ({ ...prev, es_pago_anticipado: checked as boolean }))
+                    }
+                  />
+                  <label htmlFor="pago-anticipado" className="text-sm font-medium">
+                    ¿Es un pago anticipado?
+                  </label>
+                </div>
+              </div>
+
+              {/* Primera fila: Tipo, Serie, Establecimiento, Operación, Moneda */}
+              <div className="grid grid-cols-5 gap-4">
+                <div>
+                  <Label>Tipo de Comprobante</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={formData.tipo_doc}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tipo_doc: e.target.value }))}
+                  >
+                    <option value="01">FACTURA ELECTRONICA</option>
+                    <option value="03">BOLETA ELECTRONICA</option>
+                    <option value="07">NOTA DE CREDITO</option>
+                    <option value="08">NOTA DE DEBITO</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Serie</Label>
+                  <Input
+                    value={formData.serie}
+                    onChange={(e) => setFormData(prev => ({ ...prev, serie: e.target.value }))}
+                    placeholder="F001"
+                  />
+                </div>
+                <div>
+                  <Label>Establecimiento</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={formData.establecimiento}
+                    onChange={(e) => setFormData(prev => ({ ...prev, establecimiento: e.target.value }))}
+                  >
+                    <option value="principal">Oficina Principal</option>
+                    <option value="sucursal1">Sucursal 1</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Tipo Operación</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={formData.tipo_operacion}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tipo_operacion: e.target.value }))}
+                  >
+                    <option value="0101">Venta Interna</option>
+                    <option value="0200">Exportación</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Moneda</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={formData.moneda}
+                    onChange={(e) => setFormData(prev => ({ ...prev, moneda: e.target.value }))}
+                  >
+                    <option value="PEN">Soles (PEN)</option>
+                    <option value="USD">Dólares (USD)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Segunda fila: Cliente */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Número de Documento</Label>
+                  <Input
+                    value={formData.cliente_num_doc}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cliente_num_doc: e.target.value }))}
+                    placeholder="RUC o DNI"
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label>Razón Social / Nombre</Label>
+                  <Input
+                    value={formData.cliente_razon_social}
+                    onChange={(e) => setFormData(prev => ({ ...prev, cliente_razon_social: e.target.value }))}
+                    placeholder="Nombre del cliente"
+                  />
+                </div>
+              </div>
+
+              {/* Tercera fila: Dirección */}
+              <div>
+                <Label>Dirección</Label>
+                <Input
+                  value={formData.cliente_direccion}
+                  onChange={(e) => setFormData(prev => ({ ...prev, cliente_direccion: e.target.value }))}
+                  placeholder="Dirección del cliente"
+                />
+              </div>
+
+              {/* Cuarta fila: Fechas, tipo cambio, condición pago, vendedor */}
+              <div className="grid grid-cols-5 gap-4">
+                <div>
+                  <Label>Fecha Emisión</Label>
+                  <Input
+                    type="date"
+                    value={formData.fecha_emision}
+                    onChange={(e) => setFormData(prev => ({ ...prev, fecha_emision: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Fecha Vencimiento</Label>
+                  <Input
+                    type="date"
+                    value={formData.fecha_vencimiento}
+                    onChange={(e) => setFormData(prev => ({ ...prev, fecha_vencimiento: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label>Tipo de Cambio</Label>
+                  <Input
+                    type="number"
+                    step="0.001"
+                    value={formData.tipo_cambio}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tipo_cambio: e.target.value }))}
+                    placeholder="3.750"
+                  />
+                </div>
+                <div>
+                  <Label>Condición de Pago</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={formData.condicion_pago}
+                    onChange={(e) => setFormData(prev => ({ ...prev, condicion_pago: e.target.value }))}
+                  >
+                    <option value="Contado">Contado</option>
+                    <option value="Credito">Crédito</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Vendedor</Label>
+                  <Input
+                    value={formData.vendedor}
+                    onChange={(e) => setFormData(prev => ({ ...prev, vendedor: e.target.value }))}
+                    placeholder="Nombre del vendedor"
+                  />
+                </div>
+              </div>
+
+              {/* Quinta fila: Modalidad y monto de pago */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label>Modalidad de Pago</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={formData.modalidad_pago}
+                    onChange={(e) => setFormData(prev => ({ ...prev, modalidad_pago: e.target.value }))}
+                  >
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Banco Destino</Label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 text-sm"
+                    value={formData.banco_destino}
+                    onChange={(e) => setFormData(prev => ({ ...prev, banco_destino: e.target.value }))}
+                  >
+                    <option value="CAJA GENERAL - MARURI">CAJA GENERAL - MARURI</option>
+                    <option value="BCP">BCP</option>
+                    <option value="BBVA">BBVA</option>
+                    <option value="Interbank">Interbank</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Monto</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={formData.monto_pago}
+                    onChange={(e) => setFormData(prev => ({ ...prev, monto_pago: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {/* Tabla de items */}
+              <div className="space-y-4">
+                <Label className="text-base font-semibold">Detalle de Productos/Servicios</Label>
+                <div className="border rounded-md overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">#</TableHead>
+                        <TableHead className="w-24">Afecto Stock</TableHead>
+                        <TableHead className="w-32">Código</TableHead>
+                        <TableHead>Descripción</TableHead>
+                        <TableHead className="w-24">Unidad</TableHead>
+                        <TableHead className="w-24">Cantidad</TableHead>
+                        <TableHead className="w-28">P. Unitario</TableHead>
+                        <TableHead className="w-28">Subtotal</TableHead>
+                        <TableHead className="w-16">Acciones</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detalleItems.map((item, index) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>
+                            <Checkbox
+                              checked={item.afecto_stock}
+                              onCheckedChange={(checked) =>
+                                handleItemChange(item.id, 'afecto_stock', checked)
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={item.codigo_producto}
+                              onChange={(e) =>
+                                handleItemChange(item.id, 'codigo_producto', e.target.value)
+                              }
+                              placeholder="Código"
+                              className="h-8"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={item.descripcion}
+                              onChange={(e) =>
+                                handleItemChange(item.id, 'descripcion', e.target.value)
+                              }
+                              placeholder="Descripción"
+                              className="h-8"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <select
+                              className="w-full border rounded-md px-2 py-1 text-sm h-8"
+                              value={item.unidad}
+                              onChange={(e) =>
+                                handleItemChange(item.id, 'unidad', e.target.value)
+                              }
+                            >
+                              <option value="NIU">Unidad</option>
+                              <option value="ZZ">Servicio</option>
+                              <option value="KGM">Kilogramo</option>
+                              <option value="MTR">Metro</option>
+                            </select>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={item.cantidad}
+                              onChange={(e) =>
+                                handleItemChange(item.id, 'cantidad', parseFloat(e.target.value) || 0)
+                              }
+                              className="h-8"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={item.precio_unitario}
+                              onChange={(e) =>
+                                handleItemChange(item.id, 'precio_unitario', parseFloat(e.target.value) || 0)
+                              }
+                              className="h-8"
+                            />
+                          </TableCell>
+                          <TableCell className="font-semibold">
+                            {formatCurrency(item.subtotal)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEliminarItem(item.id)}
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAgregarItem}
+                  className="w-full"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Producto
+                </Button>
+              </div>
+
+              {/* Observaciones */}
+              <div>
+                <Label>Observaciones</Label>
+                <textarea
+                  className="w-full border rounded-md px-3 py-2 text-sm min-h-20"
+                  value={formData.observaciones}
+                  onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
+                  placeholder="Observaciones adicionales..."
+                />
+              </div>
+
+              {/* Total */}
+              <div className="flex justify-end">
+                <div className="bg-muted/50 px-6 py-4 rounded-lg">
+                  <p className="text-sm text-muted-foreground mb-1">TOTAL {formData.moneda === 'PEN' ? 'SOLES' : 'DÓLARES'}</p>
+                  <p className="text-3xl font-bold text-primary">
+                    {formatCurrency(calcularTotal())}
+                  </p>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white">
+                  <Save className="h-4 w-4 mr-2" />
+                  Guardar Comprobante
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
