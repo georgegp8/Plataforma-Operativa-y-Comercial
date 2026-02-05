@@ -524,13 +524,13 @@ export const api = {
   // Vendedores
   vendedores: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/vendedores', { params }),
+      apiClient.get<unknown[]>('/v1/vendedores', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/vendedores/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/vendedores', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/vendedores/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/vendedores/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/vendedores', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/vendedores/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/vendedores/${id}`),
   },
@@ -538,13 +538,13 @@ export const api = {
   // Personal
   personal: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/personal', { params }),
+      apiClient.get<unknown[]>('/v1/personal', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/personal/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/personal', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/personal/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/personal/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/personal', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/personal/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/personal/${id}`),
   },
@@ -552,13 +552,13 @@ export const api = {
   // Cuentas Bancarias
   cuentasBancarias: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/cuentas-bancarias', { params }),
+      apiClient.get<unknown[]>('/v1/cuentas-bancarias', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/cuentas-bancarias/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/cuentas-bancarias', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/cuentas-bancarias/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/cuentas-bancarias/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/cuentas-bancarias', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/cuentas-bancarias/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/cuentas-bancarias/${id}`),
   },
@@ -566,17 +566,17 @@ export const api = {
   // Bancos
   bancos: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/bancos', { params }),
+      apiClient.get<unknown[]>('/v1/bancos', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/bancos/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/bancos', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/bancos/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/bancos/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/bancos', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/bancos/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/bancos/${id}`),
     subirImagen: (id: number, formData: FormData) =>
-      apiClient.post<ApiResponse<any>>(`/v1/bancos/${id}/upload-image`, formData, {
+      apiClient.post<ApiResponse<unknown>>(`/v1/bancos/${id}/upload-image`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
   },
@@ -584,13 +584,13 @@ export const api = {
   // Categorías
   categorias: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/categorias', { params }),
+      apiClient.get<unknown[]>('/v1/categorias', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/categorias/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/categorias', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/categorias/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/categorias/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/categorias', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/categorias/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/categorias/${id}`),
   },
@@ -598,13 +598,13 @@ export const api = {
   // Marcas
   marcas: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/marcas', { params }),
+      apiClient.get<unknown[]>('/v1/marcas', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/marcas/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/marcas', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/marcas/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/marcas/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/marcas', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/marcas/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/marcas/${id}`),
   },
@@ -612,13 +612,13 @@ export const api = {
   // Atributos
   atributos: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/atributos', { params }),
+      apiClient.get<unknown[]>('/v1/atributos', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/atributos/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/atributos', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/atributos/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/atributos/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/atributos', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/atributos/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/atributos/${id}`),
   },
@@ -626,13 +626,13 @@ export const api = {
   // Unidades de Medida
   unidadesMedida: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/unidades-medida', { params }),
+      apiClient.get<unknown[]>('/v1/unidades-medida', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/unidades-medida/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/unidades-medida', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/unidades-medida/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/unidades-medida/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/unidades-medida', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/unidades-medida/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/unidades-medida/${id}`),
   },
@@ -640,13 +640,13 @@ export const api = {
   // Transacciones
   transacciones: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/transacciones', { params }),
+      apiClient.get<unknown[]>('/v1/transacciones', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/transacciones/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/transacciones', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/transacciones/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/transacciones/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/transacciones', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/transacciones/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/transacciones/${id}`),
   },
@@ -654,13 +654,13 @@ export const api = {
   // Vehículos
   vehiculos: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/vehiculos', { params }),
+      apiClient.get<unknown[]>('/v1/vehiculos', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/vehiculos/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/vehiculos', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/vehiculos/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/vehiculos/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/vehiculos', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/vehiculos/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/vehiculos/${id}`),
   },
@@ -668,45 +668,45 @@ export const api = {
   // Conductores
   conductores: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/conductores', { params }),
+      apiClient.get<unknown[]>('/v1/conductores', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/conductores/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/conductores', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/conductores/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/conductores/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/conductores', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/conductores/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/conductores/${id}`),
   },
 
   compras: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/compras', { params }),
+      apiClient.get<unknown[]>('/v1/compras', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/compras/${id}`),
-    crear: (data: any) =>
-      apiClient.post<ApiResponse<any>>('/v1/compras', data),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/compras/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/compras/${id}`),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post<ApiResponse<unknown>>('/v1/compras', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/compras/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/compras/${id}`),
   },
 
   documentosDigitalizados: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<any[]>('/v1/documentos-digitalizados', { params }),
+      apiClient.get<unknown[]>('/v1/documentos-digitalizados', { params }),
     subir: (formData: FormData) =>
-      apiClient.post<ApiResponse<any>>('/v1/documentos-digitalizados/upload', formData, {
+      apiClient.post<ApiResponse<unknown>>('/v1/documentos-digitalizados/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<any>>(`/v1/documentos-digitalizados/${id}`),
-    actualizar: (id: number, data: any) =>
-      apiClient.put<ApiResponse<any>>(`/v1/documentos-digitalizados/${id}`, data),
+      apiClient.get<ApiResponse<unknown>>(`/v1/documentos-digitalizados/${id}`),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put<ApiResponse<unknown>>(`/v1/documentos-digitalizados/${id}`, data),
     validar: (id: number) =>
-      apiClient.post<ApiResponse<any>>(`/v1/documentos-digitalizados/${id}/validar`),
+      apiClient.post<ApiResponse<unknown>>(`/v1/documentos-digitalizados/${id}/validar`),
     convertirACompra: (id: number) =>
-      apiClient.post<ApiResponse<any>>(`/v1/documentos-digitalizados/${id}/convertir-compra`),
+      apiClient.post<ApiResponse<unknown>>(`/v1/documentos-digitalizados/${id}/convertir-compra`),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/documentos-digitalizados/${id}`),
   },
@@ -752,14 +752,14 @@ export const api = {
       apiClient.get<PaginatedResponse<GuiaRemision>>('/v1/guias-remision', { params }),
     obtener: (id: number) =>
       apiClient.get<ApiResponse<GuiaRemision>>(`/v1/guias-remision/${id}`),
-    crear: (data: any) =>
+    crear: (data: Record<string, unknown>) =>
       apiClient.post<ApiResponse<GuiaRemision>>('/v1/guias-remision', data),
-    actualizar: (id: number, data: any) =>
+    actualizar: (id: number, data: Record<string, unknown>) =>
       apiClient.put<ApiResponse<GuiaRemision>>(`/v1/guias-remision/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/guias-remision/${id}`),
     verificar: (tipo: string, serie: string, numero: string) =>
-      apiClient.get<ApiResponse<any>>(`/nubefact/guias/${tipo}/${serie}/${numero}`),
+      apiClient.get<ApiResponse<unknown>>(`/nubefact/guias/${tipo}/${serie}/${numero}`),
   },
 };
 
