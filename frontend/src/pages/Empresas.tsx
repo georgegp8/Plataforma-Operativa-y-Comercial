@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, type ChangeEvent } from 'react';
+import { apiBaseUrl } from '@/lib/api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,9 @@ export default function Empresas() {
   const [editingEmpresa, setEditingEmpresa] = useState<Empresa | null>(null);
   const { toast } = useToast();
 
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
   const [formData, setFormData] = useState({
     ruc: '',
     razon_social: '',
@@ -96,6 +100,7 @@ export default function Empresas() {
   };
 
   const handleEdit = (empresa: Empresa) => {
+    setLogoFile(null);
     setEditingEmpresa(empresa);
     setFormData({
       ruc: empresa.ruc,
@@ -167,6 +172,16 @@ export default function Empresas() {
 
   const columnCount = 5;
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function handleLogoChange(_event: ChangeEvent<HTMLInputElement>): void {
+    throw new Error('Function not implemented.');
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function handleLogoUpload(_event: React.MouseEvent<HTMLButtonElement>): void {
+    throw new Error('Function not implemented.');
+  }
+
   return (
     <div className="space-y-6 p-4 md:p-6 lg:p-8 animate-in fade-in duration-500">
       <PageHeader
@@ -229,6 +244,39 @@ export default function Empresas() {
               </div>
               
               <div className="border-t pt-4">
+                                {editingEmpresa && (
+                                  <div className="border-b pb-4 mb-4">
+                                    <h3 className="font-semibold mb-2">Logo de la Empresa</h3>
+                                    <div className="flex items-center gap-4">
+                                      {/* Vista previa del logo actual si existe */}
+                                      {editingEmpresa.logo_path && (
+                                        <img
+                                          src={editingEmpresa.logo_path.startsWith('http') ? editingEmpresa.logo_path : `${apiBaseUrl}${editingEmpresa.logo_path}`}
+                                          alt="Logo actual"
+                                          className="w-20 h-20 object-contain border rounded bg-white"
+                                          style={{ maxWidth: 80, maxHeight: 80 }}
+                                        />
+                                      )}
+                                      <input
+                                        type="file"
+                                        accept="image/*"
+                                        ref={logoInputRef}
+                                        onChange={handleLogoChange}
+                                        className="block"
+                                        disabled={uploadingLogo}
+                                      />
+                                      <Button
+                                        type="button"
+                                        variant="secondary"
+                                        onClick={handleLogoUpload}
+                                        disabled={!logoFile || uploadingLogo}
+                                      >
+                                        {uploadingLogo ? 'Subiendo...' : 'Subir Logo'}
+                                      </Button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">Solo imágenes. Tamaño recomendado: 300x300px.</p>
+                                  </div>
+                                )}
                 <h3 className="font-semibold mb-3">Ubicación</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -460,7 +508,16 @@ export default function Empresas() {
                 <TableBody>
                   {filteredEmpresas.map((empresa) => (
                     <TableRow key={empresa.id} className="hover:bg-muted/50 transition-colors">
-                      <TableCell className="py-2 px-2 font-mono text-sm">{empresa.ruc}</TableCell>
+                      <TableCell className="py-2 px-2 font-mono text-sm flex items-center gap-2">
+                        {empresa.logo_path && (
+                          <img
+                            src={empresa.logo_path.startsWith('http') ? empresa.logo_path : `${apiBaseUrl}${empresa.logo_path}`}
+                            alt="Logo"
+                            className="w-8 h-8 object-contain border rounded bg-white"
+                          />
+                        )}
+                        {empresa.ruc}
+                      </TableCell>
                       <TableCell className="py-2 px-2 text-sm">{empresa.razon_social}</TableCell>
                       <TableCell className="py-2 px-2 hidden md:table-cell text-sm text-muted-foreground">
                         {empresa.nombre_comercial || '-'}

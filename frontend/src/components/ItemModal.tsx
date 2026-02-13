@@ -1,5 +1,5 @@
 import { type UseFormReturn } from 'react-hook-form';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -51,6 +51,7 @@ export function ItemModal({
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalle de la LÍNEA o ITEM</DialogTitle>
+          <DialogDescription>Edita los datos del producto o servicio</DialogDescription>
         </DialogHeader>
         {index !== null && (
           <div className="space-y-4 py-4">

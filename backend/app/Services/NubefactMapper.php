@@ -69,8 +69,20 @@ class NubefactMapper
             'total_retencion' => '',
             'total_impuestos_bolsas' => '',
 
-            // Detracción
+            // Detracción completa según API NubeFact v2.9
             'detraccion' => $comprobante->tiene_detraccion ? 'true' : 'false',
+            'detraccion_tipo' => $comprobante->tiene_detraccion && $comprobante->detraccion_tipo
+                ? $comprobante->detraccion_tipo
+                : '',
+            'detraccion_total' => $comprobante->tiene_detraccion && $comprobante->detraccion_monto
+                ? number_format($comprobante->detraccion_monto, 2, '.', '')
+                : '',
+            'detraccion_porcentaje' => $comprobante->tiene_detraccion && $comprobante->detraccion_porcentaje
+                ? number_format($comprobante->detraccion_porcentaje, 2, '.', '')
+                : '',
+            'medio_pago_detraccion' => $comprobante->tiene_detraccion && $comprobante->medio_pago_detraccion
+                ? $comprobante->medio_pago_detraccion
+                : '',
 
             // Observaciones
             'observaciones' => $comprobante->observaciones ?? '',

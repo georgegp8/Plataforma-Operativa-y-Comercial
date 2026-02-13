@@ -92,6 +92,7 @@ const itemSchema = z.object({
   tipo_de_igv: z.string().min(1, 'Requerido'),
 });
 
+
 const comprobanteSchema = z
   .object({
     empresa_id: z.number().min(1, 'Seleccione una empresa'),
@@ -112,20 +113,39 @@ const comprobanteSchema = z
     fecha_de_vencimiento: z.string().optional(),
     orden_compra_servicio: z.string().optional(),
     placa_vehiculo: z.string().optional(),
-    detraccion: z.boolean().optional(),
+    tiene_detraccion: z.boolean().optional(),
+    detraccion_tipo: z.string().length(3).optional().nullable(),
+    detraccion_porcentaje: z.number().min(0).max(100).optional().nullable(),
+    detraccion_monto: z.number().min(0).optional().nullable(),
+    medio_pago_detraccion: z.string().length(3).optional().nullable(),
+    // --- NUEVOS CAMPOS AVANZADOS ---
+    percepcion_tipo: z.string().optional().nullable(),
+    percepcion_base_imponible: z.number().optional().nullable(),
+    total_percepcion: z.number().optional().nullable(),
+    total_incluido_percepcion: z.number().optional().nullable(),
+    retencion_tipo: z.string().optional().nullable(),
+    retencion_base_imponible: z.number().optional().nullable(),
+    total_retencion: z.number().optional().nullable(),
+    venta_al_credito: z.boolean().optional(),
+    cuotas_credito: z.array(z.object({
+      cuota: z.number().min(1),
+      fecha_de_pago: z.string().min(1),
+      importe: z.number().min(0.01)
+    })).optional(),
+    // ---
     observaciones: z.string().optional(),
     items: z.array(itemSchema).min(1, 'Debe agregar al menos un item'),
   })
   .refine(
     (data) => {
-      if (['1', '4', '6'].includes(data.cliente_tipo_de_documento)) {
+      if (["1", "4", "6"].includes(data.cliente_tipo_de_documento)) {
         return !!data.cliente_numero_de_documento && data.cliente_numero_de_documento.length > 0;
       }
       return true;
     },
     {
-      message: 'Número de documento es requerido',
-      path: ['cliente_numero_de_documento'],
+      message: "Número de documento es requerido",
+      path: ["cliente_numero_de_documento"],
     }
   );
 
@@ -176,7 +196,11 @@ export default function EmitirComprobante() {
       porcentaje_de_igv: 18,
       pagado: false,
       fecha_de_vencimiento: new Date().toISOString().split('T')[0],
-      detraccion: false,
+      tiene_detraccion: false,
+      detraccion_tipo: null,
+      detraccion_porcentaje: null,
+      detraccion_monto: null,
+      medio_pago_detraccion: null,
       observaciones: '',
       items: [
         {
@@ -410,6 +434,19 @@ export default function EmitirComprobante() {
         total: totales.total,
         enviar_automaticamente_a_la_sunat: true,
         enviar_automaticamente_al_cliente: !!data.cliente_email,
+        // Detracción completa
+        tiene_detraccion: data.tiene_detraccion ?? false,
+        detraccion_tipo: data.detraccion_tipo ?? undefined,
+        detraccion_porcentaje: data.detraccion_porcentaje ?? undefined,
+        detraccion_monto: data.detraccion_monto ?? undefined,
+        medio_pago_detraccion: data.medio_pago_detraccion ?? undefined,
+        // Percepción
+        percepcion_tipo: data.percepcion_tipo ?? undefined,
+        percepcion_base_imponible: data.percepcion_base_imponible ?? undefined,
+        // Retención
+        retencion_tipo: data.retencion_tipo ?? undefined,
+        retencion_base_imponible: data.retencion_base_imponible ?? undefined,
+        // Venta al crédito
         items,
       };
 
@@ -492,6 +529,102 @@ export default function EmitirComprobante() {
       </Card>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+        {/* Opciones avanzadas Nubefact */}
+        <Card className="border border-dashed border-primary/40 bg-background/80 dark:bg-background/90">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold text-primary">Opciones Avanzadas</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">Percepciones, retenciones y venta al crédito</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Percepción */}
+            <div className="space-y-2">
+              <label className="font-semibold text-primary">Percepción</label>
+              <Select value={form.watch('percepcion_tipo') ?? ''} onValueChange={v => form.setValue('percepcion_tipo', v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo de percepción" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin percepción</SelectItem>
+                  <SelectItem value="1">Venta interna (2%)</SelectItem>
+                  <SelectItem value="2">Adquisición de combustible (1%)</SelectItem>
+                  <SelectItem value="3">Tasa especial (0.5%)</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input type="number" step="0.01" placeholder="Base imponible" {...form.register('percepcion_base_imponible', { valueAsNumber: true })} />
+              <Input type="number" step="0.01" placeholder="Total percepción" {...form.register('total_percepcion', { valueAsNumber: true })} />
+              <Input type="number" step="0.01" placeholder="Total incluido percepción" {...form.register('total_incluido_percepcion', { valueAsNumber: true })} />
+            </div>
+            {/* Retención */}
+            <div className="space-y-2">
+              <label className="font-semibold text-primary">Retención</label>
+              <Select value={form.watch('retencion_tipo') ?? ''} onValueChange={v => form.setValue('retencion_tipo', v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo de retención" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Sin retención</SelectItem>
+                  <SelectItem value="1">Tasa 3%</SelectItem>
+                  <SelectItem value="2">Tasa 6%</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input type="number" step="0.01" placeholder="Base imponible" {...form.register('retencion_base_imponible', { valueAsNumber: true })} />
+              <Input type="number" step="0.01" placeholder="Total retención" {...form.register('total_retencion', { valueAsNumber: true })} />
+            </div>
+            {/* Venta al crédito */}
+            <div className="space-y-2">
+              <label className="font-semibold text-primary flex items-center gap-2">Venta al crédito
+                <Switch checked={!!form.watch('venta_al_credito')} onCheckedChange={v => form.setValue('venta_al_credito', v)} />
+              </label>
+              {form.watch('venta_al_credito') && (
+                <div className="space-y-2">
+                  {/* Cuotas dinámicas */}
+                  <Input type="number" step="1" min="1" placeholder="N° de cuotas"
+                    onChange={e => {
+                      const n = Number(e.target.value);
+                      if (n > 0) {
+                        form.setValue('cuotas_credito', Array.from({ length: n }, (_, i) => ({ cuota: i + 1, fecha_de_pago: '', importe: 0 })));
+                      } else {
+                        form.setValue('cuotas_credito', []);
+                      }
+                    }}
+                  />
+                  {(Array.isArray(form.watch('cuotas_credito') ?? []) ? (form.watch('cuotas_credito') ?? []) : []).map((cuota, idx) => (
+                    <div key={idx} className="flex gap-2 items-center">
+                      <Input type="number" step="1" min="1" className="w-16"
+                        value={cuota.cuota}
+                        onChange={e => {
+                          const val = Number(e.target.value);
+                          const arr = [...(form.watch('cuotas_credito') ?? [])];
+                          arr[idx].cuota = val;
+                          form.setValue('cuotas_credito', arr);
+                        }}
+                        placeholder="Cuota"
+                      />
+                      <Input type="date" className="w-36"
+                        value={cuota.fecha_de_pago}
+                        onChange={e => {
+                          const arr = [...(form.watch('cuotas_credito') ?? [])];
+                          arr[idx].fecha_de_pago = e.target.value;
+                          form.setValue('cuotas_credito', arr);
+                        }}
+                        placeholder="Fecha de pago"
+                      />
+                      <Input type="number" step="0.01" min="0" className="w-28"
+                        value={cuota.importe}
+                        onChange={e => {
+                          const arr = [...(form.watch('cuotas_credito') ?? [])];
+                          arr[idx].importe = Number(e.target.value);
+                          form.setValue('cuotas_credito', arr);
+                        }}
+                        placeholder="Importe"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
         {/* Barra de Herramientas */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
           <Dialog>

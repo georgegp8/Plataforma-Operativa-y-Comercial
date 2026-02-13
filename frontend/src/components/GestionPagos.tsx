@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { DollarSign, Trash2, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -226,6 +226,7 @@ export default function GestionPagos({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Registrar Nuevo Pago</DialogTitle>
+            <DialogDescription>Ingresa los datos del pago a registrar</DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-4">

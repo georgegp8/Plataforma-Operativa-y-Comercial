@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+// import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 
 const DEBOUNCE_DELAY = 300; // ms
-import { Edit, Plus, Trash2, Eye, Package, Upload, Download, MapPin, ChevronLeft, ChevronRight, Loader2, Pencil, Check, X } from 'lucide-react';
+import { Edit, Plus, Trash2, Eye, Package, Upload, Download, ChevronLeft, ChevronRight, Loader2, Pencil, Check, X } from 'lucide-react';
 import api, { type Producto } from '@/lib/api';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/table-skeleton';
@@ -639,7 +639,7 @@ export default function GestionProductos() {
                                 </DropdownMenu>
                               </TableCell>
                               <TableCell className="py-2 px-2">
-                                <div className="text-xs text-muted-foreground w-40 break-words whitespace-normal leading-tight" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                <div className="text-xs text-muted-foreground w-40 wrap-break-word whitespace-normal leading-tight" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                   {(() => {
                                     const updatedAt = (producto as Producto & { updated_at?: string }).updated_at;
                                     return updatedAt
@@ -657,18 +657,9 @@ export default function GestionProductos() {
                                 </Badge>
                               </TableCell>
                               <TableCell className="py-2 px-2">
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="truncate text-sm max-w-xs cursor-help">
-                                        {producto.descripcion}
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent className="max-w-sm">
-                                      <p>{producto.descripcion}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <div className="truncate text-sm max-w-xs">
+                                  {producto.descripcion}
+                                </div>
                               </TableCell>
                               <TableCell className="text-center py-2 px-2">
                                 <Button
@@ -677,7 +668,7 @@ export default function GestionProductos() {
                                   className="h-7 w-7 p-0"
                                   onClick={() => toast.info('Funcionalidad de Ubicación en desarrollo')}
                                 >
-                                  <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                  <span className="w-4 h-4 text-blue-600 dark:text-blue-400">Ubicación</span>
                                 </Button>
                               </TableCell>
                               <TableCell className="text-right font-mono text-sm py-2 px-2">

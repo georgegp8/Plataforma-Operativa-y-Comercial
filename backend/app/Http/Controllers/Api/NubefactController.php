@@ -99,6 +99,23 @@ class NubefactController extends Controller
                 $comprobante->observaciones = $request->observaciones;
                 $comprobante->orden_compra = $request->orden_compra_servicio;
 
+                // Detracción completa
+                if ($request->has('tiene_detraccion') && $request->tiene_detraccion) {
+                    $comprobante->tiene_detraccion = true;
+                    $comprobante->detraccion_tipo = $request->detraccion_tipo;
+                    $comprobante->detraccion_porcentaje = $request->detraccion_porcentaje;
+                    // Si no viene monto, calcularlo automáticamente
+                    $comprobante->detraccion_monto = $request->detraccion_monto
+                        ?? ($request->total * ($request->detraccion_porcentaje / 100));
+                    $comprobante->medio_pago_detraccion = $request->medio_pago_detraccion;
+                } else {
+                    $comprobante->tiene_detraccion = false;
+                    $comprobante->detraccion_tipo = null;
+                    $comprobante->detraccion_porcentaje = null;
+                    $comprobante->detraccion_monto = null;
+                    $comprobante->medio_pago_detraccion = null;
+                }
+
                 // Estados
                 $comprobante->estado = 'PENDIENTE';
                 $comprobante->estado_sunat = 'PENDIENTE';

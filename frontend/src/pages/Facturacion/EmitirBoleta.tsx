@@ -56,7 +56,11 @@ const boletaSchema = z
     fecha_de_vencimiento: z.string().optional(),
     orden_compra_servicio: z.string().optional(),
     placa_vehiculo: z.string().optional(),
-    detraccion: z.boolean().optional(),
+    tiene_detraccion: z.boolean().optional(),
+    detraccion_tipo: z.string().length(3).optional().nullable(),
+    detraccion_porcentaje: z.number().min(0).max(100).optional().nullable(),
+    detraccion_monto: z.number().min(0).optional().nullable(),
+    medio_pago_detraccion: z.string().length(3).optional().nullable(),
     observaciones: z.string().optional(),
     items: z.array(itemSchema).min(1, 'Debe agregar al menos un item'),
   })
@@ -101,7 +105,11 @@ export default function EmitirBoleta() {
       porcentaje_de_igv: 18,
       pagado: false,
       fecha_de_vencimiento: new Date().toISOString().split('T')[0],
-      detraccion: false,
+      tiene_detraccion: false,
+      detraccion_tipo: null,
+      detraccion_porcentaje: null,
+      detraccion_monto: null,
+      medio_pago_detraccion: null,
       observaciones: '',
       items: [
         {
@@ -215,6 +223,12 @@ export default function EmitirBoleta() {
         total_gravada: totalesCalculados.total_gravada,
         total_igv: totalesCalculados.total_igv,
         total: totalesCalculados.total,
+        // Detracción completa
+        tiene_detraccion: rest.tiene_detraccion ?? false,
+        detraccion_tipo: rest.detraccion_tipo ?? undefined,
+        detraccion_porcentaje: rest.detraccion_porcentaje ?? undefined,
+        detraccion_monto: rest.detraccion_monto ?? undefined,
+        medio_pago_detraccion: rest.medio_pago_detraccion ?? undefined,
         enviar_automaticamente_a_la_sunat: true,
         enviar_automaticamente_al_cliente: !!rest.cliente_email,
         items: itemsProcesados,
@@ -755,8 +769,8 @@ export default function EmitirBoleta() {
                     <div className="flex items-center justify-between pt-2 mt-1 border-t">
                       <span className="text-sm">¿Detracción?</span>
                       <Switch
-                        checked={!!form.watch('detraccion')}
-                        onCheckedChange={(checked) => form.setValue('detraccion', checked)}
+                        checked={!!form.watch('tiene_detraccion')}
+                        onCheckedChange={(checked) => form.setValue('tiene_detraccion', checked)}
                       />
                     </div>
                   </CardContent>

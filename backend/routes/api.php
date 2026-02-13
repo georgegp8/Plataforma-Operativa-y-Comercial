@@ -109,6 +109,8 @@ Route::prefix('v1')->group(function () {
     Route::post('empresas', [EmpresaController::class , 'store']);
     Route::get('empresas/{id}', [EmpresaController::class , 'show']);
     Route::put('empresas/{id}', [EmpresaController::class , 'update']);
+    Route::post('empresas/{id}/logo', [EmpresaController::class, 'uploadLogo']);
+    Route::get('empresas/{id}/logo', [EmpresaController::class, 'getLogo']);
     Route::delete('empresas/{id}', [EmpresaController::class , 'destroy']);
     Route::patch('empresas/{id}/toggle-activo', [EmpresaController::class , 'toggleActivo']);
     Route::patch('empresas/{id}/cambiar-modo', [EmpresaController::class , 'cambiarModo']);

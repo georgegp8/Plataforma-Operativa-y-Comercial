@@ -34,7 +34,7 @@ class EmpresaController extends Controller
         // Ordenamiento
         $query->orderBy('razon_social');
 
-        $empresas = $query->paginate(15);
+        $empresas = $query->paginate($request->input('per_page', 15));
 
         return response()->json($empresas);
     }
@@ -109,20 +109,20 @@ class EmpresaController extends Controller
         $empresa = Empresa::findOrFail($id);
 
         $validator = Validator::make($request->all(), [
-            'ruc' => 'sometimes|string|size:11|unique:empresas,ruc,'.$id,
-            'razon_social' => 'sometimes|string|max:255',
+            'ruc' => 'nullable|string|size:11|unique:empresas,ruc,'.$id,
+            'razon_social' => 'nullable|string|max:255',
             'nombre_comercial' => 'nullable|string|max:255',
-            'ubigeo' => 'sometimes|string|size:6',
-            'departamento' => 'sometimes|string|max:100',
-            'provincia' => 'sometimes|string|max:100',
-            'distrito' => 'sometimes|string|max:100',
-            'direccion' => 'sometimes|string|max:255',
+            'ubigeo' => 'nullable|string|max:6',
+            'departamento' => 'nullable|string|max:100',
+            'provincia' => 'nullable|string|max:100',
+            'distrito' => 'nullable|string|max:100',
+            'direccion' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
-            'sol_user' => 'sometimes|string|max:50',
-            'sol_password' => 'sometimes|string|max:255',
+            'sol_user' => 'nullable|string|max:50',
+            'sol_password' => 'nullable|string|max:255',
             'certificado' => 'nullable|file|mimes:pem,pfx,p12',
-            'modo' => 'sometimes|in:beta,prod',
+            'modo' => 'nullable|in:beta,prod',
             'activo' => 'boolean',
         ]);
 
@@ -133,7 +133,9 @@ class EmpresaController extends Controller
             ], 422);
         }
 
-        $data = $validator->validated();
+        $data = collect($validator->validated())
+            ->reject(fn ($value) => $value === null || $value === '')
+            ->toArray();
 
         // Subir nuevo certificado si existe
         if ($request->hasFile('certificado')) {
@@ -143,7 +145,7 @@ class EmpresaController extends Controller
             }
 
             $certificado = $request->file('certificado');
-            $filename = $data['ruc'].'_'.time().'.'.$certificado->getClientOriginalExtension();
+            $filename = ($data['ruc'] ?? $empresa->ruc).'_'.time().'.'.$certificado->getClientOriginalExtension();
             $path = $certificado->storeAs('certs', $filename, 'local');
             $data['certificado_path'] = $path;
         }
@@ -215,5 +217,61 @@ class EmpresaController extends Controller
             'message' => 'Modo cambiado a '.$empresa->modo,
             'data' => $empresa,
         ]);
+    }
+
+    /**
+     * Subir logo de empresa
+     */
+    public function uploadLogo(Request $request, int $id): JsonResponse
+    {
+        $empresa = Empresa::findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'logo' => 'required|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $file = $request->file('logo');
+        $filename = 'empresa_' . $empresa->id . '_logo_' . time() . '.' . $file->getClientOriginalExtension();
+
+        $path = $file->storeAs('empresas/logos', $filename, 'public');
+
+        // Eliminar logo anterior si existe
+        if ($empresa->logo_path) {
+            Storage::disk('public')->delete($empresa->logo_path);
+        }
+
+        // Guardar ruta relativa dentro del disco public
+        $empresa->logo_path = $path;
+        $empresa->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Logo subido correctamente',
+            'logo_path' => $empresa->logo_path,
+        ]);
+    }
+
+    /**
+     * Obtener logo de empresa
+     */
+    public function getLogo(int $id)
+    {
+        $empresa = Empresa::findOrFail($id);
+
+        if (! $empresa->logo_path || ! Storage::disk('public')->exists($empresa->logo_path)) {
+            abort(404, 'Logo no encontrado');
+        }
+
+        $file = Storage::disk('public')->get($empresa->logo_path);
+        $mime = Storage::disk('public')->mimeType($empresa->logo_path);
+
+        return response($file, 200)->header('Content-Type', $mime);
     }
 }

@@ -95,6 +95,8 @@ const cpeItems: DropdownItem[] = [
   { label: 'No Enviados Sunat', path: '/cpes/no-enviados-sunat', icon: XCircle },
   { label: 'Resumenes Sunat', path: '/cpes/resumenes-sunat', icon: FileCheck },
   { label: 'Anulados Sunat', path: '/cpes/anulados-sunat', icon: AlertCircle },
+  { label: 'CONFIGURACION', path: '', icon: Settings, isSectionTitle: true },
+  { label: 'Configuracion Empresa', path: '/configuracion/empresa', icon: Settings },
 ];
 
 const navItems: NavItem[] = [

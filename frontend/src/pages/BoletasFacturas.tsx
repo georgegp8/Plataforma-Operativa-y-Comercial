@@ -1,15 +1,34 @@
-﻿import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
-import { Pencil, Trash2, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText, X, Save } from 'lucide-react';
+import { api, apiBaseUrl, type Serie, type Entidad, type Producto } from '@/lib/api';
+import { Pencil, Trash2, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText, Loader2 } from 'lucide-react';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  emitirComprobante,
+  TIPOS_COMPROBANTE,
+  TIPOS_DOCUMENTO,
+  TIPOS_IGV,
+  MONEDAS,
+  MONEDAS_SELECT,
+  TIPOS_OPERACION_SELECT,
+  IGV_PORCENTAJES_SELECT,
+  UNIDADES_MEDIDA,
+  type EmitirComprobanteRequest,
+} from '@/services/nubefact';
+import { useEmpresa } from '@/hooks/useEmpresa';
+import { ClienteCard } from '@/components/ClienteCard';
+import { ResumenTotalesCard } from '@/components/ResumenTotalesCard';
+import { ItemsSection } from '@/components/ItemsSection';
+import { ItemModal } from '@/components/ItemModal';
 
 interface Comprobante {
   id: number;
@@ -32,40 +51,62 @@ interface Comprobante {
   forma_pago: string;
 }
 
-interface DetalleItem {
-  id: string;
-  codigo_producto: string;
-  descripcion: string;
-  unidad: string;
-  cantidad: number;
-  precio_unitario: number;
-  subtotal: number;
-  afecto_stock: boolean;
-}
+// --- Schema de Validación ---
 
-interface FormDataCPE {
-  tipo_doc: string;
-  serie: string;
-  establecimiento: string;
-  tipo_operacion: string;
-  moneda: string;
-  cliente_num_doc: string;
-  cliente_razon_social: string;
-  cliente_direccion: string;
-  es_contingencia: boolean;
-  es_pago_anticipado: boolean;
-  fecha_emision: string;
-  fecha_vencimiento: string;
-  tipo_cambio: string;
-  condicion_pago: string;
-  vendedor: string;
-  modalidad_pago: string;
-  banco_destino: string;
-  monto_pago: string;
-  observaciones: string;
-}
+const itemSchema = z.object({
+  unidad_de_medida: z.string().min(1, 'Requerido'),
+  codigo: z.string().min(1, 'Requerido'),
+  descripcion: z.string().min(1, 'Requerido'),
+  cantidad: z.number().min(0.01, 'Debe ser mayor a 0'),
+  valor_unitario: z.number().min(0, 'Debe ser mayor o igual a 0'),
+  precio_unitario: z.number().min(0, 'Debe ser mayor o igual a 0'),
+  descuento: z.number().optional(),
+  tipo_de_igv: z.string().min(1, 'Requerido'),
+});
+
+const comprobanteSchema = z
+  .object({
+    empresa_id: z.number().min(1, 'Seleccione una empresa'),
+    tipo_comprobante: z.string().min(1, 'Seleccione tipo'),
+    serie: z.string().min(4, 'Serie debe tener 4 caracteres').max(4),
+    numero: z.number().min(1, 'Número debe ser mayor a 0'),
+    cliente_tipo_de_documento: z.string().min(1, 'Requerido'),
+    cliente_numero_de_documento: z.string().optional(),
+    cliente_denominacion: z.string().min(1, 'Requerido'),
+    cliente_direccion: z.string().optional(),
+    cliente_email: z.string().email('Email inválido').optional().or(z.literal('')),
+    fecha_de_emision: z.string().min(1, 'Requerido'),
+    moneda: z.string().min(1, 'Requerido'),
+    sunat_transaction: z.number().min(1, 'Seleccione un tipo de operación'),
+    porcentaje_de_igv: z.number().min(1, 'Seleccione un porcentaje de IGV'),
+    tipo_de_cambio: z.number().optional(),
+    pagado: z.boolean().optional(),
+    fecha_de_vencimiento: z.string().optional(),
+    tiene_detraccion: z.boolean().optional(),
+    detraccion_tipo: z.string().length(3).optional().nullable(),
+    detraccion_porcentaje: z.number().min(0).max(100).optional().nullable(),
+    detraccion_monto: z.number().min(0).optional().nullable(),
+    medio_pago_detraccion: z.string().length(3).optional().nullable(),
+    observaciones: z.string().optional(),
+    items: z.array(itemSchema).min(1, 'Debe agregar al menos un item'),
+  })
+  .refine(
+    (data) => {
+      if (["1", "4", "6"].includes(data.cliente_tipo_de_documento)) {
+        return !!data.cliente_numero_de_documento && data.cliente_numero_de_documento.length > 0;
+      }
+      return true;
+    },
+    {
+      message: "Número de documento es requerido",
+      path: ["cliente_numero_de_documento"],
+    }
+  );
+
+type ComprobanteFormValues = z.infer<typeof comprobanteSchema>;
 
 export default function BoletasFacturas() {
+  // --- Estado de la lista ---
   const [comprobantes, setComprobantes] = useState<Comprobante[]>([]);
   const [loading, setLoading] = useState(true);
   const [tipoFiltro, setTipoFiltro] = useState<'cliente' | 'numero' | 'fecha' | 'tipo'>('cliente');
@@ -73,49 +114,78 @@ export default function BoletasFacturas() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedComprobante, setSelectedComprobante] = useState<Comprobante | null>(null);
-  const [detalleItems, setDetalleItems] = useState<DetalleItem[]>([]);
-  const [formData, setFormData] = useState<FormDataCPE>({
-    tipo_doc: '01',
-    serie: 'F001',
-    establecimiento: 'principal',
-    tipo_operacion: '01',
-    moneda: 'PEN',
-    cliente_num_doc: '',
-    cliente_razon_social: '',
-    cliente_direccion: '',
-    es_contingencia: false,
-    es_pago_anticipado: false,
-    fecha_emision: new Date().toISOString().split('T')[0],
-    fecha_vencimiento: new Date().toISOString().split('T')[0],
-    tipo_cambio: '1.00',
-    condicion_pago: 'Contado',
-    vendedor: '',
-    modalidad_pago: 'Efectivo',
-    banco_destino: 'CAJA GENERAL - MARURI',
-    monto_pago: '',
-    observaciones: '',
-  });
-  const [logoPreview, setLogoPreview] = useState<string | null>(null);
-  const [empresaData, setEmpresaData] = useState({
-    razon_social: 'SPACEDEVPR S.A.C.',
-    ruc: '20434906301',
-    direccion: 'Av. Los Pinos 456 - Miraflores - Lima',
-    email: 'ventas@spacedev.com.pe',
-    telefono: '01-4567890',
-    direccion_completa: 'Av. Los Pinos 456, Miraflores, Lima - Perú',
-  });
   const [filtroTipoDoc, setFiltroTipoDoc] = useState<'todos' | '01' | '03'>('todos');
   const [filtroEstado, setFiltroEstado] = useState<'todos' | 'aceptado' | 'pendiente' | 'rechazado'>('todos');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // --- Estado del formulario CPE ---
+  const { empresaId, empresa } = useEmpresa();
+  const [tipoActivo, setTipoActivo] = useState<'factura' | 'boleta'>('factura');
+  const [emitiendo, setEmitiendo] = useState(false);
+  const [series, setSeries] = useState<Serie[]>([]);
+
+  const [clientes, setClientes] = useState<Entidad[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(false);
+  const [openClienteCombobox, setOpenClienteCombobox] = useState(false);
+  const [busquedaCliente, setBusquedaCliente] = useState('');
+
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [loadingProductos, setLoadingProductos] = useState(false);
+  const [openProductoCombobox, setOpenProductoCombobox] = useState(false);
+  const [busquedaProducto, setBusquedaProducto] = useState('');
+
+  const [modalItemAbierto, setModalItemAbierto] = useState(false);
+  const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null);
+
+  const isFactura = tipoActivo === 'factura';
+  const requiereDocumento = isFactura;
+
+  // React Hook Form
+  const form = useForm<ComprobanteFormValues>({
+    resolver: zodResolver(comprobanteSchema),
+    defaultValues: {
+      empresa_id: empresaId || 1,
+      tipo_comprobante: String(TIPOS_COMPROBANTE.FACTURA),
+      serie: 'F001',
+      numero: 1,
+      cliente_tipo_de_documento: TIPOS_DOCUMENTO.RUC,
+      cliente_numero_de_documento: '',
+      cliente_denominacion: '',
+      cliente_direccion: '',
+      cliente_email: '',
+      fecha_de_emision: new Date().toISOString().split('T')[0],
+      moneda: MONEDAS.PEN,
+      sunat_transaction: 1,
+      porcentaje_de_igv: 18,
+      pagado: false,
+      fecha_de_vencimiento: new Date().toISOString().split('T')[0],
+      tiene_detraccion: false,
+      detraccion_tipo: null,
+      detraccion_porcentaje: null,
+      detraccion_monto: null,
+      medio_pago_detraccion: null,
+      observaciones: '',
+      items: [],
+    },
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const formAny = form as any;
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: 'items',
+  });
+
+  // --- Carga de lista de comprobantes ---
 
   const fetchComprobantes = useCallback(async () => {
     try {
       const response = await api.comprobantes.listar();
       const data = response.data;
       const comprobantesData = (Array.isArray(data) ? data : (data as { data?: unknown[] }).data) || [];
-      
-      // Mapear datos a la interfaz Comprobante
+
       const mappedComprobantes: Comprobante[] = comprobantesData.map((item: unknown) => {
         const comp = item as Record<string, unknown>;
         return {
@@ -139,7 +209,7 @@ export default function BoletasFacturas() {
           forma_pago: comp.forma_pago as string || 'Contado',
         };
       });
-      
+
       setComprobantes(mappedComprobantes);
     } catch (error) {
       console.error(error);
@@ -155,39 +225,259 @@ export default function BoletasFacturas() {
     fetchComprobantes();
   }, [fetchComprobantes]);
 
-  // Filtrar comprobantes
-  const comprobantesFiltrados = comprobantes.filter((comp) => {
-    // Filtro por tipo de documento
-    if (filtroTipoDoc !== 'todos' && comp.tipo_doc !== filtroTipoDoc) {
-      return false;
-    }
+  // --- Carga de datos para el formulario ---
 
-    // Filtro por estado
+  const cargarSeries = async (tipoCodigoParam?: string) => {
+    try {
+      const eid = empresaId || 1;
+      const tipoCodigo = tipoCodigoParam || form.getValues('tipo_comprobante');
+      const res = await api.series.listar({ empresa_id: eid, tipo_comprobante: tipoCodigo });
+      const lista = res.data.data;
+      setSeries(lista);
+      if (lista.length > 0) {
+        const serieDefecto = lista.find((s: Serie) => s.por_defecto) ?? lista[0];
+        form.setValue('serie', serieDefecto.serie);
+        form.setValue('numero', (serieDefecto.correlativo_actual ?? 0) + 1);
+      }
+    } catch {
+      // Mantener modo manual
+    }
+  };
+
+  const cargarClientes = async () => {
+    try {
+      setLoadingClientes(true);
+      const response = await api.entidades.listar({
+        empresa_id: empresaId || 1,
+        activo: true,
+      });
+      setClientes(response.data);
+    } catch (error) {
+      console.error('Error al cargar clientes:', error);
+    } finally {
+      setLoadingClientes(false);
+    }
+  };
+
+  const cargarProductos = async () => {
+    try {
+      setLoadingProductos(true);
+      const response = await api.productos.listar({
+        empresa_id: empresaId || 1,
+        activo: true,
+      });
+      setProductos(response.data);
+    } catch (error) {
+      console.error('Error al cargar productos:', error);
+    } finally {
+      setLoadingProductos(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      void cargarSeries();
+      void cargarClientes();
+      void cargarProductos();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreateModalOpen]);
+
+  // --- Funciones del formulario ---
+
+  const seleccionarCliente = (cliente: Entidad) => {
+    const numeroDoc = cliente.num_doc || cliente.numero_documento || '';
+    const tipoDoc = numeroDoc.length === 11 ? TIPOS_DOCUMENTO.RUC : TIPOS_DOCUMENTO.DNI;
+    const nombre = cliente.denominacion || cliente.razon_social || cliente.nombre_comercial || cliente.razon_comercial || '';
+    form.setValue('cliente_numero_de_documento', numeroDoc);
+    form.setValue('cliente_denominacion', nombre);
+    form.setValue('cliente_tipo_de_documento', tipoDoc);
+    form.setValue('cliente_direccion', cliente.direccion || '');
+    form.setValue('cliente_email', cliente.email || '');
+    setOpenClienteCombobox(false);
+  };
+
+  const cambiarTipo = (tipo: 'factura' | 'boleta') => {
+    setTipoActivo(tipo);
+    const esFactura = tipo === 'factura';
+    const codigo = esFactura ? String(TIPOS_COMPROBANTE.FACTURA) : String(TIPOS_COMPROBANTE.BOLETA);
+    const prefix = esFactura ? 'F' : 'B';
+    form.setValue('tipo_comprobante', codigo);
+    form.setValue('serie', `${prefix}001`);
+    form.setValue('cliente_tipo_de_documento', esFactura ? TIPOS_DOCUMENTO.RUC : TIPOS_DOCUMENTO.DNI);
+    void cargarSeries(codigo);
+  };
+
+  const appendItemFromProducto = (producto: Producto) => {
+    const valor_unitario = Number(producto.valor_venta_unitario || 0);
+    const precio_unitario = Number(producto.precio_venta_unitario || 0);
+    const unidad_medida = producto.unidad_medida || UNIDADES_MEDIDA.NIU;
+    const tipo_igv = producto.tipo_afectacion_igv || TIPOS_IGV.GRAVADO_OPERACION_ONEROSA;
+    append({
+      unidad_de_medida: unidad_medida,
+      codigo: producto.codigo || producto.id.toString(),
+      descripcion: producto.descripcion,
+      cantidad: 1,
+      valor_unitario: parseFloat(valor_unitario.toFixed(6)),
+      precio_unitario: parseFloat(precio_unitario.toFixed(6)),
+      descuento: 0,
+      tipo_de_igv: tipo_igv,
+    });
+  };
+
+  const abrirModalItem = (index?: number) => {
+    if (index !== undefined) {
+      setItemEditandoIndex(index);
+    } else {
+      append({
+        unidad_de_medida: UNIDADES_MEDIDA.NIU,
+        codigo: '',
+        descripcion: '',
+        cantidad: 1,
+        valor_unitario: 0,
+        precio_unitario: 0,
+        descuento: 0,
+        tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA,
+      });
+      setItemEditandoIndex(fields.length);
+    }
+    setModalItemAbierto(true);
+  };
+
+  const cerrarModalItem = (guardar: boolean) => {
+    if (!guardar && itemEditandoIndex === fields.length - 1) {
+      remove(itemEditandoIndex);
+    }
+    setModalItemAbierto(false);
+    setItemEditandoIndex(null);
+  };
+
+  // --- Cálculos ---
+
+  const calcularItemSolo = (index: number) => {
+    const item = form.getValues(`items.${index}`);
+    if (!item) return { subtotal: 0, igv: 0, total: 0, precio_unitario: 0 };
+    const { cantidad, valor_unitario, descuento = 0 } = item;
+    const subtotal = cantidad * valor_unitario - descuento;
+    const igvRate = (form.getValues('porcentaje_de_igv') || 18) / 100;
+    const igv = subtotal * igvRate;
+    const total = subtotal + igv;
+    const precio_unitario = cantidad > 0 ? (subtotal + igv) / cantidad : 0;
+    return { subtotal, igv, total, precio_unitario };
+  };
+
+  const calcularItem = (index: number) => {
+    const calc = calcularItemSolo(index);
+    form.setValue(`items.${index}.precio_unitario`, parseFloat(calc.precio_unitario.toFixed(2)));
+    return calc;
+  };
+
+  const calcularTotales = () => {
+    const items = form.getValues('items');
+    let total_gravada = 0;
+    let total_igv = 0;
+    let total = 0;
+    items.forEach((_, index) => {
+      const calc = calcularItemSolo(index);
+      total_gravada += calc.subtotal;
+      total_igv += calc.igv;
+      total += calc.total;
+    });
+    return {
+      total_gravada: parseFloat(total_gravada.toFixed(2)),
+      total_igv: parseFloat(total_igv.toFixed(2)),
+      total: parseFloat(total.toFixed(2)),
+    };
+  };
+
+  const watchedItems = form.watch('items');
+  const porcentajeIgv = form.watch('porcentaje_de_igv');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const totales = useMemo(() => calcularTotales(), [watchedItems, porcentajeIgv]);
+
+  // --- Emisión de comprobante ---
+
+  const handleEmitirCPE = async (data: ComprobanteFormValues) => {
+    try {
+      setEmitiendo(true);
+      const tot = calcularTotales();
+      const items = data.items.map((item, index) => {
+        const calc = calcularItemSolo(index);
+        return { ...item, subtotal: calc.subtotal, igv: calc.igv, total: calc.total };
+      });
+
+      const payload: EmitirComprobanteRequest = {
+        ...data,
+        cliente_numero_de_documento: data.cliente_numero_de_documento || '',
+        operacion: 'generar_comprobante',
+        tipo_de_comprobante: Number(data.tipo_comprobante),
+        sunat_transaction: Number(data.sunat_transaction),
+        porcentaje_de_igv: Number(data.porcentaje_de_igv),
+        total_gravada: tot.total_gravada,
+        total_igv: tot.total_igv,
+        total: tot.total,
+        enviar_automaticamente_a_la_sunat: true,
+        enviar_automaticamente_al_cliente: !!data.cliente_email,
+        tiene_detraccion: data.tiene_detraccion ?? false,
+        detraccion_tipo: data.detraccion_tipo ?? undefined,
+        detraccion_porcentaje: data.detraccion_porcentaje ?? undefined,
+        detraccion_monto: data.detraccion_monto ?? undefined,
+        medio_pago_detraccion: data.medio_pago_detraccion ?? undefined,
+        items,
+      };
+
+      const response = await emitirComprobante(payload);
+
+      if (response.errors) {
+        toast.error('Error al emitir comprobante', {
+          description: response.sunat_description || 'Error desconocido',
+        });
+        return;
+      }
+
+      if (response.aceptada_por_sunat) {
+        toast.success('Comprobante emitido exitosamente', {
+          description: `${data.serie}-${data.numero} aceptado por SUNAT`,
+        });
+        setIsCreateModalOpen(false);
+        form.reset();
+        void fetchComprobantes();
+      } else {
+        toast.warning('Comprobante enviado pero no aceptado', {
+          description: response.sunat_description || response.sunat_soap_error,
+        });
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      toast.error('Error al procesar comprobante', {
+        description: err.response?.data?.message || err.message || 'Error desconocido',
+      });
+    } finally {
+      setEmitiendo(false);
+    }
+  };
+
+  // --- Funciones de la lista ---
+
+  const comprobantesFiltrados = comprobantes.filter((comp) => {
+    if (filtroTipoDoc !== 'todos' && comp.tipo_doc !== filtroTipoDoc) return false;
     if (filtroEstado !== 'todos') {
       if (filtroEstado === 'aceptado' && !comp.nubefact_aceptada_por_sunat) return false;
       if (filtroEstado === 'pendiente' && comp.nubefact_aceptada_por_sunat) return false;
       if (filtroEstado === 'rechazado' && (comp.nubefact_aceptada_por_sunat || comp.estado_sunat === 'pendiente')) return false;
     }
-
-    // Filtro por bÃºsqueda
     if (!valorFiltro) return true;
-
     const valorBusqueda = valorFiltro.toLowerCase();
     switch (tipoFiltro) {
-      case 'cliente':
-        return comp.cliente_razon_social.toLowerCase().includes(valorBusqueda);
-      case 'numero':
-        return comp.numero_completo.toLowerCase().includes(valorBusqueda);
-      case 'fecha':
-        return comp.fecha_emision.includes(valorFiltro);
-      case 'tipo':
-        return comp.tipo_doc.includes(valorFiltro);
-      default:
-        return true;
+      case 'cliente': return comp.cliente_razon_social.toLowerCase().includes(valorBusqueda);
+      case 'numero': return comp.numero_completo.toLowerCase().includes(valorBusqueda);
+      case 'fecha': return comp.fecha_emision.includes(valorFiltro);
+      case 'tipo': return comp.tipo_doc.includes(valorFiltro);
+      default: return true;
     }
   });
 
-  // PaginaciÃ³n
   const totalPages = Math.ceil(comprobantesFiltrados.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const comprobantesPaginados = comprobantesFiltrados.slice(startIndex, startIndex + itemsPerPage);
@@ -198,49 +488,32 @@ export default function BoletasFacturas() {
   };
 
   const handleNuevoComprobante = () => {
-    setIsCreateModalOpen(true);
-  };
-
-  const handleAgregarItem = () => {
-    const nuevoItem: DetalleItem = {
-      id: Date.now().toString(),
-      codigo_producto: '',
-      descripcion: '',
-      unidad: 'NIU',
-      cantidad: 1,
-      precio_unitario: 0,
-      subtotal: 0,
-      afecto_stock: true,
-    };
-    setDetalleItems([...detalleItems, nuevoItem]);
-  };
-
-  const handleEliminarItem = (id: string) => {
-    setDetalleItems(detalleItems.filter(item => item.id !== id));
-  };
-
-  const handleItemChange = (id: string, field: keyof DetalleItem, value: string | number | boolean) => {
-    setDetalleItems(detalleItems.map(item => {
-      if (item.id === id) {
-        const updated = { ...item, [field]: value };
-        if (field === 'cantidad' || field === 'precio_unitario') {
-          updated.subtotal = updated.cantidad * updated.precio_unitario;
-        }
-        return updated;
-      }
-      return item;
-    }));
-  };
-
-  const calcularTotal = () => {
-    return detalleItems.reduce((total, item) => total + item.subtotal, 0);
-  };
-
-  const handleGuardarCPE = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast.info('Próximamente', {
-      description: 'La funcionalidad de guardar comprobantes estará disponible pronto',
+    setTipoActivo('factura');
+    form.reset({
+      empresa_id: empresaId || 1,
+      tipo_comprobante: String(TIPOS_COMPROBANTE.FACTURA),
+      serie: 'F001',
+      numero: 1,
+      cliente_tipo_de_documento: TIPOS_DOCUMENTO.RUC,
+      cliente_numero_de_documento: '',
+      cliente_denominacion: '',
+      cliente_direccion: '',
+      cliente_email: '',
+      fecha_de_emision: new Date().toISOString().split('T')[0],
+      moneda: MONEDAS.PEN,
+      sunat_transaction: 1,
+      porcentaje_de_igv: 18,
+      pagado: false,
+      fecha_de_vencimiento: new Date().toISOString().split('T')[0],
+      tiene_detraccion: false,
+      detraccion_tipo: null,
+      detraccion_porcentaje: null,
+      detraccion_monto: null,
+      medio_pago_detraccion: null,
+      observaciones: '',
+      items: [],
     });
+    setIsCreateModalOpen(true);
   };
 
   const handleVerificarSunat = (comprobante: Comprobante) => {
@@ -328,7 +601,7 @@ export default function BoletasFacturas() {
 
         {/* Filtros */}
         <div className="bg-muted/50 px-4 py-4 border-x border-border">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <div>
               <select
                 value={tipoFiltro}
@@ -336,12 +609,12 @@ export default function BoletasFacturas() {
                 className="w-full px-3 py-2 text-sm border border-border rounded bg-white dark:bg-background"
               >
                 <option value="cliente">Por Cliente</option>
-                <option value="numero">Por NÃºmero</option>
+                <option value="numero">Por Número</option>
                 <option value="fecha">Por Fecha</option>
                 <option value="tipo">Por Tipo</option>
               </select>
             </div>
-            <div className="md:col-span-2">
+            <div className="col-span-1 md:col-span-2 lg:col-span-2">
               <Input
                 type={tipoFiltro === 'fecha' ? 'date' : 'text'}
                 placeholder={`Buscar por ${tipoFiltro}...`}
@@ -373,7 +646,7 @@ export default function BoletasFacturas() {
                 <option value="rechazado">Rechazado</option>
               </select>
             </div>
-            <div className="flex gap-2">
+            <div className="col-span-2 md:col-span-1 flex gap-2">
               <Button
                 className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                 onClick={() => setCurrentPage(1)}
@@ -382,6 +655,7 @@ export default function BoletasFacturas() {
               </Button>
               <Button
                 variant="outline"
+                className="flex-1"
                 onClick={handleLimpiarFiltros}
               >
                 Limpiar
@@ -399,53 +673,53 @@ export default function BoletasFacturas() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-175">
                 <thead>
                   <tr className="bg-primary hover:bg-primary">
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Fecha</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Tipo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">NÃºmero</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Cliente</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Moneda</th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-primary-foreground">Total</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-primary-foreground">Estado</th>
-                    <th className="px-4 py-3 text-center text-xs font-medium text-primary-foreground">Acciones</th>
+                    <th className="w-[4%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">#</th>
+                    <th className="w-[11%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Fecha</th>
+                    <th className="w-[9%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Tipo</th>
+                    <th className="w-[11%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Número</th>
+                    <th className="w-[22%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Cliente</th>
+                    <th className="w-[7%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Moneda</th>
+                    <th className="w-[12%] px-2 py-3 text-right text-xs font-medium text-primary-foreground">Total</th>
+                    <th className="w-[10%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Estado</th>
+                    <th className="w-[14%] px-2 py-3 text-center text-xs font-medium text-primary-foreground">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {comprobantesPaginados.map((comp, index) => (
                     <tr key={comp.id} className="hover:bg-muted/50">
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                      <td className="px-2 py-3 text-xs text-muted-foreground">
                         {startIndex + index + 1}
                       </td>
-                      <td className="px-4 py-3 text-xs font-medium">
+                      <td className="px-2 py-3 text-xs font-medium whitespace-nowrap">
                         {formatDate(comp.fecha_emision)}
                       </td>
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-2 py-3 text-xs">
                         <Badge variant="outline" className="font-normal">
                           {getTipoDocLabel(comp.tipo_doc)}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 text-xs font-medium">
+                      <td className="px-2 py-3 text-xs font-medium whitespace-nowrap">
                         {comp.numero_completo}
                       </td>
-                      <td className="px-4 py-3 text-xs">
-                        <div>{comp.cliente_razon_social}</div>
+                      <td className="px-2 py-3 text-xs overflow-hidden">
+                        <div className="truncate" title={comp.cliente_razon_social}>{comp.cliente_razon_social}</div>
                         <div className="text-[10px] text-muted-foreground">
                           {comp.cliente_num_doc}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                      <td className="px-2 py-3 text-xs text-muted-foreground">
                         {comp.moneda}
                       </td>
-                      <td className="px-4 py-3 text-xs font-medium text-right">
+                      <td className="px-2 py-3 text-xs font-medium text-right whitespace-nowrap">
                         {formatCurrency(comp.mto_imp_venta)}
                       </td>
-                      <td className="px-4 py-3 text-xs">
+                      <td className="px-2 py-3 text-xs">
                         {getEstadoBadge(comp)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 py-3">
                         <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"
@@ -500,7 +774,7 @@ export default function BoletasFacturas() {
             </div>
           )}
 
-          {/* Paginación - Estilo Clientes */}
+          {/* Paginación */}
           <div className="px-4 py-3 border-t border-border bg-white dark:bg-card">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-2">
@@ -580,7 +854,6 @@ export default function BoletasFacturas() {
             </DialogHeader>
             {selectedComprobante && (
               <div className="space-y-6 py-4">
-                {/* Información General */}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label className="text-xs text-muted-foreground">Tipo</Label>
@@ -607,8 +880,6 @@ export default function BoletasFacturas() {
                     <div className="mt-1">{getEstadoBadge(selectedComprobante)}</div>
                   </div>
                 </div>
-
-                {/* Cliente */}
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Cliente</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -622,8 +893,6 @@ export default function BoletasFacturas() {
                     </div>
                   </div>
                 </div>
-
-                {/* Montos */}
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Montos</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -643,15 +912,13 @@ export default function BoletasFacturas() {
                     </div>
                   </div>
                 </div>
-
-                {/* Archivos */}
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Archivos</h3>
                   <div className="flex gap-2">
                     {selectedComprobante.nubefact_pdf_url && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => window.open(selectedComprobante.nubefact_pdf_url, '_blank')}
                         className="text-red-600 border-red-200"
                       >
@@ -660,9 +927,9 @@ export default function BoletasFacturas() {
                       </Button>
                     )}
                     {selectedComprobante.nubefact_xml_url && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => window.open(selectedComprobante.nubefact_xml_url, '_blank')}
                         className="text-blue-600 border-blue-200"
                       >
@@ -671,9 +938,9 @@ export default function BoletasFacturas() {
                       </Button>
                     )}
                     {selectedComprobante.nubefact_cdr_url && (
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => window.open(selectedComprobante.nubefact_cdr_url, '_blank')}
                         className="text-green-600 border-green-200"
                       >
@@ -692,525 +959,257 @@ export default function BoletasFacturas() {
         </Dialog>
 
         {/* Modal Crear CPE */}
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <Dialog open={isCreateModalOpen} onOpenChange={(open) => {
+          if (!open) form.reset();
+          setIsCreateModalOpen(open);
+        }}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Comprobante de Pago</DialogTitle>
+              <DialogTitle>Emitir Comprobante de Pago Electrónico</DialogTitle>
               <DialogDescription>
-                Complete los datos del comprobante electrónico. Los campos marcados son obligatorios.
+                Complete los datos del comprobante. Los campos marcados con * son obligatorios.
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleGuardarCPE} className="space-y-6">
+            <form onSubmit={form.handleSubmit(handleEmitirCPE)} className="space-y-4">
               {/* Información de la Empresa */}
-              <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 ">📋 Información de la Empresa</h3>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Logo */}
-                  <div className="space-y-3">
-                    <Label htmlFor="logo" className="text-sm font-medium">Logo de la Empresa</Label>
-                    <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-4 text-center">
-                      {logoPreview ? (
-                        <div className="space-y-2">
-                          <img 
-                            src={logoPreview} 
-                            alt="Logo preview" 
-                            className="w-24 h-24 object-contain mx-auto rounded"
-                          />
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => {
-                              setLogoPreview(null);
-                              const input = document.getElementById('logo') as HTMLInputElement;
-                              if (input) input.value = '';
-                            }}
-                          >
-                            Cambiar logo
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <Input
-                            id="logo"
-                            type="file"
-                            accept="image/png,image/jpeg,image/jpg"
-                            className="cursor-pointer"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                if (file.size > 2 * 1024 * 1024) {
-                                  toast.error('Archivo muy grande', {
-                                    description: 'El logo no debe superar los 2MB'
-                                  });
-                                  e.target.value = '';
-                                  return;
-                                }
-                                const reader = new FileReader();
-                                reader.onload = (e) => {
-                                  setLogoPreview(e.target?.result as string);
-                                };
-                                reader.readAsDataURL(file);
-                                toast.success('Logo cargado correctamente');
-                              }
-                            }}
-                          />
-                          <p className="text-xs text-muted-foreground">PNG/JPG • Máx 2MB</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Datos principales */}
-                  <div className="lg:col-span-2 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="empresa_razon_social" className="text-sm font-medium">Razón Social *</Label>
-                        <Input
-                          id="empresa_razon_social"
-                          value={empresaData.razon_social}
-                          onChange={(e) => setEmpresaData(prev => ({ ...prev, razon_social: e.target.value }))}
-                          className="font-semibold"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="empresa_ruc" className="text-sm font-medium">RUC *</Label>
-                        <Input
-                          id="empresa_ruc"
-                          value={empresaData.ruc}
-                          onChange={(e) => setEmpresaData(prev => ({ ...prev, ruc: e.target.value }))}
-                          placeholder="20123456789"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor="empresa_direccion" className="text-sm font-medium">Dirección Fiscal *</Label>
-                      <Input
-                        id="empresa_direccion"
-                        value={empresaData.direccion_completa}
-                        onChange={(e) => setEmpresaData(prev => ({ ...prev, direccion_completa: e.target.value }))}
-                        placeholder="Av. Ejemplo 123, Distrito, Provincia - Departamento"
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="empresa_email" className="text-sm font-medium">Email</Label>
-                        <Input
-                          id="empresa_email"
-                          type="email"
-                          value={empresaData.email}
-                          onChange={(e) => setEmpresaData(prev => ({ ...prev, email: e.target.value }))}
-                          placeholder="ventas@empresa.com"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="empresa_telefono" className="text-sm font-medium">Teléfono</Label>
-                        <Input
-                          id="empresa_telefono"
-                          value={empresaData.telefono}
-                          onChange={(e) => setEmpresaData(prev => ({ ...prev, telefono: e.target.value }))}
-                          placeholder="01-1234567"
-                        />
-                      </div>
-                    </div>
+              {empresa && (
+                <div className="bg-muted/50 p-4 rounded-lg border flex items-center gap-4">
+                  {empresa.logo_path && (
+                    <img
+                      src={`${apiBaseUrl}/v1/empresas/${empresa.id}/logo`}
+                      alt="Logo"
+                      className="h-14 w-14 object-contain rounded border bg-white"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm">{empresa.razon_social}</p>
+                    <p className="text-xs text-muted-foreground">RUC: {empresa.ruc}</p>
+                    {empresa.direccion && (
+                      <p className="text-xs text-muted-foreground">{empresa.direccion}</p>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Configuración del Comprobante */}
-              <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 ">🛟 Configuración del Comprobante</h3>
-                {/* Checkboxes especiales */}
-                <div className="flex flex-wrap gap-6 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="contingencia"
-                      checked={formData.es_contingencia}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({ ...prev, es_contingencia: checked as boolean }))
-                      }
-                    />
-                    <label htmlFor="contingencia" className="text-sm font-medium">
-                      Comprobante de contingencia
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="pago-anticipado"
-                      checked={formData.es_pago_anticipado}
-                      onCheckedChange={(checked) => 
-                        setFormData(prev => ({ ...prev, es_pago_anticipado: checked as boolean }))
-                      }
-                    />
-                    <label htmlFor="pago-anticipado" className="text-sm font-medium">
-                      Pago anticipado
-                    </label>
-                  </div>
-                </div>
+              {/* Selector de tipo */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={tipoActivo === 'factura' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => cambiarTipo('factura')}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Factura Electrónica
+                </Button>
+                <Button
+                  type="button"
+                  variant={tipoActivo === 'boleta' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => cambiarTipo('boleta')}
+                >
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Boleta de Venta
+                </Button>
               </div>
 
               {/* Datos del Comprobante */}
-              <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 ">📜 Datos del Comprobante</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-                  <div>
-                    <Label className="text-sm font-medium">Tipo de Comprobante *</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                      value={formData.tipo_doc}
-                      onChange={(e) => setFormData(prev => ({ ...prev, tipo_doc: e.target.value }))}
-                    >
-                      <option value="01">Factura Electrónica</option>
-                      <option value="03">Boleta Electrónica</option>
-                      <option value="07">Nota de Crédito</option>
-                      <option value="08">Nota de Débito</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Serie *</Label>
-                    <Input
-                      value={formData.serie}
-                      onChange={(e) => setFormData(prev => ({ ...prev, serie: e.target.value }))}
-                      placeholder="F001"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Establecimiento *</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                      value={formData.establecimiento}
-                      onChange={(e) => setFormData(prev => ({ ...prev, establecimiento: e.target.value }))}
+              <div className="bg-muted/50 p-4 rounded-lg border space-y-3">
+                <h3 className="text-sm font-semibold">Datos del Comprobante</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Serie *</Label>
+                    {series.length > 0 ? (
+                      <Select
+                        value={form.watch('serie')}
+                        onValueChange={(value) => {
+                          form.setValue('serie', value);
+                          const encontrada = series.find((s) => s.serie === value);
+                          if (encontrada) {
+                            form.setValue('numero', (encontrada.correlativo_actual ?? 0) + 1);
+                          }
+                        }}
                       >
-                      <option value="principal">🏢 Oficina Principal</option>
-                      <option value="sucursal1">🏢 Sucursal 1</option>
-                    </select>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Serie" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {series.map((s) => (
+                            <SelectItem key={s.id} value={s.serie}>
+                              {s.serie}{s.por_defecto ? ' (defecto)' : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input {...form.register('serie')} className="h-9" maxLength={4} />
+                    )}
+                    {form.formState.errors.serie && (
+                      <p className="text-xs text-destructive">{form.formState.errors.serie.message}</p>
+                    )}
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">Tipo Operación *</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                      value={formData.tipo_operacion}
-                      onChange={(e) => setFormData(prev => ({ ...prev, tipo_operacion: e.target.value }))}
-                    >
-                      <option value="0101">🇵🇪 Venta Interna</option>
-                      <option value="0200">🌍 Exportación</option>
-                    </select>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Número *</Label>
+                    <Input type="number" className="h-9" {...form.register('numero', { valueAsNumber: true })} />
                   </div>
-                  <div>
-                    <Label className="text-sm font-medium">Moneda *</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                      value={formData.moneda}
-                      onChange={(e) => setFormData(prev => ({ ...prev, moneda: e.target.value }))}
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fecha Emisión *</Label>
+                    <Input type="date" className="h-9" {...form.register('fecha_de_emision')} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Fecha Vencimiento</Label>
+                    <Input type="date" className="h-9" {...form.register('fecha_de_vencimiento')} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">IGV %</Label>
+                    <Select
+                      value={String(form.watch('porcentaje_de_igv') ?? 18)}
+                      onValueChange={(value) => form.setValue('porcentaje_de_igv', Number(value))}
                     >
-                      <option value="PEN">💵 Soles (PEN)</option>
-                      <option value="USD">💵 Dólares (USD)</option>
-                    </select>
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {IGV_PORCENTAJES_SELECT.map((opt) => (
+                          <SelectItem key={opt.value} value={String(opt.value)}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tipo Operación</Label>
+                    <Select
+                      value={String(form.watch('sunat_transaction') ?? 1)}
+                      onValueChange={(value) => form.setValue('sunat_transaction', Number(value))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIPOS_OPERACION_SELECT.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Moneda</Label>
+                    <Select
+                      value={form.watch('moneda')}
+                      onValueChange={(value) => form.setValue('moneda', value)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MONEDAS_SELECT.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Tipo Cambio</Label>
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      className="h-9"
+                      placeholder="3.5000"
+                      {...form.register('tipo_de_cambio', {
+                        setValueAs: (v) => (v === '' || v === null ? undefined : Number(v)),
+                      })}
+                      disabled={form.watch('moneda') === MONEDAS.PEN}
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* Información del Cliente */}
-              <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 ">👥 Información del Cliente</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <Label className="text-sm font-medium">Número de Documento *</Label>
-                    <Input
-                      value={formData.cliente_num_doc}
-                      onChange={(e) => setFormData(prev => ({ ...prev, cliente_num_doc: e.target.value }))}
-                      placeholder="RUC o DNI"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Label className="text-sm font-medium">Razón Social / Nombre *</Label>
-                    <Input
-                      value={formData.cliente_razon_social}
-                      onChange={(e) => setFormData(prev => ({ ...prev, cliente_razon_social: e.target.value }))}
-                      placeholder="Nombre del cliente"
-                    />
-                  </div>
-                </div>
+              {/* Cliente */}
+              <ClienteCard
+                form={formAny}
+                clientes={clientes}
+                loadingClientes={loadingClientes}
+                openClienteCombobox={openClienteCombobox}
+                setOpenClienteCombobox={setOpenClienteCombobox}
+                busquedaCliente={busquedaCliente}
+                setBusquedaCliente={setBusquedaCliente}
+                seleccionarCliente={seleccionarCliente}
+                total={totales.total}
+                requiereDocumento={requiereDocumento}
+              />
 
-                <div>
-                  <Label className="text-sm font-medium">Dirección *</Label>
-                  <Input
-                    value={formData.cliente_direccion}
-                    onChange={(e) => setFormData(prev => ({ ...prev, cliente_direccion: e.target.value }))}
-                    placeholder="Dirección del cliente"
+              {/* Items y Resumen */}
+              <div className="space-y-4 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:gap-4">
+                <ItemsSection
+                  form={formAny}
+                  fields={fields}
+                  productos={productos}
+                  loadingProductos={loadingProductos}
+                  openProductoCombobox={openProductoCombobox}
+                  setOpenProductoCombobox={setOpenProductoCombobox}
+                  busquedaProducto={busquedaProducto}
+                  setBusquedaProducto={setBusquedaProducto}
+                  onAppendProducto={appendItemFromProducto}
+                  onAgregarLinea={() => abrirModalItem()}
+                  onClickItem={(index) => abrirModalItem(index)}
+                  onRemoveItem={(index) => remove(index)}
+                  calcularItemSolo={calcularItemSolo}
+                />
+
+                <div className="space-y-4">
+                  <ResumenTotalesCard
+                    form={formAny}
+                    totales={totales}
+                    requiereDocumento={requiereDocumento}
                   />
                 </div>
               </div>
 
-              {/* Fechas y Condiciones */}
-              <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 ">⏰ Fechas y Condiciones de Pago</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Fecha Emisión *</Label>
-                    <Input
-                      type="date"
-                      value={formData.fecha_emision}
-                      onChange={(e) => setFormData(prev => ({ ...prev, fecha_emision: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Fecha Vencimiento</Label>
-                    <Input
-                      type="date"
-                      value={formData.fecha_vencimiento}
-                      onChange={(e) => setFormData(prev => ({ ...prev, fecha_vencimiento: e.target.value }))}
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Tipo de Cambio</Label>
-                    <Input
-                      type="number"
-                      step="0.001"
-                      value={formData.tipo_cambio}
-                      onChange={(e) => setFormData(prev => ({ ...prev, tipo_cambio: e.target.value }))}
-                      placeholder="3.750"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Condición de Pago *</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                      value={formData.condicion_pago}
-                      onChange={(e) => setFormData(prev => ({ ...prev, condicion_pago: e.target.value }))}
-                    >
-                      <option value="Contado">💵 Contado</option>
-                      <option value="Credito">🏦 Crédito</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Vendedor</Label>
-                    <Input
-                      value={formData.vendedor}
-                      onChange={(e) => setFormData(prev => ({ ...prev, vendedor: e.target.value }))}
-                      placeholder="Nombre del vendedor"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Modalidad de Pago */}
-              <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4 ">💳 Modalidad de Pago</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-sm font-medium">Modalidad de Pago</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                      value={formData.modalidad_pago}
-                      onChange={(e) => setFormData(prev => ({ ...prev, modalidad_pago: e.target.value }))}
-                    >
-                      <option value="Efectivo">💵 Efectivo</option>
-                      <option value="Transferencia">🏦 Transferencia</option>
-                      <option value="Tarjeta">💳 Tarjeta</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Banco Destino</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-                      value={formData.banco_destino}
-                      onChange={(e) => setFormData(prev => ({ ...prev, banco_destino: e.target.value }))}
-                    >
-                      <option value="CAJA GENERAL - MARURI">🏦 Caja General - Maruri</option>
-                      <option value="BCP">🏦 BCP</option>
-                      <option value="BBVA">🏦 BBVA</option>
-                      <option value="Interbank">🏦 Interbank</option>
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium">Monto</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.monto_pago}
-                      onChange={(e) => setFormData(prev => ({ ...prev, monto_pago: e.target.value }))}
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Detalle de Productos/Servicios */}
-              <div className="bg-muted/50 p-6 rounded-lg border">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold mb-4 ">📦 Detalle de Productos/Servicios</h3>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleAgregarItem}
-                    className="bg-green-500 hover:bg-green-600 border-green-500"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar Producto
-                  </Button>
-                </div>
-                
-                <div className="border rounded-lg overflow-hidden bg-background">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/50">
-                        <TableHead className="w-12 text-center">#</TableHead>
-                        <TableHead className="w-20 text-center">Stock</TableHead>
-                        <TableHead className="w-32">Código</TableHead>
-                        <TableHead className="min-w-50">Descripción</TableHead>
-                        <TableHead className="w-24">Unidad</TableHead>
-                        <TableHead className="w-24 text-right">Cantidad</TableHead>
-                        <TableHead className="w-28 text-right">P. Unitario</TableHead>
-                        <TableHead className="w-28 text-right">Subtotal</TableHead>
-                        <TableHead className="w-16 text-center">Acción</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {detalleItems.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
-                            📦 No hay productos agregados
-                            <br />
-                            <span className="text-sm">Haz clic en "Agregar Producto" para comenzar</span>
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        detalleItems.map((item, index) => (
-                          <TableRow key={item.id} className="hover:bg-muted/30">
-                            <TableCell className="text-center font-medium">{index + 1}</TableCell>
-                            <TableCell className="text-center">
-                              <Checkbox
-                                checked={item.afecto_stock}
-                                onCheckedChange={(checked) =>
-                                  handleItemChange(item.id, 'afecto_stock', checked)
-                                }
-                                title="Afecto a stock"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                value={item.codigo_producto}
-                                onChange={(e) =>
-                                  handleItemChange(item.id, 'codigo_producto', e.target.value)
-                                }
-                                placeholder="COD001"
-                                className="h-8 text-sm"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                value={item.descripcion}
-                                onChange={(e) =>
-                                  handleItemChange(item.id, 'descripcion', e.target.value)
-                                }
-                                placeholder="Descripción del producto"
-                                className="h-8 text-sm"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <select
-                                className="w-full border rounded-md px-2 py-1 text-sm h-8 bg-background"
-                                value={item.unidad}
-                                onChange={(e) =>
-                                  handleItemChange(item.id, 'unidad', e.target.value)
-                                }
-                              >
-                                <option value="NIU">Unidad</option>
-                                <option value="ZZ">Servicio</option>
-                                <option value="KGM">Kilogramo</option>
-                                <option value="MTR">Metro</option>
-                              </select>
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={item.cantidad}
-                                onChange={(e) =>
-                                  handleItemChange(item.id, 'cantidad', parseFloat(e.target.value) || 0)
-                                }
-                                className="h-8 text-right text-sm"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={item.precio_unitario}
-                                onChange={(e) =>
-                                  handleItemChange(item.id, 'precio_unitario', parseFloat(e.target.value) || 0)
-                                }
-                                className="h-8 text-right text-sm"
-                              />
-                            </TableCell>
-                            <TableCell className="font-semibold text-right">
-                              <span className="text-primary">
-                                {formatCurrency(item.subtotal)}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEliminarItem(item.id)}
-                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                title="Eliminar producto"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
               {/* Observaciones */}
-              <div className="bg-muted/50 p-6 rounded-lg border">
-                <h3 className="text-lg font-semibold mb-4">📝 Observaciones</h3>
-                <textarea
-                  className="w-full border rounded-md px-3 py-2 text-sm min-h-20 bg-background"
-                  value={formData.observaciones}
-                  onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
-                  placeholder="Observaciones adicionales del comprobante..."
-                />
+              <div className="space-y-1">
+                <Label className="text-xs">Observaciones</Label>
+                <Input {...form.register('observaciones')} placeholder="Notas adicionales (opcional)" />
               </div>
 
-              {/* Total */}
-              <div className="flex justify-end">
-                <div className="bg-primary/10 dark:bg-primary/20 px-8 py-6 rounded-lg border-2 border-primary/20">
-                  <p className="text-sm text-muted-foreground mb-2 text-center">TOTAL {formData.moneda === 'PEN' ? 'SOLES' : 'DÃ“LARES'}</p>
-                  <p className="text-4xl font-bold text-primary text-center">
-                    {formatCurrency(calcularTotal())}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 text-center">
-                    {detalleItems.length} {detalleItems.length === 1 ? 'producto' : 'productos'}
-                  </p>
-                </div>
-              </div>
-
-              <DialogFooter>
+              <DialogFooter className="gap-2">
                 <Button type="button" variant="outline" onClick={() => setIsCreateModalOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" className="bg-green-500 hover:bg-green-600 text-white">
-                  <Save className="h-4 w-4 mr-2" />
-                  Guardar Comprobante
+                <Button type="submit" disabled={emitiendo} className="bg-green-500 hover:bg-green-600 text-white">
+                  {emitiendo ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Emitiendo...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4 mr-2" />
+                      Emitir Comprobante
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
+
+        {/* Modal de Item */}
+        <ItemModal
+          form={formAny}
+          open={modalItemAbierto}
+          index={itemEditandoIndex}
+          onClose={cerrarModalItem}
+          calcularItem={calcularItem}
+          calcularItemSolo={calcularItemSolo}
+          onRemove={(index) => {
+            remove(index);
+            cerrarModalItem(false);
+          }}
+        />
       </div>
     </div>
   );

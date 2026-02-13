@@ -42,6 +42,23 @@ class EmitirComprobanteRequest extends FormRequest
             'items.*.descripcion' => [Rule::requiredIf($isNewComprobante), 'string'],
             'items.*.cantidad' => [Rule::requiredIf($isNewComprobante), 'numeric'],
             'items.*.precio_unitario' => [Rule::requiredIf($isNewComprobante), 'numeric'],
+            // Detracción - Campos obligatorios si tiene_detraccion = true
+            'tiene_detraccion' => 'sometimes|boolean',
+            'detraccion_tipo' => 'required_if:tiene_detraccion,true|nullable|string|size:3',
+            'detraccion_porcentaje' => 'required_if:tiene_detraccion,true|nullable|numeric|min:0|max:100',
+            'detraccion_monto' => 'nullable|numeric|min:0',
+            'medio_pago_detraccion' => 'required_if:tiene_detraccion,true|nullable|string|size:3',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'detraccion_tipo.required_if' => 'El tipo de detracción es obligatorio cuando se activa detracción',
+            'detraccion_tipo.size' => 'El código de detracción debe tener 3 caracteres',
+            'detraccion_porcentaje.required_if' => 'El porcentaje de detracción es obligatorio',
+            'detraccion_porcentaje.max' => 'El porcentaje no puede superar el 100%',
+            'medio_pago_detraccion.required_if' => 'El medio de pago es obligatorio cuando hay detracción',
         ];
     }
 }

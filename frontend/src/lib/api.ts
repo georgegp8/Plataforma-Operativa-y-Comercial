@@ -428,6 +428,13 @@ export const api = {
       apiClient.patch<ApiResponse<Empresa>>(`/v1/empresas/${id}/toggle-activo`),
     cambiarModo: (id: number) =>
       apiClient.patch<ApiResponse<Empresa>>(`/v1/empresas/${id}/cambiar-modo`),
+    uploadLogo: (id: number, file: File) => {
+      const formData = new FormData();
+      formData.append('logo', file);
+      return apiClient.post<ApiResponse<Empresa>>(`/v1/empresas/${id}/logo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    },
   },
 
   // Facturación electrónica

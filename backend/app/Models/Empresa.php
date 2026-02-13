@@ -21,6 +21,8 @@ class Empresa extends Model
         'provincia',
         'distrito',
         'direccion',
+        'telefono',
+        'email',
         'certificado_path',
         'sol_user',
         'sol_password',

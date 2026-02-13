@@ -51,7 +51,12 @@ export interface EmitirComprobanteRequest {
   retencion_tipo?: string;
   retencion_base_imponible?: number;
   retencion_total?: number;
-  detraccion?: boolean;
+  // Detracción completa según API NubeFact
+  tiene_detraccion?: boolean;
+  detraccion_tipo?: string;        // Catálogo 54 SUNAT (ej: "037")
+  detraccion_porcentaje?: number;  // Ej: 12.00
+  detraccion_monto?: number;       // Calculado: total * porcentaje / 100
+  medio_pago_detraccion?: string;  // Catálogo 59 SUNAT (ej: "001")
   observaciones?: string;
   documento_que_se_modifica_tipo?: string;
   documento_que_se_modifica_serie?: string;
@@ -312,3 +317,28 @@ export const IGV_PORCENTAJES_SELECT = [
   { value: 10, label: '10% (Ley 31556)' },
   { value: 4, label: '4% (IVAP)' },
 ];
+
+// Catálogo 54 SUNAT - Tipos de detracción más comunes
+export const TIPOS_DETRACCION_SELECT = [
+  { value: '001', label: '001 - Azúcar', porcentaje: 10 },
+  { value: '003', label: '003 - Alcohol etílico', porcentaje: 10 },
+  { value: '004', label: '004 - Recursos hidrobiológicos', porcentaje: 4 },
+  { value: '012', label: '012 - Intermediación laboral y tercerización', porcentaje: 12 },
+  { value: '019', label: '019 - Arrendamiento de bienes', porcentaje: 12 },
+  { value: '027', label: '027 - Transporte de carga', porcentaje: 4 },
+  { value: '030', label: '030 - Contratos de construcción', porcentaje: 4 },
+  { value: '037', label: '037 - Demás servicios gravados con el IGV', porcentaje: 12 },
+] as const;
+
+// Catálogo 59 SUNAT - Medios de pago detracción
+export const MEDIOS_PAGO_DETRACCION_SELECT = [
+  { value: '001', label: '001 - Depósito en cuenta' },
+  { value: '003', label: '003 - Transferencia de fondos' },
+  { value: '999', label: '999 - Otros' },
+] as const;
+
+// Helper para obtener porcentaje por código
+export const obtenerPorcentajeDetraccion = (codigo: string): number => {
+  const tipo = TIPOS_DETRACCION_SELECT.find(t => t.value === codigo);
+  return tipo?.porcentaje ?? 0;
+};

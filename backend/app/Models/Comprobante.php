@@ -40,6 +40,8 @@ class Comprobante extends Model
         'tiene_detraccion',
         'detraccion_monto',
         'detraccion_porcentaje',
+        'detraccion_tipo',           // NUEVO
+        'medio_pago_detraccion',     // NUEVO
         'fecha_emision',
         'fecha_vencimiento',
         'estado_sunat',
@@ -216,5 +218,28 @@ class Comprobante extends Model
         ];
 
         return $badges[$this->estado_sunat] ?? ['class' => 'secondary', 'text' => 'Desconocido'];
+    }
+
+    /**
+     * Obtener descripción del tipo de detracción
+     */
+    public function getDetraccionTipoDescripcionAttribute(): ?string
+    {
+        if (!$this->detraccion_tipo) {
+            return null;
+        }
+
+        $tipos = [
+            '001' => 'Azúcar (10%)',
+            '003' => 'Alcohol etílico (10%)',
+            '004' => 'Recursos hidrobiológicos (4-15%)',
+            '012' => 'Intermediación laboral (12%)',
+            '019' => 'Arrendamiento de bienes (12%)',
+            '027' => 'Transporte de carga (4%)',
+            '030' => 'Contratos de construcción (4%)',
+            '037' => 'Demás servicios gravados (12%)',
+        ];
+
+        return $tipos[$this->detraccion_tipo] ?? "Código {$this->detraccion_tipo}";
     }
 }

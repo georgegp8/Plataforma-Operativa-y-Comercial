@@ -1,9 +1,15 @@
+import { useState } from 'react';
 import { type UseFormReturn } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
+import { DetraccionModal } from '@/components/DetraccionModal';
 
 type ComprobanteFormValues = {
-  detraccion?: boolean;
+  tiene_detraccion?: boolean;
+  detraccion_tipo?: string;
+  detraccion_porcentaje?: number;
+  detraccion_monto?: number;
+  medio_pago_detraccion?: string;
 };
 
 interface Totales {
@@ -19,8 +25,13 @@ interface ResumenTotalesCardProps {
 }
 
 export function ResumenTotalesCard({ form, totales, requiereDocumento }: ResumenTotalesCardProps) {
+  const [modalDetraccionAbierto, setModalDetraccionAbierto] = useState(false);
+  const tieneDetraccion = form.watch('tiene_detraccion');
+  const detraccionMonto = form.watch('detraccion_monto');
+
   return (
-    <Card>
+    <>
+      <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-base">Resumen de totales</CardTitle>
         <CardDescription className="text-xs">
@@ -51,10 +62,29 @@ export function ResumenTotalesCard({ form, totales, requiereDocumento }: Resumen
         <div className="flex items-center justify-between pt-2 mt-1 border-t">
           <span className="text-sm">¿Detracción?</span>
           <Switch
-            checked={!!form.watch('detraccion')}
-            onCheckedChange={(checked) => form.setValue('detraccion', checked)}
+            checked={!!tieneDetraccion}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                setModalDetraccionAbierto(true);
+              } else {
+                form.setValue('tiene_detraccion', false);
+                form.setValue('detraccion_tipo', undefined);
+                form.setValue('detraccion_porcentaje', undefined);
+                form.setValue('detraccion_monto', undefined);
+                form.setValue('medio_pago_detraccion', undefined);
+              }
+            }}
           />
         </div>
+
+        {tieneDetraccion && detraccionMonto && (
+          <div className="text-xs bg-blue-50 p-2 rounded border border-blue-200">
+            <div className="flex justify-between">
+              <span className="text-blue-700 font-medium">Monto detracción:</span>
+              <span className="text-blue-900 font-bold">S/ {detraccionMonto.toFixed(2)}</span>
+            </div>
+          </div>
+        )}
         {!requiereDocumento && totales.total >= 700 && (
           <p className="text-xs text-amber-600 pt-2">
             ⚠ Para montos ≥ S/ 700 se requiere documento del cliente
@@ -62,6 +92,14 @@ export function ResumenTotalesCard({ form, totales, requiereDocumento }: Resumen
         )}
       </CardContent>
     </Card>
+
+      <DetraccionModal
+        open={modalDetraccionAbierto}
+        onClose={() => setModalDetraccionAbierto(false)}
+        form={form}
+        totalComprobante={totales.total}
+      />
+    </>
   );
 }
 
