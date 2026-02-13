@@ -1,3 +1,11 @@
+// Obtener siguiente correlativo para una serie y tipo de comprobante
+export const obtenerSiguienteCorrelativo = async (empresa_id: number, tipo_doc: string, serie: string) => {
+  const response = await apiClient.post<{ serie: string; correlativo: string; numero_completo: string }>(
+    '/facturacion/siguiente-correlativo',
+    { empresa_id, tipo_doc, serie }
+  );
+  return response.data;
+};
 import apiClient from '../services/api';
 
 // Utilidades

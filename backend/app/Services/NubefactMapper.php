@@ -22,6 +22,9 @@ class NubefactMapper
     {
         $empresa = $comprobante->empresa;
 
+        // Procesar items y obtener totales recalculados con precisión consistente
+        [$items, $itemTotals] = self::processItems($comprobante->items);
+
         $data = [
             'operacion' => 'generar_comprobante',
             'tipo_de_comprobante' => (string) self::mapTipoComprobante($comprobante->tipo_doc),
@@ -47,17 +50,23 @@ class NubefactMapper
             'tipo_de_cambio' => $comprobante->tipo_de_cambio ?? '',
             'porcentaje_de_igv' => '18.00',
 
-            // Totales
+            // Totales recalculados desde items para consistencia SUNAT
             'descuento_global' => '',
-            'total_descuento' => '',
+            'total_descuento' => ($comprobante->total_descuentos ?? 0) > 0
+                ? number_format($comprobante->total_descuentos, 2, '.', '') : '',
             'total_anticipo' => '',
-            'total_gravada' => number_format($comprobante->mto_oper_gravadas ?? 0, 2, '.', ''),
-            'total_inafecta' => number_format($comprobante->mto_oper_inafectas ?? 0, 2, '.', ''),
-            'total_exonerada' => number_format($comprobante->mto_oper_exoneradas ?? 0, 2, '.', ''),
-            'total_igv' => number_format($comprobante->mto_igv ?? 0, 2, '.', ''),
-            'total_gratuita' => number_format($comprobante->mto_oper_gratuitas ?? 0, 2, '.', ''),
-            'total_otros_cargos' => '',
-            'total' => number_format($comprobante->mto_imp_venta, 2, '.', ''),
+            'total_gravada' => $itemTotals['total_gravada'] > 0
+                ? number_format($itemTotals['total_gravada'], 2, '.', '') : '',
+            'total_inafecta' => $itemTotals['total_inafecta'] > 0
+                ? number_format($itemTotals['total_inafecta'], 2, '.', '') : '',
+            'total_exonerada' => $itemTotals['total_exonerada'] > 0
+                ? number_format($itemTotals['total_exonerada'], 2, '.', '') : '',
+            'total_igv' => number_format($itemTotals['total_igv'], 2, '.', ''),
+            'total_gratuita' => $itemTotals['total_gratuita'] > 0
+                ? number_format($itemTotals['total_gratuita'], 2, '.', '') : '',
+            'total_otros_cargos' => ($comprobante->mto_otros_cargos ?? 0) > 0
+                ? number_format($comprobante->mto_otros_cargos, 2, '.', '') : '',
+            'total' => number_format($itemTotals['total'], 2, '.', ''),
 
             // Percepción/Retención
             'percepcion_tipo' => '',
@@ -110,8 +119,8 @@ class NubefactMapper
             'bienes_region_selva' => '',
             'servicios_region_selva' => '',
 
-            // Items
-            'items' => self::itemsToNubefact($comprobante->items),
+            // Items (ya procesados con precisión consistente)
+            'items' => $items,
 
             // Guías relacionadas
             'guias' => [],
@@ -124,33 +133,81 @@ class NubefactMapper
     }
 
     /**
-     * Convertir items de comprobante a formato NubeFact
+     * Procesar items y calcular totales con precisión consistente para SUNAT.
+     * Garantiza que subtotal = valor_unitario * cantidad - descuento (exacto a 2 decimales).
+     *
+     * @return array [items_nubefact[], totals[]]
      */
-    protected static function itemsToNubefact($items): array
+    protected static function processItems($items): array
     {
-        $result = [];
+        $nubefactItems = [];
+        $totals = [
+            'total_gravada' => 0,
+            'total_exonerada' => 0,
+            'total_inafecta' => 0,
+            'total_gratuita' => 0,
+            'total_igv' => 0,
+            'total' => 0,
+        ];
 
         foreach ($items as $item) {
-            $result[] = [
+            $tipoIgv = (int) ($item->tip_afe_igv ?? 1);
+
+            // Redondear valores base a 2 decimales para consistencia SUNAT
+            $cantidad = round((float) $item->cantidad, 2);
+            $valorUnitario = round((float) $item->mto_valor_unitario, 2);
+            $descuento = round((float) ($item->descuento ?? 0), 2);
+
+            // Recalcular valores derivados desde los valores redondeados
+            // Esto garantiza: subtotal == valor_unitario * cantidad - descuento
+            $subtotal = round($valorUnitario * $cantidad - $descuento, 2);
+            $igv = $tipoIgv === 1 ? round($subtotal * 0.18, 2) : 0;
+            $total = round($subtotal + $igv, 2);
+            $precioUnitario = $tipoIgv === 1
+                ? round($valorUnitario * 1.18, 2)
+                : $valorUnitario;
+
+            // Acumular totales por categoría de IGV
+            if ($tipoIgv === 1) { // Gravado Onerosa
+                $totals['total_gravada'] += $subtotal;
+                $totals['total_igv'] += $igv;
+                $totals['total'] += $total;
+            } elseif ($tipoIgv === 8) { // Exonerado
+                $totals['total_exonerada'] += $subtotal;
+                $totals['total'] += $subtotal;
+            } elseif (in_array($tipoIgv, [9, 16])) { // Inafecto
+                $totals['total_inafecta'] += $subtotal;
+                $totals['total'] += $subtotal;
+            } else { // Gratuita (2-7, 10-15, 17, 20)
+                $totals['total_gratuita'] += $subtotal;
+            }
+
+            $nubefactItems[] = [
                 'unidad_de_medida' => $item->unidad ?? 'NIU',
                 'codigo' => $item->codigo_producto ?? '',
                 'codigo_producto_sunat' => $item->codigo_producto_sunat ?? '',
                 'descripcion' => $item->descripcion,
-                'cantidad' => number_format($item->cantidad, 2, '.', ''),
-                'valor_unitario' => number_format($item->mto_valor_unitario, 10, '.', ''),
-                'precio_unitario' => number_format($item->mto_precio_unitario, 10, '.', ''),
-                'descuento' => number_format($item->descuento ?? 0, 2, '.', ''),
-                'subtotal' => number_format($item->mto_valor_venta, 2, '.', ''),
-                'tipo_de_igv' => (int) ($item->tip_afe_igv ?? 10),
-                'igv' => number_format($item->igv, 2, '.', ''),
-                'total' => number_format($item->mto_valor_venta + $item->igv, 2, '.', ''),
+                'cantidad' => number_format($cantidad, 2, '.', ''),
+                'valor_unitario' => number_format($valorUnitario, 2, '.', ''),
+                'precio_unitario' => number_format($precioUnitario, 2, '.', ''),
+                'descuento' => $descuento > 0
+                    ? number_format($descuento, 2, '.', '') : '',
+                'subtotal' => number_format($subtotal, 2, '.', ''),
+                'tipo_de_igv' => $tipoIgv,
+                'igv' => number_format($igv, 2, '.', ''),
+                'total' => number_format($total, 2, '.', ''),
                 'anticipo_regularizacion' => 'false',
                 'anticipo_documento_serie' => '',
                 'anticipo_documento_numero' => '',
             ];
         }
 
-        return $result;
+        // Redondear totales acumulados
+        foreach ($totals as $key => $val) {
+            $totals[$key] = round($val, 2);
+        }
+
+        return [$nubefactItems, $totals];
     }
 
     /**

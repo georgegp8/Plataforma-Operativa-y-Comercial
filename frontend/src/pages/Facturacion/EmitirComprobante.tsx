@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
+import type { SubmitHandler } from 'react-hook-form';
 import { useForm, useFieldArray } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -20,9 +22,13 @@ import {
   TIPOS_OPERACION_SELECT,
   IGV_PORCENTAJES_SELECT,
   UNIDADES_MEDIDA,
+  esGravado,
+  esExonerado,
+  esInafecto,
+  esGratuita,
   type EmitirComprobanteRequest,
 } from '@/services/nubefact';
-import { api, type Serie, type Entidad, type Producto } from '@/lib/api';
+import { api, type Serie, type Entidad, type Producto, obtenerSiguienteCorrelativo } from '@/lib/api';
 import { Receipt, FileText, CreditCard, FileX, Loader2 } from 'lucide-react';
 import { ClienteCard } from '@/components/ClienteCard';
 import { ResumenTotalesCard } from '@/components/ResumenTotalesCard';
@@ -41,8 +47,6 @@ interface TipoConfig {
   seriePrefix: string;
   requiereDocumento: boolean;
 }
-
-// Tipos importados de API: Entidad y Producto
 
 const TIPOS_CONFIG: Record<TipoComprobante, TipoConfig> = {
   factura: {
@@ -92,7 +96,6 @@ const itemSchema = z.object({
   tipo_de_igv: z.string().min(1, 'Requerido'),
 });
 
-
 const comprobanteSchema = z
   .object({
     empresa_id: z.number().min(1, 'Seleccione una empresa'),
@@ -122,10 +125,8 @@ const comprobanteSchema = z
     percepcion_tipo: z.string().optional().nullable(),
     percepcion_base_imponible: z.number().optional().nullable(),
     total_percepcion: z.number().optional().nullable(),
-    total_incluido_percepcion: z.number().optional().nullable(),
     retencion_tipo: z.string().optional().nullable(),
     retencion_base_imponible: z.number().optional().nullable(),
-    total_retencion: z.number().optional().nullable(),
     venta_al_credito: z.boolean().optional(),
     cuotas_credito: z.array(z.object({
       cuota: z.number().min(1),
@@ -159,18 +160,20 @@ export default function EmitirComprobante() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [series, setSeries] = useState<Serie[]>([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
-  
+  const [loadingInicial, setLoadingInicial] = useState(true);
+  const [formKey, setFormKey] = useState<string>('init');
+
   // Estados para búsquedas
   const [clientes, setClientes] = useState<Entidad[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [openClienteCombobox, setOpenClienteCombobox] = useState(false);
   const [busquedaCliente, setBusquedaCliente] = useState('');
-  
+
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [openProductoCombobox, setOpenProductoCombobox] = useState(false);
   const [busquedaProducto, setBusquedaProducto] = useState('');
-  
+
   // Estados para modal de item
   const [modalItemAbierto, setModalItemAbierto] = useState(false);
   const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null);
@@ -178,45 +181,73 @@ export default function EmitirComprobante() {
   const tipoConfig = TIPOS_CONFIG[tipoActivo];
   const IconoTipo = tipoConfig.icono;
 
+  // Estado para valores iniciales
+  const [initialValues, setInitialValues] = useState<ComprobanteFormValues | null>(null);
+
+  // 1. Carga Inicial
+  useEffect(() => {
+    const cargarInicial = async () => {
+      try {
+        const empresa_id = 1;
+        const tipo_comprobante = tipoConfig.codigo;
+        const serie = `${tipoConfig.seriePrefix}001`;
+        let numero = 1;
+
+        // Intentar obtener correlativo real
+        try {
+          const correlativoResp = await obtenerSiguienteCorrelativo(empresa_id, tipo_comprobante, serie);
+          numero = parseInt(correlativoResp.correlativo, 10);
+        } catch {
+          console.warn("No se pudo obtener correlativo inicial, usando 1");
+        }
+
+        setInitialValues({
+          empresa_id,
+          tipo_comprobante,
+          serie,
+          numero,
+          cliente_tipo_de_documento: tipoConfig.requiereDocumento ? TIPOS_DOCUMENTO.RUC : TIPOS_DOCUMENTO.DNI,
+          cliente_numero_de_documento: '',
+          cliente_denominacion: '',
+          cliente_direccion: '',
+          cliente_email: '',
+          fecha_de_emision: new Date().toISOString().split('T')[0],
+          moneda: MONEDAS.PEN,
+          sunat_transaction: 1,
+          porcentaje_de_igv: 18,
+          pagado: false,
+          fecha_de_vencimiento: new Date().toISOString().split('T')[0],
+          tiene_detraccion: false,
+          detraccion_tipo: null,
+          detraccion_porcentaje: null,
+          detraccion_monto: null,
+          medio_pago_detraccion: null,
+          observaciones: '',
+          items: [
+            {
+              unidad_de_medida: UNIDADES_MEDIDA.NIU,
+              codigo: 'PROD001',
+              descripcion: '',
+              cantidad: 1,
+              valor_unitario: 0,
+              precio_unitario: 0,
+              descuento: 0,
+              tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA,
+            },
+          ],
+        });
+      } finally {
+        setLoadingInicial(false);
+      }
+    };
+    cargarInicial();
+  }, [tipoActivo, tipoConfig]); // Agregado tipoConfig a deps
+
   const form = useForm<ComprobanteFormValues>({
     resolver: zodResolver(comprobanteSchema),
-    defaultValues: {
-      empresa_id: 1,
-      tipo_comprobante: tipoConfig.codigo,
-      serie: `${tipoConfig.seriePrefix}001`,
-      numero: 1,
-      cliente_tipo_de_documento: tipoConfig.requiereDocumento ? TIPOS_DOCUMENTO.RUC : TIPOS_DOCUMENTO.DNI,
-      cliente_numero_de_documento: '',
-      cliente_denominacion: '',
-      cliente_direccion: '',
-      cliente_email: '',
-      fecha_de_emision: new Date().toISOString().split('T')[0],
-      moneda: MONEDAS.PEN,
-      sunat_transaction: 1,
-      porcentaje_de_igv: 18,
-      pagado: false,
-      fecha_de_vencimiento: new Date().toISOString().split('T')[0],
-      tiene_detraccion: false,
-      detraccion_tipo: null,
-      detraccion_porcentaje: null,
-      detraccion_monto: null,
-      medio_pago_detraccion: null,
-      observaciones: '',
-      items: [
-        {
-          unidad_de_medida: UNIDADES_MEDIDA.NIU,
-          codigo: 'PROD001',
-          descripcion: '',
-          cantidad: 1,
-          valor_unitario: 0,
-          precio_unitario: 0,
-          descuento: 0,
-          tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA,
-        },
-      ],
-    },
+    defaultValues: initialValues ?? undefined,
   });
-  // Cast interno para poder reutilizar el mismo formulario en componentes desacoplados
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const formAny = form as any;
 
@@ -225,12 +256,50 @@ export default function EmitirComprobante() {
     name: 'items',
   });
 
-  // Cambiar tipo de comprobante
+  // Watchers para el efecto de correlativo
+  const empresaId = useWatch({ control: form.control, name: 'empresa_id' });
+  const tipoComprobante = useWatch({ control: form.control, name: 'tipo_comprobante' });
+  const serie = useWatch({ control: form.control, name: 'serie' });
+
+  // --------------------------------------------------------------------------------
+  // CORRECCIÓN: Un único useEffect centralizado para actualizar el número
+  // --------------------------------------------------------------------------------
+  useEffect(() => {
+    let isActive = true;
+
+    const fetchCorrelativo = async () => {
+      if (empresaId && tipoComprobante && serie) {
+        try {
+          const correlativoResp = await obtenerSiguienteCorrelativo(empresaId, tipoComprobante, serie);
+          if (isActive) {
+            const nuevoNumero = parseInt(correlativoResp.correlativo, 10);
+            // Solo actualizamos si es diferente para evitar loops infinitos,
+            // pero nos aseguramos de que el input lo reciba.
+            if (form.getValues('numero') !== nuevoNumero) {
+               form.setValue('numero', nuevoNumero, { shouldValidate: true, shouldDirty: false });
+            }
+          }
+        } catch (error) {
+          console.error("Error obteniendo correlativo automático", error);
+        }
+      }
+    };
+
+    fetchCorrelativo();
+
+    return () => { isActive = false; };
+  }, [empresaId, tipoComprobante, serie, form]);
+
+
+  // Cambiar tipo de comprobante (Tabs)
   const cambiarTipo = (nuevoTipo: TipoComprobante) => {
     setTipoActivo(nuevoTipo);
     const config = TIPOS_CONFIG[nuevoTipo];
+    
+    // Actualizamos valores, el useEffect de arriba se encargará del número
     form.setValue('tipo_comprobante', config.codigo);
     form.setValue('serie', `${config.seriePrefix}001`);
+    
     if (config.requiereDocumento) {
       form.setValue('cliente_tipo_de_documento', TIPOS_DOCUMENTO.RUC);
     } else {
@@ -240,36 +309,40 @@ export default function EmitirComprobante() {
     cargarSeries(config.codigo);
   };
 
-  // Cargar series
+  // Cargar lista de series (sin forzar el número manualmente, dejamos que el useEffect lo haga)
   const cargarSeries = async (tipoCodigoParam?: string) => {
     try {
       setLoadingSeries(true);
-      const empresaId = form.getValues('empresa_id') || 1;
+      const empresaIdVal = form.getValues('empresa_id') || 1;
       const tipoCodigo = tipoCodigoParam || form.getValues('tipo_comprobante');
-      const res = await api.series.listar({ empresa_id: empresaId, tipo_comprobante: tipoCodigo });
+      
+      const res = await api.series.listar({ empresa_id: empresaIdVal, tipo_comprobante: tipoCodigo });
       const lista = res.data.data;
       setSeries(lista);
 
       if (lista.length > 0) {
+        // Buscamos serie por defecto
         const serieDefecto = lista.find((s) => s.por_defecto) ?? lista[0];
+        // Solo seteamos la serie. El useEffect detectará el cambio y buscará el número.
         form.setValue('serie', serieDefecto.serie);
-        form.setValue('numero', (serieDefecto.correlativo_actual ?? 0) + 1);
       }
     } catch {
-      // Mantener modo manual
+      // Fallback silencioso
     } finally {
       setLoadingSeries(false);
     }
   };
 
+  // Cargar datos secundarios
   useEffect(() => {
-    void cargarSeries();
-    void cargarClientes();
-    void cargarProductos();
+    if (!loadingInicial) {
+      void cargarSeries();
+      void cargarClientes();
+      void cargarProductos();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [loadingInicial]);
 
-  // Buscar clientes (simulado - integrar con API real)
   const cargarClientes = async () => {
     try {
       setLoadingClientes(true);
@@ -279,7 +352,7 @@ export default function EmitirComprobante() {
       });
       setClientes(response.data);
     } catch (error) {
-      console.error('Error al cargar clientes:', error);
+      console.error(error);
       toast.error('Error al cargar clientes');
     } finally {
       setLoadingClientes(false);
@@ -308,7 +381,7 @@ export default function EmitirComprobante() {
       });
       setProductos(response.data);
     } catch (error) {
-      console.error('Error al cargar productos:', error);
+      console.error(error);
       toast.error('Error al cargar productos');
     } finally {
       setLoadingProductos(false);
@@ -320,7 +393,6 @@ export default function EmitirComprobante() {
       setItemEditandoIndex(index);
     } else {
       setItemEditandoIndex(null);
-      // Agregar nuevo item vacío temporalmente
       append({
         unidad_de_medida: UNIDADES_MEDIDA.NIU,
         codigo: '',
@@ -338,7 +410,6 @@ export default function EmitirComprobante() {
 
   const cerrarModalItem = (guardar: boolean) => {
     if (!guardar && itemEditandoIndex === fields.length - 1) {
-      // Si es un item nuevo y no se guardó, eliminarlo
       remove(itemEditandoIndex);
     }
     setModalItemAbierto(false);
@@ -363,24 +434,22 @@ export default function EmitirComprobante() {
     });
   };
 
-  // Calcular item sin side effects (para lecturas en render y calculos)
   const calcularItemSolo = (index: number) => {
     const item = form.getValues(`items.${index}`);
-    // Validación por si el item fue borrado mientras se calculaba
-    if (!item) return { subtotal: 0, igv: 0, total: 0, precio_unitario: 0 };
+    if (!item) return { subtotal: 0, igv: 0, total: 0, precio_unitario: 0, valor_unitario: 0 };
 
     const { cantidad, valor_unitario, descuento = 0 } = item;
-
-    const subtotal = cantidad * valor_unitario - descuento;
+    const valUnit = Math.round(valor_unitario * 100) / 100;
+    const desc = Math.round(descuento * 100) / 100;
+    const subtotal = Math.round((cantidad * valUnit - desc) * 100) / 100;
     const igvRate = (form.getValues('porcentaje_de_igv') || 18) / 100;
-    const igv = subtotal * igvRate;
-    const total = subtotal + igv;
-    const precio_unitario = cantidad > 0 ? (subtotal + igv) / cantidad : 0;
+    const igv = Math.round(subtotal * igvRate * 100) / 100;
+    const total = Math.round((subtotal + igv) * 100) / 100;
+    const precio_unitario = cantidad > 0 ? Math.round((total / cantidad) * 100) / 100 : 0;
 
-    return { subtotal, igv, total, precio_unitario };
+    return { subtotal, igv, total, precio_unitario, valor_unitario: valUnit };
   };
 
-  // Calcular y actualizar item (para onChange - SIDE EFFECTS PERMITIDOS)
   const calcularItem = (index: number) => {
     const calc = calcularItemSolo(index);
     form.setValue(`items.${index}.precio_unitario`, parseFloat(calc.precio_unitario.toFixed(2)));
@@ -390,102 +459,168 @@ export default function EmitirComprobante() {
   const calcularTotales = () => {
     const items = form.getValues('items');
     let total_gravada = 0;
+    let total_exonerada = 0;
+    let total_inafecta = 0;
+    let total_gratuita = 0;
     let total_igv = 0;
     let total = 0;
 
-    items.forEach((_, index) => {
-      const calc = calcularItemSolo(index); // Usamos la versión segura
-      total_gravada += calc.subtotal;
-      total_igv += calc.igv;
-      total += calc.total;
+    items.forEach((item, index) => {
+      const calc = calcularItemSolo(index);
+      const tipo = item.tipo_de_igv;
+      if (esGravado(tipo)) {
+        total_gravada += calc.subtotal;
+        total_igv += calc.igv;
+        total += calc.total;
+      } else if (esExonerado(tipo)) {
+        total_exonerada += calc.subtotal;
+        total += calc.subtotal;
+      } else if (esInafecto(tipo)) {
+        total_inafecta += calc.subtotal;
+        total += calc.subtotal;
+      } else if (esGratuita(tipo)) {
+        total_gratuita += calc.subtotal;
+      }
     });
 
     return {
       total_gravada: parseFloat(total_gravada.toFixed(2)),
+      total_exonerada: parseFloat(total_exonerada.toFixed(2)),
+      total_inafecta: parseFloat(total_inafecta.toFixed(2)),
+      total_gratuita: parseFloat(total_gratuita.toFixed(2)),
       total_igv: parseFloat(total_igv.toFixed(2)),
       total: parseFloat(total.toFixed(2)),
     };
   };
 
-  const onSubmit = async (data: ComprobanteFormValues) => {
+  const onSubmit: SubmitHandler<ComprobanteFormValues> = async (data) => {
     try {
       setLoading(true);
-      const totales = calcularTotales();
 
-      const items = data.items.map((item, index) => {
-        const calc = calcularItemSolo(index); // Usamos la versión segura
-        return {
-          ...item,
+      // Validación final del correlativo antes de enviar
+      const empresaId = data.empresa_id;
+      const tipoDoc = data.tipo_comprobante;
+      const serie = data.serie;
+      let numero = data.numero;
+      let debeActualizarNumero = false;
+      
+      try {
+        const correlativoResp = await obtenerSiguienteCorrelativo(empresaId, tipoDoc, serie);
+        const correlativoBackend = parseInt(correlativoResp.correlativo, 10);
+        if (numero < correlativoBackend) {
+          form.setValue('numero', correlativoBackend);
+          numero = correlativoBackend;
+          debeActualizarNumero = true;
+        }
+      } catch {
+        toast.warning('No se pudo validar el correlativo más reciente.');
+      }
+      if (debeActualizarNumero) {
+        toast.warning('El número de comprobante fue actualizado al correlativo más reciente.');
+        setLoading(false);
+        return;
+      }
+
+      // Preparar payload
+      let total_gravada = 0;
+      let total_exonerada = 0;
+      let total_inafecta = 0;
+      let total_gratuita = 0;
+      let total_igv = 0;
+      let total = 0;
+
+      const itemsPayload = data.items.map((item, index) => {
+        const calc = calcularItemSolo(index);
+        const tipo_de_igv = String(item.tipo_de_igv);
+        let igv = calc.igv;
+        
+        if (esGravado(tipo_de_igv)) {
+          total_gravada += calc.subtotal;
+          total_igv += calc.igv;
+          total += calc.total;
+        } else if (esExonerado(tipo_de_igv)) {
+          total_exonerada += calc.subtotal;
+          total += calc.subtotal;
+        } else if (esInafecto(tipo_de_igv)) {
+          total_inafecta += calc.subtotal;
+          total += calc.subtotal;
+        } else if (esGratuita(tipo_de_igv)) {
+          igv = 0;
+          total_gratuita += calc.subtotal;
+        }
+        
+        const result: import('@/services/nubefact').ComprobanteItem = {
+          unidad_de_medida: item.unidad_de_medida,
+          codigo: item.codigo,
+          descripcion: item.descripcion,
+          cantidad: item.cantidad,
+          valor_unitario: calc.valor_unitario,
+          precio_unitario: calc.precio_unitario,
           subtotal: calc.subtotal,
-          igv: calc.igv,
+          tipo_de_igv,
+          igv: Number(igv),
           total: calc.total,
         };
+        if (typeof item.descuento !== 'undefined') result.descuento = item.descuento;
+        return result;
       });
 
       const payload: EmitirComprobanteRequest = {
         ...data,
+        numero,
         cliente_numero_de_documento: data.cliente_numero_de_documento || '',
         operacion: 'generar_comprobante',
         tipo_de_comprobante: Number(data.tipo_comprobante),
         sunat_transaction: Number(data.sunat_transaction),
         porcentaje_de_igv: Number(data.porcentaje_de_igv),
-        total_gravada: totales.total_gravada,
-        total_igv: totales.total_igv,
-        total: totales.total,
+        total_gravada: parseFloat(total_gravada.toFixed(2)),
+        total_exonerada: parseFloat(total_exonerada.toFixed(2)),
+        total_inafecta: parseFloat(total_inafecta.toFixed(2)),
+        total_igv: parseFloat(total_igv.toFixed(2)),
+        total: parseFloat(total.toFixed(2)),
         enviar_automaticamente_a_la_sunat: true,
         enviar_automaticamente_al_cliente: !!data.cliente_email,
-        // Detracción completa
-        tiene_detraccion: data.tiene_detraccion ?? false,
+        items: itemsPayload,
+        total_gratuita: total_gratuita > 0 ? parseFloat(total_gratuita.toFixed(2)) : undefined,
+        percepcion_tipo: data.percepcion_tipo ?? undefined,
+        percepcion_base_imponible: data.percepcion_base_imponible ?? undefined,
+        retencion_tipo: data.retencion_tipo ?? undefined,
+        retencion_base_imponible: data.retencion_base_imponible ?? undefined,
         detraccion_tipo: data.detraccion_tipo ?? undefined,
         detraccion_porcentaje: data.detraccion_porcentaje ?? undefined,
         detraccion_monto: data.detraccion_monto ?? undefined,
         medio_pago_detraccion: data.medio_pago_detraccion ?? undefined,
-        // Percepción
-        percepcion_tipo: data.percepcion_tipo ?? undefined,
-        percepcion_base_imponible: data.percepcion_base_imponible ?? undefined,
-        // Retención
-        retencion_tipo: data.retencion_tipo ?? undefined,
-        retencion_base_imponible: data.retencion_base_imponible ?? undefined,
-        // Venta al crédito
-        items,
       };
 
       const response = await emitirComprobante(payload);
 
-      if (response.errors) {
+      if (response.success === false) {
         toast.error(`Error al emitir ${tipoConfig.titulo.toLowerCase()}`, {
-          description: response.sunat_description || 'Error desconocido',
+          description: response.message || 'Error desconocido',
         });
         return;
       }
 
-      if (response.aceptada_por_sunat) {
+      const respData = response.data;
+      if (respData?.aceptada_por_sunat) {
         toast.success(`¡${tipoConfig.titulo} emitida exitosamente!`, {
-          description: `Código de respuesta SUNAT: ${response.sunat_responsecode}`,
+          description: `Código de respuesta SUNAT: ${respData.sunat_code}`,
         });
-
-        if (response.pdf_url) {
-          setPdfUrl(response.pdf_url);
-        }
-
+        if (respData.pdf_url) setPdfUrl(respData.pdf_url);
         form.reset();
       } else {
-        toast.warning(`${tipoConfig.titulo} enviada pero no aceptada`, {
-          description: response.sunat_description || response.sunat_soap_error,
+        toast.warning(`${tipoConfig.titulo} enviada pero pendiente de aceptación`, {
+          description: respData?.sunat_description || 'Pendiente de validación SUNAT',
         });
       }
     } catch (error) {
       console.error('Error:', error);
-      const err = error as { response?: { data?: { message?: string } }; message?: string };
-      toast.error(`Error al procesar ${tipoConfig.titulo.toLowerCase()}`, {
-        description: err.response?.data?.message || err.message || 'Error desconocido',
-      });
+      toast.error(`Error al procesar comprobante`);
     } finally {
       setLoading(false);
     }
   };
 
-  // Observar cambios en items y porcentaje IGV para recalcular totales generales
   const items = form.watch('items');
   const porcentajeIgv = form.watch('porcentaje_de_igv');
   
@@ -493,6 +628,26 @@ export default function EmitirComprobante() {
     return calcularTotales();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, porcentajeIgv]);
+
+  if (loadingInicial || !initialValues) {
+    return (
+      <div className="flex items-center justify-center min-h-75">
+        <Loader2 className="w-6 h-6 mr-2 animate-spin" />
+        Cargando correlativo...
+      </div>
+    );
+  }
+
+  const handleNuevoCPE = async () => {
+    setLoadingInicial(true);
+    // Reinicia forzando el reload de los hooks
+    setFormKey(`reset-${Date.now()}`);
+    // Pequeño timeout para permitir que el loadingInicial surta efecto
+    setTimeout(() => {
+        // La lógica de carga inicial en useEffect se encargará de resetear valores
+        setLoadingInicial(true); 
+    }, 10);
+  };
 
   return (
     <div className="container mx-auto py-4 sm:py-6 space-y-4 sm:space-y-6">
@@ -528,7 +683,11 @@ export default function EmitirComprobante() {
         </CardContent>
       </Card>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+      <form
+        key={formKey}
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-4 sm:space-y-6"
+      >
         {/* Opciones avanzadas Nubefact */}
         <Card className="border border-dashed border-primary/40 bg-background/80 dark:bg-background/90">
           <CardHeader>
@@ -550,165 +709,53 @@ export default function EmitirComprobante() {
                   <SelectItem value="3">Tasa especial (0.5%)</SelectItem>
                 </SelectContent>
               </Select>
-              <Input type="number" step="0.01" placeholder="Base imponible" {...form.register('percepcion_base_imponible', { valueAsNumber: true })} />
-              <Input type="number" step="0.01" placeholder="Total percepción" {...form.register('total_percepcion', { valueAsNumber: true })} />
-              <Input type="number" step="0.01" placeholder="Total incluido percepción" {...form.register('total_incluido_percepcion', { valueAsNumber: true })} />
-            </div>
-            {/* Retención */}
-            <div className="space-y-2">
-              <label className="font-semibold text-primary">Retención</label>
-              <Select value={form.watch('retencion_tipo') ?? ''} onValueChange={v => form.setValue('retencion_tipo', v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tipo de retención" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">Sin retención</SelectItem>
-                  <SelectItem value="1">Tasa 3%</SelectItem>
-                  <SelectItem value="2">Tasa 6%</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input type="number" step="0.01" placeholder="Base imponible" {...form.register('retencion_base_imponible', { valueAsNumber: true })} />
-              <Input type="number" step="0.01" placeholder="Total retención" {...form.register('total_retencion', { valueAsNumber: true })} />
-            </div>
-            {/* Venta al crédito */}
-            <div className="space-y-2">
-              <label className="font-semibold text-primary flex items-center gap-2">Venta al crédito
-                <Switch checked={!!form.watch('venta_al_credito')} onCheckedChange={v => form.setValue('venta_al_credito', v)} />
-              </label>
-              {form.watch('venta_al_credito') && (
-                <div className="space-y-2">
-                  {/* Cuotas dinámicas */}
-                  <Input type="number" step="1" min="1" placeholder="N° de cuotas"
-                    onChange={e => {
-                      const n = Number(e.target.value);
-                      if (n > 0) {
-                        form.setValue('cuotas_credito', Array.from({ length: n }, (_, i) => ({ cuota: i + 1, fecha_de_pago: '', importe: 0 })));
-                      } else {
-                        form.setValue('cuotas_credito', []);
-                      }
-                    }}
-                  />
-                  {(Array.isArray(form.watch('cuotas_credito') ?? []) ? (form.watch('cuotas_credito') ?? []) : []).map((cuota, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <Input type="number" step="1" min="1" className="w-16"
-                        value={cuota.cuota}
-                        onChange={e => {
-                          const val = Number(e.target.value);
-                          const arr = [...(form.watch('cuotas_credito') ?? [])];
-                          arr[idx].cuota = val;
-                          form.setValue('cuotas_credito', arr);
-                        }}
-                        placeholder="Cuota"
-                      />
-                      <Input type="date" className="w-36"
-                        value={cuota.fecha_de_pago}
-                        onChange={e => {
-                          const arr = [...(form.watch('cuotas_credito') ?? [])];
-                          arr[idx].fecha_de_pago = e.target.value;
-                          form.setValue('cuotas_credito', arr);
-                        }}
-                        placeholder="Fecha de pago"
-                      />
-                      <Input type="number" step="0.01" min="0" className="w-28"
-                        value={cuota.importe}
-                        onChange={e => {
-                          const arr = [...(form.watch('cuotas_credito') ?? [])];
-                          arr[idx].importe = Number(e.target.value);
-                          form.setValue('cuotas_credito', arr);
-                        }}
-                        placeholder="Importe"
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center gap-2 sm:col-span-2 mt-2">
+                <span className="text-sm font-medium">¿Pagado?</span>
+                <Switch
+                  checked={!!form.watch('pagado')}
+                  onCheckedChange={(checked) => form.setValue('pagado', checked)}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
-        {/* Barra de Herramientas */}
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
-          <Dialog>
-            <DialogTrigger asChild>
-              <button type="button" className="text-primary font-medium flex items-center gap-1 hover:underline">
-                <span>⚙</span>
-                <span>General</span>
-              </button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xl">
-              <DialogHeader>
-                <DialogTitle>Datos generales</DialogTitle>
-              </DialogHeader>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2 sm:col-span-2">
-                  <label className="text-sm font-medium">Tipo documento</label>
-                  <Input value={tipoConfig.titulo.toUpperCase()} disabled className="bg-muted" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Fecha emisión</label>
-                  <Input type="date" {...form.register('fecha_de_emision')} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Fecha de venc.</label>
-                  <Input type="date" {...form.register('fecha_de_vencimiento')} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Serie</label>
-                  <Input {...form.register('serie')} maxLength={4} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Número</label>
-                  <Input type="number" {...form.register('numero', { valueAsNumber: true })} />
-                </div>
-                <div className="flex items-center gap-2 sm:col-span-2 mt-2">
-                  <span className="text-sm font-medium">¿Pagado?</span>
-                  <Switch
-                    checked={!!form.watch('pagado')}
-                    onCheckedChange={(checked) => form.setValue('pagado', checked)}
-                  />
-                </div>
+        <Dialog>
+          <DialogTrigger asChild>
+            <button type="button" className="text-primary font-medium flex items-center gap-1 hover:underline">
+              <span>➕</span>
+              <span>Adicionales</span>
+            </button>
+          </DialogTrigger>
+          <DialogContent className="max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Adicionales</DialogTitle>
+              <DialogDescription>Información adicional para el comprobante.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Órden de Compra/Servicio</label>
+                <Input {...form.register('orden_compra_servicio')} />
               </div>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog>
-            <DialogTrigger asChild>
-              <button type="button" className="text-primary font-medium flex items-center gap-1 hover:underline">
-                <span>➕</span>
-                <span>Adicionales</span>
-              </button>
-            </DialogTrigger>
-            <DialogContent className="max-w-xl">
-              <DialogHeader>
-                <DialogTitle>Adicionales</DialogTitle>
-                <DialogDescription>Información adicional para el comprobante.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Órden de Compra/Servicio</label>
-                  <Input {...form.register('orden_compra_servicio')} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Placa de vehículo</label>
-                  <Input {...form.register('placa_vehiculo')} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Observaciones</label>
-                  <Input {...form.register('observaciones')} />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Placa de vehículo</label>
+                <Input {...form.register('placa_vehiculo')} />
               </div>
-            </DialogContent>
-          </Dialog>
-
-          <button type="button" className="text-primary flex items-center gap-1 opacity-70 cursor-default text-xs sm:text-sm">
-            <span>📄</span>
-            <span className="hidden sm:inline">Guía de remisión Física</span>
-            <span className="sm:hidden">Guía</span>
-          </button>
-          <button type="button" className="text-primary flex items-center gap-1 opacity-70 cursor-default text-xs sm:text-sm">
-            <span>🧾</span>
-            <span>PDF</span>
-          </button>
-        </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Observaciones</label>
+                <Input {...form.register('observaciones')} />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <button type="button" className="text-primary flex items-center gap-1 opacity-70 cursor-default text-xs sm:text-sm">
+          <span>📄</span>
+          <span className="hidden sm:inline">Guía de remisión Física</span>
+          <span className="sm:hidden">Guía</span>
+        </button>
+        <button type="button" className="text-primary flex items-center gap-1 opacity-70 cursor-default text-xs sm:text-sm">
+          <span>🧾</span>
+          <span>PDF</span>
+        </button>
 
         {/* Datos del Comprobante */}
         <Card>
@@ -815,11 +862,9 @@ export default function EmitirComprobante() {
                   <Select
                     value={form.watch('serie')}
                     onValueChange={(value) => {
+                      // Solo actualizamos la serie. 
+                      // El useEffect centralizado detectará el cambio y actualizará el número automáticamente.
                       form.setValue('serie', value);
-                      const encontrada = series.find((s) => s.serie === value);
-                      if (encontrada) {
-                        form.setValue('numero', (encontrada.correlativo_actual ?? 0) + 1);
-                      }
                     }}
                     disabled={loadingSeries}
                   >
@@ -843,7 +888,15 @@ export default function EmitirComprobante() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Número</label>
-                <Input type="number" {...form.register('numero', { valueAsNumber: true })} placeholder="1" />
+                <Input 
+                  type="number" 
+                  {...form.register('numero', { valueAsNumber: true })} 
+                  // CORRECCIÓN: Usar value explícito del watcher para asegurar que el input readOnly se actualice visualmente
+                  // cuando setValue ocurre programáticamente.
+                  value={form.watch('numero') || ''}
+                  placeholder="1" 
+                  readOnly 
+                />
                 {form.formState.errors.numero && (
                   <p className="text-sm text-destructive">{form.formState.errors.numero.message}</p>
                 )}
@@ -912,8 +965,8 @@ export default function EmitirComprobante() {
 
         {/* Acciones */}
         <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
-          <Button type="button" variant="outline" onClick={() => form.reset()} className="w-full sm:w-auto">
-            Limpiar
+          <Button type="button" variant="outline" onClick={handleNuevoCPE} className="w-full sm:w-auto">
+            Nuevo CPE
           </Button>
           <Button type="submit" disabled={loading} className="w-full sm:w-auto">
             {loading ? (

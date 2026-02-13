@@ -75,6 +75,24 @@ export interface EmitirComprobanteRequest {
   items: ComprobanteItem[];
 }
 
+export interface EmitirComprobanteResponse {
+  success: boolean;
+  message: string;
+  data?: {
+    comprobante_id: number;
+    serie: string;
+    numero: number;
+    enlace?: string;
+    aceptada_por_sunat: boolean;
+    pdf_url?: string;
+    xml_url?: string;
+    cdr_url?: string;
+    cadena_qr?: string;
+    sunat_code?: string;
+    sunat_description?: string;
+  };
+}
+
 export interface ComprobanteResponse {
   errors?: string | boolean;
   serie?: string;
@@ -139,7 +157,7 @@ export interface AnularComprobanteRequest {
 }
 
 // Emitir comprobante (Factura, Boleta, NC, ND)
-export const emitirComprobante = async (data: EmitirComprobanteRequest): Promise<ComprobanteResponse> => {
+export const emitirComprobante = async (data: EmitirComprobanteRequest): Promise<EmitirComprobanteResponse> => {
   const response = await api.post('/nubefact/comprobantes', data);
   return response.data;
 };
@@ -228,12 +246,31 @@ export const TIPOS_DOCUMENTO = {
 
 export const TIPOS_IGV = {
   GRAVADO_OPERACION_ONEROSA: '1',
-  EXONERADO: '2',
-  INAFECTO: '3',
-  GRAVADO_RETIRO: '9',
-  EXONERADO_RETIRO: '10',
+  GRAVADO_RETIRO_PREMIO: '2',
+  GRAVADO_RETIRO_DONACION: '3',
+  GRAVADO_RETIRO: '4',
+  GRAVADO_RETIRO_PUBLICIDAD: '5',
+  GRAVADO_BONIFICACIONES: '6',
+  GRAVADO_RETIRO_TRABAJADORES: '7',
+  EXONERADO: '8',
+  INAFECTO: '9',
+  INAFECTO_RETIRO_BONIFICACION: '10',
   INAFECTO_RETIRO: '11',
+  INAFECTO_RETIRO_MUESTRAS: '12',
+  INAFECTO_CONVENIO: '13',
+  INAFECTO_RETIRO_PREMIO: '14',
+  INAFECTO_RETIRO_PUBLICIDAD: '15',
+  EXPORTACION: '16',
+  EXONERADO_TRANSFERENCIA_GRATUITA: '17',
+  INAFECTO_TRANSFERENCIA_GRATUITA: '20',
 } as const;
+
+// Helpers para categorizar tipo de IGV según NubeFact API
+export const esGravado = (tipo: string | number): boolean => Number(tipo) === 10;
+export const esExonerado = (tipo: string | number): boolean => Number(tipo) === 8;
+export const esInafecto = (tipo: string | number): boolean => [9, 16].includes(Number(tipo));
+export const esGratuita = (tipo: string | number): boolean =>
+  [2, 3, 4, 5, 6, 7, 10, 11, 12, 13, 14, 15, 17, 20].includes(Number(tipo));
 
 export const MONEDAS = {
   PEN: '1',
@@ -268,11 +305,14 @@ export const TIPOS_DOCUMENTO_SELECT = [
 
 export const TIPOS_IGV_SELECT = [
   { value: '1', label: '1 - Gravado - Operación Onerosa' },
-  { value: '2', label: '2 - Exonerado - Operación Onerosa' },
-  { value: '3', label: '3 - Inafecto - Operación Onerosa' },
-  { value: '9', label: '9 - Gravado - Retiro' },
-  { value: '10', label: '10 - Exonerado - Retiro' },
-  { value: '11', label: '11 - Inafecto - Retiro' },
+  { value: '8', label: '8 - Exonerado - Operación Onerosa' },
+  { value: '9', label: '9 - Inafecto - Operación Onerosa' },
+  { value: '16', label: '16 - Exportación' },
+  { value: '2', label: '2 - Gravado – Retiro por premio (Gratuita)' },
+  { value: '4', label: '4 - Gravado – Retiro (Gratuita)' },
+  { value: '6', label: '6 - Gravado – Bonificaciones (Gratuita)' },
+  { value: '17', label: '17 - Exonerado - Transferencia Gratuita' },
+  { value: '20', label: '20 - Inafecto - Transferencia Gratuita' },
 ];
 
 export const MONEDAS_SELECT = [

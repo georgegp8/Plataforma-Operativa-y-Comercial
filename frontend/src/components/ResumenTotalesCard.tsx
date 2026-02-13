@@ -14,6 +14,9 @@ type ComprobanteFormValues = {
 
 interface Totales {
   total_gravada: number;
+  total_exonerada: number;
+  total_inafecta: number;
+  total_gratuita: number;
   total_igv: number;
   total: number;
 }
@@ -47,14 +50,24 @@ export function ResumenTotalesCard({ form, totales, requiereDocumento }: Resumen
           <span>IGV S/</span>
           <span>{totales.total_igv.toFixed(2)}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Exonerada S/</span>
-          <span>0.00</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Inafecta S/</span>
-          <span>0.00</span>
-        </div>
+        {totales.total_exonerada > 0 && (
+          <div className="flex justify-between">
+            <span>Exonerada S/</span>
+            <span>{totales.total_exonerada.toFixed(2)}</span>
+          </div>
+        )}
+        {totales.total_inafecta > 0 && (
+          <div className="flex justify-between">
+            <span>Inafecta S/</span>
+            <span>{totales.total_inafecta.toFixed(2)}</span>
+          </div>
+        )}
+        {totales.total_gratuita > 0 && (
+          <div className="flex justify-between">
+            <span>Gratuita S/</span>
+            <span>{totales.total_gratuita.toFixed(2)}</span>
+          </div>
+        )}
         <div className="flex justify-between font-semibold border-t pt-2 mt-1 text-sm">
           <span>Total S/</span>
           <span>{totales.total.toFixed(2)}</span>

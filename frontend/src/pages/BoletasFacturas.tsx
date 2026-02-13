@@ -22,6 +22,10 @@ import {
   TIPOS_OPERACION_SELECT,
   IGV_PORCENTAJES_SELECT,
   UNIDADES_MEDIDA,
+  esGravado,
+  esExonerado,
+  esInafecto,
+  esGratuita,
   type EmitirComprobanteRequest,
 } from '@/services/nubefact';
 import { useEmpresa } from '@/hooks/useEmpresa';
@@ -356,14 +360,20 @@ export default function BoletasFacturas() {
 
   const calcularItemSolo = (index: number) => {
     const item = form.getValues(`items.${index}`);
-    if (!item) return { subtotal: 0, igv: 0, total: 0, precio_unitario: 0 };
-    const { cantidad, valor_unitario, descuento = 0 } = item;
-    const subtotal = cantidad * valor_unitario - descuento;
-    const igvRate = (form.getValues('porcentaje_de_igv') || 18) / 100;
-    const igv = subtotal * igvRate;
-    const total = subtotal + igv;
-    const precio_unitario = cantidad > 0 ? (subtotal + igv) / cantidad : 0;
-    return { subtotal, igv, total, precio_unitario };
+    if (!item) return { subtotal: 0, igv: 0, total: 0, precio_unitario: 0, valor_unitario: 0 };
+    const { cantidad, valor_unitario, descuento = 0, tipo_de_igv } = item;
+    // Redondear a 2 decimales para consistencia con SUNAT
+    const valUnit = Math.round(valor_unitario * 100) / 100;
+    const desc = Math.round(descuento * 100) / 100;
+    const subtotal = Math.round((cantidad * valUnit - desc) * 100) / 100;
+    const aplicaIgv = esGravado(tipo_de_igv);
+    const igvRate = aplicaIgv ? (form.getValues('porcentaje_de_igv') || 18) / 100 : 0;
+    const igv = Math.round(subtotal * igvRate * 100) / 100;
+    const total = Math.round((subtotal + igv) * 100) / 100;
+    const precio_unitario = aplicaIgv
+      ? Math.round(valUnit * (1 + igvRate) * 100) / 100
+      : valUnit;
+    return { subtotal, igv, total, precio_unitario, valor_unitario: valUnit };
   };
 
   const calcularItem = (index: number) => {
@@ -375,16 +385,34 @@ export default function BoletasFacturas() {
   const calcularTotales = () => {
     const items = form.getValues('items');
     let total_gravada = 0;
+    let total_exonerada = 0;
+    let total_inafecta = 0;
+    let total_gratuita = 0;
     let total_igv = 0;
     let total = 0;
-    items.forEach((_, index) => {
+    items.forEach((item, index) => {
       const calc = calcularItemSolo(index);
-      total_gravada += calc.subtotal;
-      total_igv += calc.igv;
-      total += calc.total;
+      const tipo = item.tipo_de_igv;
+      if (esGravado(tipo)) {
+        total_gravada += calc.subtotal;
+        total_igv += calc.igv;
+        total += calc.total;
+      } else if (esExonerado(tipo)) {
+        total_exonerada += calc.subtotal;
+        total += calc.subtotal;
+      } else if (esInafecto(tipo)) {
+        total_inafecta += calc.subtotal;
+        total += calc.subtotal;
+      } else if (esGratuita(tipo)) {
+        total_gratuita += calc.subtotal;
+        // Gratuitas no suman al total a pagar
+      }
     });
     return {
       total_gravada: parseFloat(total_gravada.toFixed(2)),
+      total_exonerada: parseFloat(total_exonerada.toFixed(2)),
+      total_inafecta: parseFloat(total_inafecta.toFixed(2)),
+      total_gratuita: parseFloat(total_gratuita.toFixed(2)),
       total_igv: parseFloat(total_igv.toFixed(2)),
       total: parseFloat(total.toFixed(2)),
     };
@@ -403,7 +431,14 @@ export default function BoletasFacturas() {
       const tot = calcularTotales();
       const items = data.items.map((item, index) => {
         const calc = calcularItemSolo(index);
-        return { ...item, subtotal: calc.subtotal, igv: calc.igv, total: calc.total };
+        return {
+          ...item,
+          valor_unitario: calc.valor_unitario,
+          precio_unitario: calc.precio_unitario,
+          subtotal: calc.subtotal,
+          igv: calc.igv,
+          total: calc.total,
+        };
       });
 
       const payload: EmitirComprobanteRequest = {
@@ -412,8 +447,12 @@ export default function BoletasFacturas() {
         operacion: 'generar_comprobante',
         tipo_de_comprobante: Number(data.tipo_comprobante),
         sunat_transaction: Number(data.sunat_transaction),
+        moneda: data.moneda,
         porcentaje_de_igv: Number(data.porcentaje_de_igv),
         total_gravada: tot.total_gravada,
+        total_exonerada: tot.total_exonerada,
+        total_inafecta: tot.total_inafecta,
+        total_gratuita: tot.total_gratuita,
         total_igv: tot.total_igv,
         total: tot.total,
         enviar_automaticamente_a_la_sunat: true,
@@ -428,14 +467,16 @@ export default function BoletasFacturas() {
 
       const response = await emitirComprobante(payload);
 
-      if (response.errors) {
+      // La respuesta del backend: { success, message, data: { aceptada_por_sunat, ... } }
+      if (response.success === false) {
         toast.error('Error al emitir comprobante', {
-          description: response.sunat_description || 'Error desconocido',
+          description: response.message || 'Error desconocido',
         });
         return;
       }
 
-      if (response.aceptada_por_sunat) {
+      const respData = response.data;
+      if (respData?.aceptada_por_sunat) {
         toast.success('Comprobante emitido exitosamente', {
           description: `${data.serie}-${data.numero} aceptado por SUNAT`,
         });
@@ -443,9 +484,11 @@ export default function BoletasFacturas() {
         form.reset();
         void fetchComprobantes();
       } else {
-        toast.warning('Comprobante enviado pero no aceptado', {
-          description: response.sunat_description || response.sunat_soap_error,
+        toast.warning('Comprobante enviado pero pendiente de aceptación', {
+          description: respData?.sunat_description || 'Pendiente de validación SUNAT',
         });
+        setIsCreateModalOpen(false);
+        void fetchComprobantes();
       }
     } catch (error) {
       console.error('Error:', error);
@@ -1052,7 +1095,12 @@ export default function BoletasFacturas() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Número *</Label>
-                    <Input type="number" className="h-9" {...form.register('numero', { valueAsNumber: true })} />
+                    <Input
+                      type="number"
+                      className="h-9 bg-muted"
+                      readOnly
+                      {...form.register('numero', { valueAsNumber: true })}
+                    />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Fecha Emisión *</Label>

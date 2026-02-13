@@ -66,6 +66,8 @@ class NubefactController extends Controller
                 // Crear el comprobante en la BD
                 $comprobante = new Comprobante;
                 $comprobante->empresa_id = $request->empresa_id;
+                // Asignar usuario_id (autenticado o 1 por defecto si no hay usuario)
+                $comprobante->usuario_id = auth()->id() ?? 1;
                 $comprobante->tipo_doc = $tipoDocMap[$request->tipo_de_comprobante];
                 $comprobante->serie = $request->serie;
                 $comprobante->correlativo = $request->numero;
@@ -133,7 +135,7 @@ class NubefactController extends Controller
                     $item->cantidad = $itemData['cantidad'];
                     $item->mto_valor_unitario = $itemData['valor_unitario'] ?? 0;
                     $item->mto_precio_unitario = $itemData['precio_unitario'];
-                    $item->tip_afe_igv = $itemData['tipo_de_igv'] ?? 10;
+                    $item->tip_afe_igv = $itemData['tipo_de_igv'] ?? 1;
                     $item->igv = $itemData['igv'] ?? 0;
                     $item->mto_valor_venta = $itemData['subtotal'] ?? 0;
                     $item->total_impuestos = $itemData['igv'] ?? 0;

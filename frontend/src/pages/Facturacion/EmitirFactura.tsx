@@ -200,27 +200,25 @@ export default function EmitirFactura() {
 
       const response = await emitirComprobante(payload);
 
-      if (response.errors) {
+      if (!response.success) {
         toast.error('Error al emitir factura', {
-          description: response.sunat_description || 'Error desconocido',
+          description: response.message || 'Error desconocido',
         });
         return;
       }
 
-      if (response.aceptada_por_sunat) {
+      const sunatData = response.data;
+      if (sunatData?.aceptada_por_sunat) {
         toast.success('¡Factura emitida exitosamente!', {
-          description: `Código de respuesta SUNAT: ${response.sunat_responsecode}`,
+          description: `Código de respuesta SUNAT: ${sunatData.sunat_code || ''}`,
         });
-        
-        if (response.pdf_url) {
-          setPdfUrl(response.pdf_url);
+        if (sunatData.pdf_url) {
+          setPdfUrl(sunatData.pdf_url);
         }
-
-        // Limpiar formulario
         form.reset();
       } else {
         toast.warning('Factura enviada pero no aceptada', {
-          description: response.sunat_description || response.sunat_soap_error,
+          description: sunatData?.sunat_description || response.message || 'Pendiente de validación SUNAT',
         });
       }
     } catch (error) {
