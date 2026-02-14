@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import type { SubmitHandler } from 'react-hook-form';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useWatch } from 'react-hook-form';
@@ -28,7 +28,7 @@ import {
   esGratuita,
   type EmitirComprobanteRequest,
 } from '@/services/nubefact';
-import { api, type Serie, type Entidad, type Producto, obtenerSiguienteCorrelativo } from '@/lib/api';
+import { api, type Serie, type Entidad, type Producto, obtenerCorrelativoSeguro } from '@/lib/api';
 import { Receipt, FileText, CreditCard, FileX, Loader2 } from 'lucide-react';
 import { ClienteCard } from '@/components/ClienteCard';
 import { ResumenTotalesCard } from '@/components/ResumenTotalesCard';
@@ -152,6 +152,43 @@ const comprobanteSchema = z
 
 type ComprobanteFormValues = z.infer<typeof comprobanteSchema>;
 
+// Valores por defecto estáticos para iniciar el formulario
+const DEFAULT_VALUES: ComprobanteFormValues = {
+  empresa_id: 1,
+  tipo_comprobante: TIPOS_CONFIG.factura.codigo,
+  serie: 'F001',
+  numero: 1, // Se actualizará automáticamente
+  cliente_tipo_de_documento: TIPOS_DOCUMENTO.RUC,
+  cliente_numero_de_documento: '',
+  cliente_denominacion: '',
+  cliente_direccion: '',
+  cliente_email: '',
+  fecha_de_emision: new Date().toISOString().split('T')[0],
+  moneda: MONEDAS.PEN,
+  sunat_transaction: 1,
+  porcentaje_de_igv: 18,
+  pagado: false,
+  fecha_de_vencimiento: new Date().toISOString().split('T')[0],
+  tiene_detraccion: false,
+  detraccion_tipo: null,
+  detraccion_porcentaje: null,
+  detraccion_monto: null,
+  medio_pago_detraccion: null,
+  observaciones: '',
+  items: [
+    {
+      unidad_de_medida: UNIDADES_MEDIDA.NIU,
+      codigo: 'PROD001',
+      descripcion: '',
+      cantidad: 1,
+      valor_unitario: 0,
+      precio_unitario: 0,
+      descuento: 0,
+      tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA,
+    },
+  ],
+};
+
 // --- Componente Principal ---
 
 export default function EmitirComprobante() {
@@ -160,8 +197,6 @@ export default function EmitirComprobante() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [series, setSeries] = useState<Serie[]>([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
-  const [loadingInicial, setLoadingInicial] = useState(true);
-  const [formKey, setFormKey] = useState<string>('init');
 
   // Estados para búsquedas
   const [clientes, setClientes] = useState<Entidad[]>([]);
@@ -181,71 +216,10 @@ export default function EmitirComprobante() {
   const tipoConfig = TIPOS_CONFIG[tipoActivo];
   const IconoTipo = tipoConfig.icono;
 
-  // Estado para valores iniciales
-  const [initialValues, setInitialValues] = useState<ComprobanteFormValues | null>(null);
-
-  // 1. Carga Inicial
-  useEffect(() => {
-    const cargarInicial = async () => {
-      try {
-        const empresa_id = 1;
-        const tipo_comprobante = tipoConfig.codigo;
-        const serie = `${tipoConfig.seriePrefix}001`;
-        let numero = 1;
-
-        // Intentar obtener correlativo real
-        try {
-          const correlativoResp = await obtenerSiguienteCorrelativo(empresa_id, tipo_comprobante, serie);
-          numero = parseInt(correlativoResp.correlativo, 10);
-        } catch {
-          console.warn("No se pudo obtener correlativo inicial, usando 1");
-        }
-
-        setInitialValues({
-          empresa_id,
-          tipo_comprobante,
-          serie,
-          numero,
-          cliente_tipo_de_documento: tipoConfig.requiereDocumento ? TIPOS_DOCUMENTO.RUC : TIPOS_DOCUMENTO.DNI,
-          cliente_numero_de_documento: '',
-          cliente_denominacion: '',
-          cliente_direccion: '',
-          cliente_email: '',
-          fecha_de_emision: new Date().toISOString().split('T')[0],
-          moneda: MONEDAS.PEN,
-          sunat_transaction: 1,
-          porcentaje_de_igv: 18,
-          pagado: false,
-          fecha_de_vencimiento: new Date().toISOString().split('T')[0],
-          tiene_detraccion: false,
-          detraccion_tipo: null,
-          detraccion_porcentaje: null,
-          detraccion_monto: null,
-          medio_pago_detraccion: null,
-          observaciones: '',
-          items: [
-            {
-              unidad_de_medida: UNIDADES_MEDIDA.NIU,
-              codigo: 'PROD001',
-              descripcion: '',
-              cantidad: 1,
-              valor_unitario: 0,
-              precio_unitario: 0,
-              descuento: 0,
-              tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA,
-            },
-          ],
-        });
-      } finally {
-        setLoadingInicial(false);
-      }
-    };
-    cargarInicial();
-  }, [tipoActivo, tipoConfig]); // Agregado tipoConfig a deps
-
+  // Inicialización del formulario SIN estado de carga inicial bloqueante
   const form = useForm<ComprobanteFormValues>({
     resolver: zodResolver(comprobanteSchema),
-    defaultValues: initialValues ?? undefined,
+    defaultValues: DEFAULT_VALUES,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -256,31 +230,40 @@ export default function EmitirComprobante() {
     name: 'items',
   });
 
-  // Watchers para el efecto de correlativo
+  // Watchers
   const empresaId = useWatch({ control: form.control, name: 'empresa_id' });
   const tipoComprobante = useWatch({ control: form.control, name: 'tipo_comprobante' });
   const serie = useWatch({ control: form.control, name: 'serie' });
+  const numero = useWatch({ control: form.control, name: 'numero' });
 
-  // --------------------------------------------------------------------------------
-  // CORRECCIÓN: Un único useEffect centralizado para actualizar el número
-  // --------------------------------------------------------------------------------
+  // Estado para error de correlativo
+  const [correlativoError, setCorrelativoError] = useState<string | null>(null);
+
+  // --- LÓGICA DE CORRELATIVO CENTRALIZADA ---
+  // Este useEffect es el ÚNICO responsable de buscar el número cuando cambian los datos clave.
   useEffect(() => {
     let isActive = true;
 
     const fetchCorrelativo = async () => {
-      if (empresaId && tipoComprobante && serie) {
-        try {
-          const correlativoResp = await obtenerSiguienteCorrelativo(empresaId, tipoComprobante, serie);
-          if (isActive) {
-            const nuevoNumero = parseInt(correlativoResp.correlativo, 10);
-            // Solo actualizamos si es diferente para evitar loops infinitos,
-            // pero nos aseguramos de que el input lo reciba.
-            if (form.getValues('numero') !== nuevoNumero) {
-               form.setValue('numero', nuevoNumero, { shouldValidate: true, shouldDirty: false });
-            }
-          }
-        } catch (error) {
-          console.error("Error obteniendo correlativo automático", error);
+      // Validamos que tengamos los datos mínimos
+      if (!empresaId || !tipoComprobante || !serie) return;
+
+      try {
+        const correlativoResp = await obtenerCorrelativoSeguro(empresaId, tipoComprobante, serie);
+
+        if (isActive) {
+          const nuevoNumero = parseInt(correlativoResp.correlativo, 10);
+
+          // Actualizamos el número en el formulario
+          // setValue con shouldValidate: true elimina errores previos si el número era incorrecto
+          form.setValue('numero', nuevoNumero, { shouldValidate: true });
+
+          setCorrelativoError(null);
+        }
+      } catch (error) {
+        console.error("Error obteniendo correlativo automático", error);
+        if (isActive) {
+          // Opcional: Podrías poner un toast aquí si falla críticamente
         }
       }
     };
@@ -288,60 +271,94 @@ export default function EmitirComprobante() {
     fetchCorrelativo();
 
     return () => { isActive = false; };
-  }, [empresaId, tipoComprobante, serie, form]);
+  }, [empresaId, tipoComprobante, serie, form]); // Dependencias estrictas
+
+  // Validación visual extra: Si el usuario cambia el número manualmente a uno menor
+  useEffect(() => {
+    // Esta lógica solo verifica si el número actual es válido respecto al backend,
+    // pero NO sobrescribe el valor del input (eso lo hace el efecto de arriba).
+    const validarManual = async () => {
+      if (!empresaId || !tipoComprobante || !serie || !numero) return;
+      try {
+        const resp = await obtenerCorrelativoSeguro(empresaId, tipoComprobante, serie);
+        const backendNum = parseInt(resp.correlativo, 10);
+        if (numero < backendNum) {
+          setCorrelativoError(`El número ${numero} ya fue usado. Sugerido: ${backendNum}`);
+        } else {
+          setCorrelativoError(null);
+        }
+      } catch (error) {
+        console.warn("No se pudo validar el correlativo manual", error);
+      }
+    };
+    // Debounce pequeño para no saturar
+    const timer = setTimeout(validarManual, 500);
+    return () => clearTimeout(timer);
+  }, [numero, empresaId, tipoComprobante, serie]);
 
 
-  // Cambiar tipo de comprobante (Tabs)
-  const cambiarTipo = (nuevoTipo: TipoComprobante) => {
-    setTipoActivo(nuevoTipo);
-    const config = TIPOS_CONFIG[nuevoTipo];
-    
-    // Actualizamos valores, el useEffect de arriba se encargará del número
-    form.setValue('tipo_comprobante', config.codigo);
-    form.setValue('serie', `${config.seriePrefix}001`);
-    
-    if (config.requiereDocumento) {
-      form.setValue('cliente_tipo_de_documento', TIPOS_DOCUMENTO.RUC);
-    } else {
-      form.setValue('cliente_tipo_de_documento', TIPOS_DOCUMENTO.DNI);
-    }
-    setPdfUrl(null);
-    cargarSeries(config.codigo);
-  };
-
-  // Cargar lista de series (sin forzar el número manualmente, dejamos que el useEffect lo haga)
-  const cargarSeries = async (tipoCodigoParam?: string) => {
+  // Función para cargar series y seleccionar la primera
+  const cargarSeries = useCallback(async (tipoCodigoParam?: string) => {
     try {
       setLoadingSeries(true);
       const empresaIdVal = form.getValues('empresa_id') || 1;
       const tipoCodigo = tipoCodigoParam || form.getValues('tipo_comprobante');
-      
+
       const res = await api.series.listar({ empresa_id: empresaIdVal, tipo_comprobante: tipoCodigo });
       const lista = res.data.data;
       setSeries(lista);
 
       if (lista.length > 0) {
-        // Buscamos serie por defecto
+        // Buscar serie por defecto o usar la primera
         const serieDefecto = lista.find((s) => s.por_defecto) ?? lista[0];
-        // Solo seteamos la serie. El useEffect detectará el cambio y buscará el número.
+
+        // ALERTA: Esto disparará el useEffect del correlativo automáticamente
         form.setValue('serie', serieDefecto.serie);
+      } else {
+        // Fallback si no hay series configuradas en backend
+        const prefix = TIPOS_CONFIG[tipoActivo].seriePrefix;
+        form.setValue('serie', `${prefix}001`);
       }
     } catch {
-      // Fallback silencioso
+      // Error silent
     } finally {
       setLoadingSeries(false);
     }
+  }, [form, tipoActivo]);
+
+  // Cambiar tipo de comprobante (Tabs)
+  const cambiarTipo = (nuevoTipo: TipoComprobante) => {
+    setTipoActivo(nuevoTipo);
+    const config = TIPOS_CONFIG[nuevoTipo];
+
+    // 1. Actualizamos Configuración visual
+    // 2. Actualizamos campos del formulario
+    form.setValue('tipo_comprobante', config.codigo);
+
+    if (config.requiereDocumento) {
+      form.setValue('cliente_tipo_de_documento', TIPOS_DOCUMENTO.RUC);
+    } else {
+      form.setValue('cliente_tipo_de_documento', TIPOS_DOCUMENTO.DNI);
+    }
+
+    // Limpiamos cliente y PDF previo
+    form.setValue('cliente_numero_de_documento', '');
+    form.setValue('cliente_denominacion', '');
+    setPdfUrl(null);
+    setCorrelativoError(null);
+
+    // 3. Cargamos las series del nuevo tipo
+    // Esto actualizará la serie -> lo que actualizará el correlativo
+    cargarSeries(config.codigo);
   };
 
-  // Cargar datos secundarios
+  // Carga inicial de datos secundarios (solo una vez al montar)
   useEffect(() => {
-    if (!loadingInicial) {
-      void cargarSeries();
-      void cargarClientes();
-      void cargarProductos();
-    }
+    void cargarSeries(); // Carga series del tipo por defecto (Factura)
+    void cargarClientes();
+    void cargarProductos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadingInicial]);
+  }, []); // Array vacío intencional para correr solo al montar
 
   const cargarClientes = async () => {
     try {
@@ -363,7 +380,7 @@ export default function EmitirComprobante() {
     const numeroDoc = cliente.num_doc || cliente.numero_documento || '';
     const tipoDoc = numeroDoc.length === 11 ? TIPOS_DOCUMENTO.RUC : TIPOS_DOCUMENTO.DNI;
     const nombre = cliente.denominacion || cliente.razon_social || cliente.nombre_comercial || cliente.razon_comercial || '';
-    
+
     form.setValue('cliente_numero_de_documento', numeroDoc);
     form.setValue('cliente_denominacion', nombre);
     form.setValue('cliente_tipo_de_documento', tipoDoc);
@@ -503,9 +520,9 @@ export default function EmitirComprobante() {
       const serie = data.serie;
       let numero = data.numero;
       let debeActualizarNumero = false;
-      
+
       try {
-        const correlativoResp = await obtenerSiguienteCorrelativo(empresaId, tipoDoc, serie);
+        const correlativoResp = await obtenerCorrelativoSeguro(empresaId, tipoDoc, serie);
         const correlativoBackend = parseInt(correlativoResp.correlativo, 10);
         if (numero < correlativoBackend) {
           form.setValue('numero', correlativoBackend);
@@ -516,7 +533,7 @@ export default function EmitirComprobante() {
         toast.warning('No se pudo validar el correlativo más reciente.');
       }
       if (debeActualizarNumero) {
-        toast.warning('El número de comprobante fue actualizado al correlativo más reciente.');
+        toast.warning('El número de comprobante fue actualizado al correlativo más reciente automáticamente.');
         setLoading(false);
         return;
       }
@@ -533,7 +550,7 @@ export default function EmitirComprobante() {
         const calc = calcularItemSolo(index);
         const tipo_de_igv = String(item.tipo_de_igv);
         let igv = calc.igv;
-        
+
         if (esGravado(tipo_de_igv)) {
           total_gravada += calc.subtotal;
           total_igv += calc.igv;
@@ -548,7 +565,7 @@ export default function EmitirComprobante() {
           igv = 0;
           total_gratuita += calc.subtotal;
         }
-        
+
         const result: import('@/services/nubefact').ComprobanteItem = {
           unidad_de_medida: item.unidad_de_medida,
           codigo: item.codigo,
@@ -595,9 +612,41 @@ export default function EmitirComprobante() {
       const response = await emitirComprobante(payload);
 
       if (response.success === false) {
-        toast.error(`Error al emitir ${tipoConfig.titulo.toLowerCase()}`, {
-          description: response.message || 'Error desconocido',
-        });
+        // UX: Si el error es por número ya usado, recargar correlativo y mostrar mensaje claro
+        const msg = response.message || '';
+        let nestedError = '';
+        try {
+          // Si el mensaje es un JSON embebido, intentar extraer el campo 'errors'
+          const parsed = JSON.parse(msg);
+          if (parsed && typeof parsed === 'object' && parsed.errors) {
+            nestedError = String(parsed.errors);
+          }
+        } catch {
+          // Ignorar error de parseo, el mensaje no es JSON
+        }
+
+        const msgLower = msg.toLowerCase();
+        const nestedLower = nestedError.toLowerCase();
+        const isDuplicado =
+          msgLower.includes('ya existe') ||
+          msgLower.includes('duplicado') ||
+          nestedLower.includes('ya existe') ||
+          nestedLower.includes('duplicado');
+
+        if (isDuplicado) {
+          try {
+            const correlativoResp = await obtenerCorrelativoSeguro(data.empresa_id, data.tipo_comprobante, data.serie);
+            const correlativoBackend = parseInt(correlativoResp.correlativo, 10);
+            form.setValue('numero', correlativoBackend);
+            toast.error('El número de comprobante ya fue usado. Se recargó el correlativo más reciente. Intente nuevamente.');
+          } catch {
+            toast.error('El número ya fue usado y no se pudo recargar el correlativo automáticamente. Verifique manualmente.');
+          }
+        } else {
+          toast.error(`Error al emitir ${tipoConfig.titulo.toLowerCase()}`, {
+            description: response.message || 'Error desconocido',
+          });
+        }
         return;
       }
 
@@ -607,7 +656,13 @@ export default function EmitirComprobante() {
           description: `Código de respuesta SUNAT: ${respData.sunat_code}`,
         });
         if (respData.pdf_url) setPdfUrl(respData.pdf_url);
-        form.reset();
+
+        // Reset parcial o total
+        // form.reset(); // Puedes descomentar si quieres limpiar todo
+        // O recargar correlativo para la siguiente venta:
+        const nextNum = numero + 1;
+        form.setValue('numero', nextNum);
+
       } else {
         toast.warning(`${tipoConfig.titulo} enviada pero pendiente de aceptación`, {
           description: respData?.sunat_description || 'Pendiente de validación SUNAT',
@@ -623,30 +678,18 @@ export default function EmitirComprobante() {
 
   const items = form.watch('items');
   const porcentajeIgv = form.watch('porcentaje_de_igv');
-  
+
   const totales = useMemo(() => {
     return calcularTotales();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, porcentajeIgv]);
 
-  if (loadingInicial || !initialValues) {
-    return (
-      <div className="flex items-center justify-center min-h-75">
-        <Loader2 className="w-6 h-6 mr-2 animate-spin" />
-        Cargando correlativo...
-      </div>
-    );
-  }
-
-  const handleNuevoCPE = async () => {
-    setLoadingInicial(true);
-    // Reinicia forzando el reload de los hooks
-    setFormKey(`reset-${Date.now()}`);
-    // Pequeño timeout para permitir que el loadingInicial surta efecto
-    setTimeout(() => {
-        // La lógica de carga inicial en useEffect se encargará de resetear valores
-        setLoadingInicial(true); 
-    }, 10);
+  const handleNuevoCPE = () => {
+    // Resetear formulario a defaults
+    form.reset(DEFAULT_VALUES);
+    // Forzar recarga de series y correlativo
+    cargarSeries(TIPOS_CONFIG[tipoActivo].codigo);
+    setPdfUrl(null);
   };
 
   return (
@@ -684,7 +727,6 @@ export default function EmitirComprobante() {
       </Card>
 
       <form
-        key={formKey}
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4 sm:space-y-6"
       >
@@ -719,6 +761,8 @@ export default function EmitirComprobante() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Botones y Dialog fuera del Card de opciones avanzadas */}
         <Dialog>
           <DialogTrigger asChild>
             <button type="button" className="text-primary font-medium flex items-center gap-1 hover:underline">
@@ -863,7 +907,7 @@ export default function EmitirComprobante() {
                     value={form.watch('serie')}
                     onValueChange={(value) => {
                       // Solo actualizamos la serie. 
-                      // El useEffect centralizado detectará el cambio y actualizará el número automáticamente.
+                      // El useEffect centralizado detectará el cambio y actualizará el número.
                       form.setValue('serie', value);
                     }}
                     disabled={loadingSeries}
@@ -888,17 +932,20 @@ export default function EmitirComprobante() {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Número</label>
-                <Input 
-                  type="number" 
-                  {...form.register('numero', { valueAsNumber: true })} 
-                  // CORRECCIÓN: Usar value explícito del watcher para asegurar que el input readOnly se actualice visualmente
-                  // cuando setValue ocurre programáticamente.
-                  value={form.watch('numero') || ''}
-                  placeholder="1" 
-                  readOnly 
-                />
+                <div className="relative">
+                  <Input
+                    type="number"
+                    {...form.register('numero', { valueAsNumber: true })}
+                    placeholder="1"
+                    className={correlativoError ? "border-destructive focus-visible:ring-destructive" : ""}
+                  />
+                  {/* Indicador de carga pequeño si fuera necesario */}
+                </div>
                 {form.formState.errors.numero && (
                   <p className="text-sm text-destructive">{form.formState.errors.numero.message}</p>
+                )}
+                {correlativoError && (
+                  <p className="text-sm text-destructive font-medium animate-in fade-in slide-in-from-top-1">{correlativoError}</p>
                 )}
               </div>
               <div className="space-y-2">

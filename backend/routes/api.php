@@ -32,6 +32,8 @@ use Illuminate\Support\Facades\Route;
 
 // Rutas de facturación electrónica
 Route::prefix('facturacion')->group(function () {
+        // Correlativo seguro (sin colisión en NubeFact)
+        Route::get('/correlativo-seguro', [FacturacionController::class, 'correlativoSeguro']);
     // Listar y buscar comprobantes
     Route::get('/comprobantes', [FacturacionController::class , 'index']);
     Route::get('/comprobantes/export', [FacturacionController::class , 'exportarExcel']);

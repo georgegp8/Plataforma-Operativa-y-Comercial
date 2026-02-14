@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { emitirComprobante, TIPOS_COMPROBANTE, TIPOS_DOCUMENTO, TIPOS_IGV, MONEDAS, MONEDAS_SELECT, TIPOS_OPERACION_SELECT, IGV_PORCENTAJES_SELECT, UNIDADES_MEDIDA, type EmitirComprobanteRequest } from '@/services/nubefact';
-import { api, type Serie } from '@/lib/api';
+import { 
+  emitirComprobante, 
+  TIPOS_COMPROBANTE, 
+  TIPOS_DOCUMENTO, 
+  MONEDAS, 
+  MONEDAS_SELECT, 
+  TIPOS_OPERACION_SELECT, 
+  IGV_PORCENTAJES_SELECT, 
+  UNIDADES_MEDIDA, 
+  TIPOS_IGV, 
+  type EmitirComprobanteRequest 
+} from '@/services/nubefact';
+import { api, type Serie, obtenerCorrelativoSeguro } from '@/lib/api';
 import { Plus, Trash2, FileText, Loader2 } from 'lucide-react';
+
+// --- Esquemas de Validación ---
 
 const itemSchema = z.object({
   unidad_de_medida: z.string().min(1, 'Requerido'),
@@ -53,6 +66,8 @@ const facturaSchema = z.object({
 
 type FacturaFormValues = z.infer<typeof facturaSchema>;
 
+// --- Componente Principal ---
+
 export default function EmitirFactura() {
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -62,7 +77,7 @@ export default function EmitirFactura() {
   const form = useForm<FacturaFormValues>({
     resolver: zodResolver(facturaSchema),
     defaultValues: {
-      empresa_id: 1, // TODO: Obtener de selector de empresa
+      empresa_id: 1,
       serie: 'F001',
       numero: 1,
       cliente_tipo_de_documento: TIPOS_DOCUMENTO.RUC,
@@ -102,32 +117,67 @@ export default function EmitirFactura() {
     name: 'items',
   });
 
+  // Watchers
+  const serie = useWatch({ control: form.control, name: 'serie' });
+  const empresaId = useWatch({ control: form.control, name: 'empresa_id' });
+
+  // 1. Cargar Series al inicio
   useEffect(() => {
     const cargarSeries = async () => {
       try {
         setLoadingSeries(true);
-        // TODO: empresa_id desde selector/contexto; por ahora 1
-        const empresaId = form.getValues('empresa_id') || 1;
-        const res = await api.series.listar({ empresa_id: empresaId, tipo_comprobante: '01' });
+        const empId = form.getValues('empresa_id') || 1;
+        // Aseguramos conversión a string para la API
+        const res = await api.series.listar({ empresa_id: empId, tipo_comprobante: String(TIPOS_COMPROBANTE.FACTURA) });
         const lista = res.data.data;
         setSeries(lista);
 
         if (lista.length > 0) {
           const serieDefecto = lista.find((s) => s.por_defecto) ?? lista[0];
+          // Solo actualizamos la serie, el efecto 2 se encarga del número
           form.setValue('serie', serieDefecto.serie);
-          form.setValue('numero', (serieDefecto.correlativo_actual ?? 0) + 1);
         }
-      } catch {
-        // Si falla, se mantiene la configuración manual existente
+      } catch (e) {
+        console.error("Error cargando series", e);
       } finally {
         setLoadingSeries(false);
       }
     };
-
     void cargarSeries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 2. Obtener correlativo al cambiar serie o empresa
+  useEffect(() => {
+    let isActive = true;
+    const fetchCorrelativo = async () => {
+      if (!serie || !empresaId) return;
+      
+      try {
+        const res = await obtenerCorrelativoSeguro(empresaId, String(TIPOS_COMPROBANTE.FACTURA), serie);
+        
+        if (isActive && res && res.correlativo) {
+          const numeroParsed = parseInt(String(res.correlativo), 10);
+          
+          // SOLUCIÓN CLAVE: Solo actualizamos si el valor es diferente.
+          // Esto permite al usuario editar manualmente sin que el efecto lo sobreescriba
+          // en cada renderizado o si la API responde lento.
+          const valorActual = form.getValues('numero');
+          if (valorActual !== numeroParsed) {
+             form.setValue('numero', numeroParsed, { shouldValidate: true, shouldDirty: true });
+          }
+        }
+      } catch (error) {
+        console.error("Error obteniendo correlativo:", error);
+      }
+    };
+
+    fetchCorrelativo();
+    
+    return () => { isActive = false; };
+  }, [serie, empresaId, form]);
+
+  // Cálculos de items (reutilizando la lógica de Comprobantes para consistencia)
   const calcularItem = (index: number) => {
     const item = form.getValues(`items.${index}`);
     const { cantidad, valor_unitario, descuento = 0 } = item;
@@ -136,21 +186,20 @@ export default function EmitirFactura() {
     const igvRate = (form.getValues('porcentaje_de_igv') || 18) / 100;
     const igv = subtotal * igvRate;
     const total = subtotal + igv;
-    const precio_unitario = (subtotal + igv) / cantidad;
+    const precio_unitario = cantidad > 0 ? (subtotal + igv) / cantidad : 0;
 
     form.setValue(`items.${index}.precio_unitario`, parseFloat(precio_unitario.toFixed(2)));
-    
     return { subtotal, igv, total };
   };
 
   const calcularTotales = () => {
     const items = form.getValues('items');
-    let total_gravada = 0;
-    let total_igv = 0;
-    let total = 0;
+    let total_gravada = 0, total_igv = 0, total = 0;
 
     items.forEach((_, index) => {
       const calc = calcularItem(index);
+      // Simplificación para Factura (generalmente gravada)
+      // Si necesitas lógica exacta de exonerado/inafecto, usa los helpers como en EmitirComprobante
       total_gravada += calc.subtotal;
       total_igv += calc.igv;
       total += calc.total;
@@ -166,16 +215,26 @@ export default function EmitirFactura() {
   const onSubmit = async (data: FacturaFormValues) => {
     try {
       setLoading(true);
-      const totales = calcularTotales();
+      
+      // Validación final del correlativo (Evitar duplicados)
+      try {
+        const res = await obtenerCorrelativoSeguro(data.empresa_id, String(TIPOS_COMPROBANTE.FACTURA), data.serie);
+        const serverNum = parseInt(String(res.correlativo), 10);
+        
+        // Si el usuario puso un número menor al que toca, avisamos y corregimos
+        if (data.numero < serverNum) {
+           data.numero = serverNum;
+           form.setValue('numero', serverNum);
+           toast.warning(`El número fue actualizado a ${serverNum} para evitar duplicados.`);
+        }
+      } catch (e) { 
+        console.error("Validación final de correlativo falló", e); 
+      }
 
+      const totales = calcularTotales();
       const items = data.items.map((item, index) => {
         const calc = calcularItem(index);
-        return {
-          ...item,
-          subtotal: calc.subtotal,
-          igv: calc.igv,
-          total: calc.total,
-        };
+        return { ...item, subtotal: calc.subtotal, igv: calc.igv, total: calc.total };
       });
 
       const payload: EmitirComprobanteRequest = {
@@ -187,7 +246,6 @@ export default function EmitirFactura() {
         total_gravada: totales.total_gravada,
         total_igv: totales.total_igv,
         total: totales.total,
-        // Detracción completa
         tiene_detraccion: data.tiene_detraccion ?? false,
         detraccion_tipo: data.detraccion_tipo ?? undefined,
         detraccion_porcentaje: data.detraccion_porcentaje ?? undefined,
@@ -201,32 +259,23 @@ export default function EmitirFactura() {
       const response = await emitirComprobante(payload);
 
       if (!response.success) {
-        toast.error('Error al emitir factura', {
-          description: response.message || 'Error desconocido',
-        });
+        toast.error(response.message || 'Error al emitir factura');
         return;
       }
 
       const sunatData = response.data;
       if (sunatData?.aceptada_por_sunat) {
-        toast.success('¡Factura emitida exitosamente!', {
-          description: `Código de respuesta SUNAT: ${sunatData.sunat_code || ''}`,
-        });
-        if (sunatData.pdf_url) {
-          setPdfUrl(sunatData.pdf_url);
-        }
-        form.reset();
+        toast.success(`Factura emitida! Cod: ${sunatData.sunat_code || ''}`);
+        if (sunatData.pdf_url) setPdfUrl(sunatData.pdf_url);
+        // Avanzar al siguiente número localmente para UX inmediata
+        form.setValue('numero', data.numero + 1);
       } else {
-        toast.warning('Factura enviada pero no aceptada', {
-          description: sunatData?.sunat_description || response.message || 'Pendiente de validación SUNAT',
-        });
+        toast.warning(sunatData?.sunat_description || 'Enviada, pendiente validación');
       }
-    } catch (error) {
-      console.error('Error:', error);
+    } catch (error: unknown) {
+      console.error(error);
       const err = error as { response?: { data?: { message?: string } }; message?: string };
-      toast.error('Error al procesar la factura', {
-        description: err.response?.data?.message || err.message || 'Error desconocido',
-      });
+      toast.error(err.response?.data?.message || err.message || 'Error desconocido');
     } finally {
       setLoading(false);
     }
@@ -244,61 +293,49 @@ export default function EmitirFactura() {
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Barra de enlaces estilo NubeFact */}
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <Dialog>
             <DialogTrigger asChild>
               <button type="button" className="text-primary font-medium flex items-center gap-1 hover:underline">
-                <span>⚙</span>
-                <span>General</span>
+                <span>⚙</span><span>General</span>
               </button>
             </DialogTrigger>
             <DialogContent className="max-w-xl">
               <DialogHeader>
                 <DialogTitle>Datos generales</DialogTitle>
+                <DialogDescription>Configuración general del comprobante</DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2 col-span-2">
-                  <label className="text-sm font-medium">Tipo documento</label>
-                  <Input value="FACTURA ELECTRÓNICA" disabled className="bg-muted" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Fecha emisión</label>
-                  <Input type="date" {...form.register('fecha_de_emision')} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Fecha de venc.</label>
-                  <Input type="date" {...form.register('fecha_de_vencimiento')} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Serie</label>
-                  <Input {...form.register('serie')} maxLength={4} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Número</label>
-                  <Input type="number" {...form.register('numero', { valueAsNumber: true })} />
-                </div>
-                <div className="flex items-center gap-2 col-span-2 mt-2">
-                  <span className="text-sm font-medium">¿Pagado?</span>
-                  <Switch
-                    checked={!!form.watch('pagado')}
-                    onCheckedChange={(checked) => form.setValue('pagado', checked)}
-                  />
-                </div>
+                 <div className="space-y-2 col-span-2">
+                    <label className="text-sm font-medium">Tipo documento</label>
+                    <Input value="FACTURA ELECTRÓNICA" disabled className="bg-muted" />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-sm font-medium">Fecha emisión</label>
+                    <Input type="date" {...form.register('fecha_de_emision')} />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-sm font-medium">Fecha venc.</label>
+                    <Input type="date" {...form.register('fecha_de_vencimiento')} />
+                 </div>
+                 <div className="flex items-center gap-2 col-span-2 mt-2">
+                    <span className="text-sm font-medium">¿Pagado?</span>
+                    <Switch checked={!!form.watch('pagado')} onCheckedChange={(c) => form.setValue('pagado', c)} />
+                 </div>
               </div>
             </DialogContent>
           </Dialog>
+
           <Dialog>
             <DialogTrigger asChild>
               <button type="button" className="text-primary font-medium flex items-center gap-1 hover:underline">
-                <span>➕</span>
-                <span>Adicionales</span>
+                <span>➕</span><span>Adicionales</span>
               </button>
             </DialogTrigger>
             <DialogContent className="max-w-xl">
               <DialogHeader>
                 <DialogTitle>Adicionales</DialogTitle>
-                <DialogDescription>Información adicional para el comprobante.</DialogDescription>
+                <DialogDescription>Datos opcionales de la operación</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
@@ -309,471 +346,178 @@ export default function EmitirFactura() {
                   <label className="text-sm font-medium">Placa de vehículo</label>
                   <Input {...form.register('placa_vehiculo')} />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Observaciones</label>
-                  <Input {...form.register('observaciones')} />
-                </div>
               </div>
             </DialogContent>
           </Dialog>
-          <button type="button" className="text-primary flex items-center gap-1 opacity-70 cursor-default">
-            <span>📄</span>
-            <span>Guía de remisión Física</span>
-          </button>
-          <button type="button" className="text-primary flex items-center gap-1 opacity-70 cursor-default">
-            <span>🧾</span>
-            <span>Formato de PDF</span>
-          </button>
         </div>
 
-        {/* Datos del Comprobante */}
+        {/* Datos Principales */}
         <Card>
           <CardHeader>
             <CardTitle>Datos del Comprobante</CardTitle>
-            <CardDescription>Información básica de la factura</CardDescription>
+            <CardDescription>Detalles de la emisión</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-4 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  IGV %
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button type="button" variant="link" className="h-auto p-0 text-xs text-primary">
-                        Más info
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-lg">
-                      <DialogHeader>
-                        <DialogTitle>Porcentaje de IGV</DialogTitle>
-                        <DialogDescription>
-                          Seleccione el porcentaje de IGV aplicable a la operación según la normativa vigente.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-2 text-sm">
-                        <p><span className="font-semibold">18%:</span> IGV general para operaciones gravadas.</p>
-                        <p><span className="font-semibold">10%:</span> Ley 31556 para restaurantes, hoteles y servicios afines.</p>
-                        <p><span className="font-semibold">4%:</span> IVAP para productos afectos al impuesto a la venta de arroz pilado.</p>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </label>
-                <Select
-                  value={String(form.watch('porcentaje_de_igv') ?? 18)}
-                  onValueChange={(value) => form.setValue('porcentaje_de_igv', Number(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <label className="text-sm font-medium">IGV %</label>
+                <Select value={String(form.watch('porcentaje_de_igv') ?? 18)} onValueChange={(v) => form.setValue('porcentaje_de_igv', Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {IGV_PORCENTAJES_SELECT.map((option) => (
-                      <SelectItem key={option.value} value={String(option.value)}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
+                    {IGV_PORCENTAJES_SELECT.map((o) => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Tipo de operación</label>
-                <Select
-                  value={String(form.watch('sunat_transaction') ?? 1)}
-                  onValueChange={(value) => form.setValue('sunat_transaction', Number(value))}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <label className="text-sm font-medium">Operación</label>
+                <Select value={String(form.watch('sunat_transaction') ?? 1)} onValueChange={(v) => form.setValue('sunat_transaction', Number(v))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {TIPOS_OPERACION_SELECT.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
+                    {TIPOS_OPERACION_SELECT.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Moneda</label>
-                <Select
-                  value={form.watch('moneda')}
-                  onValueChange={(value) => form.setValue('moneda', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={form.watch('moneda')} onValueChange={(v) => form.setValue('moneda', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {MONEDAS_SELECT.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
+                    {MONEDAS_SELECT.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Tipo de cambio</label>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  placeholder="3.5000"
-                  {...form.register('tipo_de_cambio', {
-                    setValueAs: (value) => (value === '' || value === null ? undefined : Number(value)),
-                  })}
-                  disabled={form.watch('moneda') === MONEDAS.PEN}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Obligatorio cuando la moneda es distinta a Soles.
-                </p>
+                <label className="text-sm font-medium">Tipo Cambio</label>
+                <Input type="number" step="0.0001" placeholder="3.5000" {...form.register('tipo_de_cambio', { valueAsNumber: true })} disabled={form.watch('moneda') === MONEDAS.PEN} />
               </div>
             </div>
+
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Serie</label>
                 {series.length > 0 ? (
-                  <Select
-                    value={form.watch('serie')}
-                    onValueChange={(value) => {
-                      form.setValue('serie', value);
-                      const encontrada = series.find((s) => s.serie === value);
-                      if (encontrada) {
-                        form.setValue('numero', (encontrada.correlativo_actual ?? 0) + 1);
-                      }
-                    }}
-                    disabled={loadingSeries}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder={loadingSeries ? 'Cargando series...' : 'Seleccione serie'} />
-                    </SelectTrigger>
+                  <Select value={form.watch('serie')} onValueChange={(v) => form.setValue('serie', v)} disabled={loadingSeries}>
+                    <SelectTrigger><SelectValue placeholder="Serie" /></SelectTrigger>
                     <SelectContent>
-                      {series.map((s) => (
-                        <SelectItem key={s.id} value={s.serie}>
-                          {s.serie}{s.por_defecto ? ' (por defecto)' : ''}
-                        </SelectItem>
-                      ))}
+                      {series.map((s) => <SelectItem key={s.id} value={s.serie}>{s.serie}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input
-                    {...form.register('serie')}
-                    placeholder="F001"
-                    maxLength={4}
-                  />
-                )}
-                {form.formState.errors.serie && (
-                  <p className="text-sm text-destructive">{form.formState.errors.serie.message}</p>
+                  <Input {...form.register('serie')} placeholder="F001" maxLength={4} />
                 )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Número</label>
-                <Input
-                  type="number"
-                  {...form.register('numero', { valueAsNumber: true })}
-                  placeholder="1"
+                <Input 
+                  type="number" 
+                  {...form.register('numero', { valueAsNumber: true })} 
+                  placeholder="Correlativo" 
+                  // Asegurar que el input no tenga props extrañas que bloqueen la edición
                 />
-                {form.formState.errors.numero && (
-                  <p className="text-sm text-destructive">{form.formState.errors.numero.message}</p>
-                )}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Fecha de Emisión</label>
-                <Input
-                  type="date"
-                  {...form.register('fecha_de_emision')}
-                />
-                {form.formState.errors.fecha_de_emision && (
-                  <p className="text-sm text-destructive">{form.formState.errors.fecha_de_emision.message}</p>
-                )}
+                <label className="text-sm font-medium">Fecha Emisión</label>
+                <Input type="date" {...form.register('fecha_de_emision')} />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Datos del Cliente */}
+        {/* Cliente */}
         <Card>
           <CardHeader>
             <CardTitle>Datos del Cliente</CardTitle>
-            <CardDescription>Información del receptor del comprobante</CardDescription>
+            <CardDescription>Receptor del comprobante</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Tipo de Documento</label>
-                <Select
-                  value={form.watch('cliente_tipo_de_documento')}
-                  onValueChange={(value) => form.setValue('cliente_tipo_de_documento', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <label className="text-sm font-medium">Tipo Doc</label>
+                <Select value={form.watch('cliente_tipo_de_documento')} onValueChange={(v) => form.setValue('cliente_tipo_de_documento', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={TIPOS_DOCUMENTO.DNI}>DNI</SelectItem>
                     <SelectItem value={TIPOS_DOCUMENTO.RUC}>RUC</SelectItem>
-                    <SelectItem value={TIPOS_DOCUMENTO.CARNET_EXTRANJERIA}>Carnet Extranjería</SelectItem>
-                    <SelectItem value={TIPOS_DOCUMENTO.PASAPORTE}>Pasaporte</SelectItem>
+                    <SelectItem value={TIPOS_DOCUMENTO.DNI}>DNI</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Número de Documento</label>
-                <Input
-                  {...form.register('cliente_numero_de_documento')}
-                  placeholder="20123456789"
-                />
-                {form.formState.errors.cliente_numero_de_documento && (
-                  <p className="text-sm text-destructive">{form.formState.errors.cliente_numero_de_documento.message}</p>
-                )}
+                <label className="text-sm font-medium">Número Doc</label>
+                <Input {...form.register('cliente_numero_de_documento')} placeholder="20100000001" />
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Razón Social / Nombre</label>
-              <Input
-                {...form.register('cliente_denominacion')}
-                placeholder="EMPRESA SAC"
-              />
-              {form.formState.errors.cliente_denominacion && (
-                <p className="text-sm text-destructive">{form.formState.errors.cliente_denominacion.message}</p>
-              )}
+              <label className="text-sm font-medium">Razón Social</label>
+              <Input {...form.register('cliente_denominacion')} placeholder="Nombre Cliente" />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Dirección</label>
-              <Input
-                {...form.register('cliente_direccion')}
-                placeholder="Av. Principal 123"
-              />
+              <Input {...form.register('cliente_direccion')} placeholder="Dirección" />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Email</label>
-              <Input
-                type="email"
-                {...form.register('cliente_email')}
-                placeholder="cliente@example.com"
-              />
+               <label className="text-sm font-medium">Email</label>
+               <Input {...form.register('cliente_email')} placeholder="email@cliente.com" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Items y resumen de totales */}
+        {/* Items */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex justify-between">
               <div>
-                <CardTitle>Items de la Factura</CardTitle>
-                <CardDescription>Productos o servicios a facturar</CardDescription>
+                <CardTitle>Items</CardTitle>
+                <CardDescription>Listado de productos</CardDescription>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  append({
-                    unidad_de_medida: UNIDADES_MEDIDA.NIU,
-                    codigo: `PROD${fields.length + 1}`,
-                    descripcion: '',
-                    cantidad: 1,
-                    valor_unitario: 0,
-                    precio_unitario: 0,
-                    descuento: 0,
-                    tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA,
-                  })
-                }
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Agregar Item
+              <Button type="button" variant="outline" size="sm" onClick={() => append({ unidad_de_medida: UNIDADES_MEDIDA.NIU, codigo: 'NEW', descripcion: '', cantidad: 1, valor_unitario: 0, precio_unitario: 0, descuento: 0, tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA })}>
+                <Plus className="w-4 h-4 mr-2" /> Agregar
               </Button>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-6 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] lg:gap-6">
+            <div className="space-y-6 lg:grid lg:grid-cols-[2fr_1fr] lg:gap-6">
               <div className="space-y-4">
                 {fields.map((field, index) => (
                   <div key={field.id} className="p-4 border rounded-lg space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium">Item {index + 1}</h4>
-                      {fields.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => remove(index)}
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      )}
+                    <div className="flex justify-between">
+                        <h4>Item {index + 1}</h4>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-destructive" /></Button>
                     </div>
                     <div className="grid grid-cols-4 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Código</label>
-                        <Input
-                          {...form.register(`items.${index}.codigo`)}
-                          placeholder="PROD001"
-                        />
-                      </div>
-                      <div className="col-span-3 space-y-2">
-                        <label className="text-sm font-medium">Descripción</label>
-                        <Input
-                          {...form.register(`items.${index}.descripcion`)}
-                          placeholder="Descripción del producto/servicio"
-                        />
-                      </div>
+                        <div className="space-y-2"><label className="text-sm">Código</label><Input {...form.register(`items.${index}.codigo`)} /></div>
+                        <div className="col-span-3 space-y-2"><label className="text-sm">Descripción</label><Input {...form.register(`items.${index}.descripcion`)} /></div>
                     </div>
                     <div className="grid grid-cols-5 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Unidad</label>
-                        <Select
-                          value={form.watch(`items.${index}.unidad_de_medida`)}
-                          onValueChange={(value) => form.setValue(`items.${index}.unidad_de_medida`, value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value={UNIDADES_MEDIDA.NIU}>NIU - Unidad</SelectItem>
-                            <SelectItem value={UNIDADES_MEDIDA.ZZ}>ZZ - Servicio</SelectItem>
-                            <SelectItem value={UNIDADES_MEDIDA.KGM}>KGM - Kilogramo</SelectItem>
-                            <SelectItem value={UNIDADES_MEDIDA.LTR}>LTR - Litro</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Cantidad</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...form.register(`items.${index}.cantidad`, {
-                            valueAsNumber: true,
-                            onChange: () => calcularItem(index),
-                          })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Valor Unitario</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...form.register(`items.${index}.valor_unitario`, {
-                            valueAsNumber: true,
-                            onChange: () => calcularItem(index),
-                          })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Descuento</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...form.register(`items.${index}.descuento`, {
-                            valueAsNumber: true,
-                            onChange: () => calcularItem(index),
-                          })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Precio Unit. (c/IGV)</label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          {...form.register(`items.${index}.precio_unitario`, { valueAsNumber: true })}
-                          readOnly
-                          className="bg-muted"
-                        />
-                      </div>
+                        <div className="space-y-2">
+                           <label className="text-sm">Unidad</label>
+                           <Select value={form.watch(`items.${index}.unidad_de_medida`)} onValueChange={(v) => form.setValue(`items.${index}.unidad_de_medida`, v)}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                 <SelectItem value={UNIDADES_MEDIDA.NIU}>Unidad</SelectItem>
+                                 <SelectItem value={UNIDADES_MEDIDA.ZZ}>Servicio</SelectItem>
+                              </SelectContent>
+                           </Select>
+                        </div>
+                        <div className="space-y-2"><label className="text-sm">Cant.</label><Input type="number" step="0.01" {...form.register(`items.${index}.cantidad`, { valueAsNumber: true, onChange: () => calcularItem(index) })} /></div>
+                        <div className="space-y-2"><label className="text-sm">V. Unit</label><Input type="number" step="0.01" {...form.register(`items.${index}.valor_unitario`, { valueAsNumber: true, onChange: () => calcularItem(index) })} /></div>
+                        <div className="space-y-2"><label className="text-sm">Desc.</label><Input type="number" step="0.01" {...form.register(`items.${index}.descuento`, { valueAsNumber: true, onChange: () => calcularItem(index) })} /></div>
+                        <div className="space-y-2"><label className="text-sm">P. Unit</label><Input type="number" readOnly className="bg-muted" {...form.register(`items.${index}.precio_unitario`, { valueAsNumber: true })} /></div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Columna lateral: Productos destacados y resumen de totales */}
+              {/* Totales */}
               <div className="space-y-4">
-                <Card className="border-dashed">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base">Productos destacados</CardTitle>
-                    <CardDescription>
-                      Placeholder para un listado rápido de productos frecuentes.
-                    </CardDescription>
+                 <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Totales</CardTitle>
+                    <CardDescription>Resumen de montos</CardDescription>
                   </CardHeader>
-                  <CardContent className="space-y-2 text-xs">
-                    <p className="text-muted-foreground">
-                      Aquí se mostrará un carrusel o tarjetas clicables para agregar productos
-                      comunes al comprobante.
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <Button type="button" size="sm" variant="outline" className="text-xs">
-                        PROD001 · S/ 0.00
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" className="text-xs">
-                        SERV001 · S/ 0.00
-                      </Button>
-                      <Button type="button" size="sm" variant="outline" className="text-xs">
-                        PROD DESTACADO
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-base">Resumen de totales</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-1 text-xs sm:text-sm">
-                    <div className="flex justify-between">
-                      <span>% Descuento global</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Descuento global (-) S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Descuento por item (-) S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Descuento total (-) S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Anticipo (-) S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Exonerada S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Inafecta S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Gravada S/</span>
-                      <span>{totales.total_gravada.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>IGV S/</span>
-                      <span>{totales.total_igv.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Gratuita S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Otros cargos S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Imp. a la bolsa plástica S/</span>
-                      <span>0.00</span>
-                    </div>
-                    <div className="flex justify-between font-semibold border-t pt-2 mt-1 text-sm">
-                      <span>Total S/</span>
-                      <span>{totales.total.toFixed(2)}</span>
-                    </div>
-                    <div className="flex items-center justify-between pt-2 mt-1 border-t">
-                      <span className="text-sm">¿Detracción?</span>
-                      <Switch
-                        checked={!!form.watch('tiene_detraccion')}
-                        onCheckedChange={(checked) => form.setValue('tiene_detraccion', checked)}
-                      />
-                    </div>
+                  <CardContent className="space-y-1 text-sm">
+                    <div className="flex justify-between"><span>Gravada</span><span>{totales.total_gravada.toFixed(2)}</span></div>
+                    <div className="flex justify-between"><span>IGV</span><span>{totales.total_igv.toFixed(2)}</span></div>
+                    <div className="flex justify-between font-bold border-t pt-2"><span>Total</span><span>{totales.total.toFixed(2)}</span></div>
                   </CardContent>
                 </Card>
               </div>
@@ -784,51 +528,22 @@ export default function EmitirFactura() {
         {/* Observaciones */}
         <Card>
           <CardContent className="pt-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Observaciones</label>
-              <Input
-                {...form.register('observaciones')}
-                placeholder="Notas adicionales (opcional)"
-              />
-            </div>
+            <Input {...form.register('observaciones')} placeholder="Observaciones" />
           </CardContent>
         </Card>
 
-        {/* Acciones */}
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline" onClick={() => form.reset()}>
-            Limpiar
-          </Button>
+          <Button type="button" variant="outline" onClick={() => form.reset()}>Limpiar</Button>
           <Button type="submit" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Emitiendo...
-              </>
-            ) : (
-              <>
-                <FileText className="w-4 h-4 mr-2" />
-                Emitir Factura
-              </>
-            )}
+            {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileText className="w-4 h-4 mr-2" />} Emitir Factura
           </Button>
         </div>
       </form>
 
-      {/* PDF Preview */}
       {pdfUrl && (
         <Card>
-          <CardHeader>
-            <CardTitle>Comprobante Generado</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-4">
-              <Button asChild>
-                <a href={pdfUrl} target="_blank" rel="noopener noreferrer">
-                  Ver PDF
-                </a>
-              </Button>
-            </div>
+          <CardContent className="pt-6">
+            <Button asChild><a href={pdfUrl} target="_blank" rel="noopener noreferrer">Ver PDF Generado</a></Button>
           </CardContent>
         </Card>
       )}

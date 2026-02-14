@@ -11,13 +11,71 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
+use App\Services\NubefactClient;
+
 class FacturacionController extends Controller
 {
     protected $facturacionService;
+    protected $nubefactClient;
 
-    public function __construct(FacturacionService $facturacionService)
+    public function __construct(FacturacionService $facturacionService, NubefactClient $nubefactClient)
     {
         $this->facturacionService = $facturacionService;
+        $this->nubefactClient = $nubefactClient;
+    }
+    /**
+     * Obtener correlativo seguro (sin colisión en NubeFact)
+     * GET /api/facturacion/correlativo-seguro
+     * Params: empresa_id, tipo_doc (SUNAT), serie
+     */
+    public function correlativoSeguro(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'empresa_id' => 'required|exists:empresas,id',
+            'tipo_doc' => 'required|in:01,03,07,08',
+            'serie' => 'required|string|max:4',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $ultimo = \App\Models\Comprobante::where('empresa_id', $request->empresa_id)
+            ->where('tipo_doc', $request->tipo_doc)
+            ->where('serie', $request->serie)
+            ->orderBy('correlativo', 'desc')
+            ->first();
+
+        $siguiente = $ultimo ? (int) $ultimo->correlativo + 1 : 1;
+        $tipoNubeFact = \App\Services\NubefactClient::mapearTipoComprobante($request->tipo_doc);
+        $maxIntentos = 10;
+        $intentos = 0;
+        $correlativoSeguro = $siguiente;
+
+        while ($intentos < $maxIntentos) {
+            try {
+                $resp = $this->nubefactClient->consultarComprobante($tipoNubeFact, $request->serie, $correlativoSeguro);
+                // Si existe en NubeFact, incrementar
+                if (isset($resp['numero']) || isset($resp['serie'])) {
+                    $correlativoSeguro++;
+                    $intentos++;
+                    continue;
+                }
+            } catch (\Exception $e) {
+                // Si NubeFact responde error, asumimos que no existe
+                break;
+            }
+            break;
+        }
+
+        return response()->json([
+            'serie' => $request->serie,
+            'correlativo' => str_pad($correlativoSeguro, 8, '0', STR_PAD_LEFT),
+            'numero_completo' => $request->serie.'-'.str_pad($correlativoSeguro, 8, '0', STR_PAD_LEFT),
+        ]);
     }
 
     /**
