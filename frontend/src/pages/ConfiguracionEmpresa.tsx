@@ -52,10 +52,14 @@ export default function ConfiguracionEmpresa() {
         const lista = (res.data as unknown as { data?: Empresa[] }).data ?? [];
         setEmpresas(lista);
 
-        if (!empresaId && lista.length > 0) {
-          const primera = lista[0];
-          setEmpresaId(primera.id);
-          localStorage.setItem(STORAGE_KEY, String(primera.id));
+        if (lista.length > 0) {
+          // Si no hay empresa guardada o la guardada no existe en la lista, usar la primera
+          const existeGuardada = empresaId && lista.some(e => e.id === empresaId);
+          if (!existeGuardada) {
+            const primera = lista[0];
+            setEmpresaId(primera.id);
+            localStorage.setItem(STORAGE_KEY, String(primera.id));
+          }
         }
       } catch {
         toast.error('Error al cargar empresas');

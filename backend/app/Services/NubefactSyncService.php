@@ -50,8 +50,18 @@ class NubefactSyncService
             // Consultar comprobante en NubeFact
             $response = $this->client->consultarComprobante($tipoNubefact, $serie, $numero);
 
-            // Buscar o crear comprobante en BD
-            $comprobante = Comprobante::where([
+            // Si no se especifica empresa_id, usar la primera empresa disponible
+            if (!$empresaId) {
+                $empresaId = Empresa::first()?->id;
+                if (!$empresaId) {
+                    throw new Exception('No hay empresas registradas en el sistema');
+                }
+            }
+
+            // Buscar comprobante en BD (incluyendo soft-deleted para evitar unique constraint)
+            // IMPORTANTE: Buscar por empresa_id también para evitar duplicados
+            $comprobante = Comprobante::withTrashed()->where([
+                'empresa_id' => $empresaId,
                 'tipo_doc' => $tipoDoc,
                 'serie' => $serie,
                 'correlativo' => $numero,
@@ -62,6 +72,10 @@ class NubefactSyncService
                 $comprobante = $this->crearComprobanteDesdeNubefact($response, $tipoDoc, $serie, $numero, $empresaId);
                 $accion = 'creado';
             } else {
+                // Si estaba soft-deleted, restaurarlo
+                if ($comprobante->trashed()) {
+                    $comprobante->restore();
+                }
                 // Si existe, actualizar solo campos NubeFact
                 $empresaIdActual = $empresaId ?? $comprobante->empresa_id;
 
@@ -100,10 +114,20 @@ class NubefactSyncService
             ];
 
         } catch (Exception $e) {
+            // Detectar si el documento simplemente no existe en NubeFact (código 24)
+            if (str_contains($e->getMessage(), 'Documento no existe') || str_contains($e->getMessage(), '"codigo":24')) {
+                return [
+                    'success' => false,
+                    'no_encontrado' => true,
+                    'mensaje' => "Comprobante {$serie}-{$numero} no existe en NubeFact",
+                ];
+            }
+
             Log::error("Error al sincronizar comprobante {$serie}-{$numero}: ".$e->getMessage());
 
             return [
                 'success' => false,
+                'no_encontrado' => false,
                 'mensaje' => 'Error: '.$e->getMessage(),
             ];
         }
@@ -150,6 +174,8 @@ class NubefactSyncService
                     } else {
                         $resultados['actualizados']++;
                     }
+                } elseif (!empty($resultado['no_encontrado'])) {
+                    $resultados['no_encontrados']++;
                 } else {
                     $resultados['errores']++;
                 }
@@ -252,6 +278,199 @@ class NubefactSyncService
     }
 
     /**
+     * Enriquecer comprobantes sincronizados descargando y parseando sus XMLs
+     * Extrae datos completos de clientes e items del XML UBL 2.1
+     */
+    public function enriquecerDesdeXml(?int $empresaId = null): array
+    {
+        $query = Comprobante::whereNotNull('nubefact_xml_url')
+            ->where('cliente_razon_social', 'CLIENTE SINCRONIZADO');
+
+        if ($empresaId) {
+            $query->where('empresa_id', $empresaId);
+        }
+
+        $comprobantes = $query->get();
+
+        $resultados = [
+            'total' => $comprobantes->count(),
+            'exitosos' => 0,
+            'errores' => 0,
+            'detalles' => [],
+        ];
+
+        foreach ($comprobantes as $comprobante) {
+            try {
+                $this->enriquecerComprobanteDesdeXml($comprobante);
+                $resultados['exitosos']++;
+                $resultados['detalles'][] = [
+                    'comprobante' => "{$comprobante->serie}-{$comprobante->correlativo}",
+                    'success' => true,
+                ];
+                usleep(200000);
+            } catch (Exception $e) {
+                $resultados['errores']++;
+                $resultados['detalles'][] = [
+                    'comprobante' => "{$comprobante->serie}-{$comprobante->correlativo}",
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        return $resultados;
+    }
+
+    /**
+     * Enriquecer un comprobante individual desde su XML
+     */
+    protected function enriquecerComprobanteDesdeXml(Comprobante $comprobante): void
+    {
+        $xmlContent = @file_get_contents($comprobante->nubefact_xml_url);
+        if (! $xmlContent) {
+            throw new Exception("No se pudo descargar el XML de {$comprobante->serie}-{$comprobante->correlativo}");
+        }
+
+        $doc = new \DOMDocument();
+        $doc->loadXML($xmlContent);
+        $xpath = new \DOMXPath($doc);
+        $xpath->registerNamespace('cac', 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
+        $xpath->registerNamespace('cbc', 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
+
+        DB::beginTransaction();
+        try {
+            // --- Actualizar datos del cliente en el comprobante ---
+            $razonSocial = $xpath->evaluate('string(//cac:AccountingCustomerParty//cbc:RegistrationName)');
+            $direccion = $xpath->evaluate('string(//cac:AccountingCustomerParty//cac:RegistrationAddress//cbc:Line)');
+            $numDoc = $xpath->evaluate('string(//cac:AccountingCustomerParty//cbc:ID)');
+            $tipoDoc = $xpath->evaluate('string(//cac:AccountingCustomerParty//cbc:ID/@schemeID)');
+
+            if ($razonSocial) {
+                $comprobante->cliente_razon_social = $razonSocial;
+            }
+            if ($direccion) {
+                $comprobante->cliente_direccion = $direccion;
+            }
+            if ($numDoc) {
+                $comprobante->cliente_num_doc = $numDoc;
+            }
+            if ($tipoDoc) {
+                $comprobante->cliente_tipo_doc = $tipoDoc;
+            }
+
+            // Fecha y hora del XML (más precisa que del QR)
+            $fechaXml = $xpath->evaluate('string(//cbc:IssueDate)');
+            $horaXml = $xpath->evaluate('string(//cbc:IssueTime)');
+            if ($fechaXml) {
+                $fechaCompleta = $horaXml ? "{$fechaXml} {$horaXml}" : $fechaXml;
+                $comprobante->fecha_emision = $fechaCompleta;
+            }
+
+            // Fecha vencimiento
+            $fechaVenc = $xpath->evaluate('string(//cbc:DueDate)');
+            if ($fechaVenc) {
+                $comprobante->fecha_vencimiento = $fechaVenc;
+            }
+
+            $comprobante->save();
+
+            // --- Crear o actualizar entidad ---
+            if ($numDoc) {
+                Entidad::updateOrCreate(
+                    [
+                        'empresa_id' => $comprobante->empresa_id,
+                        'num_doc' => $numDoc,
+                    ],
+                    [
+                        'tipo_doc' => $tipoDoc ?: '6',
+                        'denominacion' => $razonSocial ?: '',
+                        'direccion' => $direccion ?: null,
+                        'es_cliente' => true,
+                    ]
+                );
+            }
+
+            // --- Crear items si no existen ---
+            $existingItems = ComprobanteItem::where('comprobante_id', $comprobante->id)->count();
+            if ($existingItems === 0) {
+                // Determinar el tag de línea según tipo de doc
+                $lineTag = '//cac:InvoiceLine';
+                if (in_array($comprobante->tipo_doc, ['07', '08'])) {
+                    // Notas de crédito/débito usan DebitNoteLine / CreditNoteLine
+                    $testCredit = $xpath->query('//cac:CreditNoteLine');
+                    $testDebit = $xpath->query('//cac:DebitNoteLine');
+                    if ($testCredit->length > 0) {
+                        $lineTag = '//cac:CreditNoteLine';
+                    } elseif ($testDebit->length > 0) {
+                        $lineTag = '//cac:DebitNoteLine';
+                    }
+                }
+
+                $xmlItems = $xpath->query($lineTag);
+                foreach ($xmlItems as $i => $xmlItem) {
+                    $desc = $xpath->evaluate('string(cac:Item/cbc:Description)', $xmlItem);
+                    $qtyNode = $xpath->evaluate('string(cbc:InvoicedQuantity)', $xmlItem)
+                        ?: $xpath->evaluate('string(cbc:CreditedQuantity)', $xmlItem)
+                        ?: $xpath->evaluate('string(cbc:DebitedQuantity)', $xmlItem);
+                    $unit = $xpath->evaluate('string(cbc:InvoicedQuantity/@unitCode)', $xmlItem)
+                        ?: $xpath->evaluate('string(cbc:CreditedQuantity/@unitCode)', $xmlItem)
+                        ?: $xpath->evaluate('string(cbc:DebitedQuantity/@unitCode)', $xmlItem)
+                        ?: 'NIU';
+                    $valorUnitario = (float) $xpath->evaluate('string(cac:Price/cbc:PriceAmount)', $xmlItem);
+                    $codigo = $xpath->evaluate('string(cac:Item/cac:SellersItemIdentification/cbc:ID)', $xmlItem);
+                    $subtotal = (float) $xpath->evaluate('string(cbc:LineExtensionAmount)', $xmlItem);
+
+                    // IGV del item
+                    $igvAmount = (float) $xpath->evaluate('string(cac:TaxTotal/cbc:TaxAmount)', $xmlItem);
+                    $tipoIgv = $xpath->evaluate('string(cac:TaxTotal/cac:TaxSubtotal/cac:TaxCategory/cbc:TaxExemptionReasonCode)', $xmlItem);
+
+                    $cantidad = (float) ($qtyNode ?: 1);
+                    $precioUnitario = $igvAmount > 0
+                        ? round($valorUnitario * 1.18, 2)
+                        : $valorUnitario;
+
+                    $item = new ComprobanteItem();
+                    $item->comprobante_id = $comprobante->id;
+                    $item->item = $i + 1;
+                    $item->codigo_producto = $codigo ?: '';
+                    $item->descripcion = $desc ?: '';
+                    $item->unidad = $unit;
+                    $item->cantidad = $cantidad;
+                    $item->mto_valor_unitario = $valorUnitario;
+                    $item->mto_precio_unitario = $precioUnitario;
+                    $item->mto_valor_venta = $subtotal;
+                    $item->tip_afe_igv = $tipoIgv ?: '10';
+                    $item->igv = $igvAmount;
+                    $item->total_impuestos = $igvAmount;
+                    $item->descuento = 0;
+                    $item->save();
+
+                    // Sincronizar producto
+                    if ($codigo) {
+                        Producto::updateOrCreate(
+                            [
+                                'empresa_id' => $comprobante->empresa_id,
+                                'codigo' => $codigo,
+                            ],
+                            [
+                                'descripcion' => $desc ?: '',
+                                'unidad_medida' => $unit,
+                                'precio_venta_unitario' => round($valorUnitario * 1.18, 2),
+                                'valor_venta_unitario' => $valorUnitario,
+                            ]
+                        );
+                    }
+                }
+            }
+
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
      * Obtener información de un comprobante directamente desde NubeFact
      * sin guardarlo en la BD (solo consulta)
      *
@@ -281,6 +500,35 @@ class NubefactSyncService
     }
 
     /**
+     * Extraer datos del código QR de NubeFact
+     * Formato: RUC|tipo_doc|serie|numero|IGV|total|fecha_dd/mm/yyyy|tipo_doc_cliente|num_doc_cliente|hash
+     */
+    protected function extraerDatosQR(?string $cadenaQR): array
+    {
+        if (! $cadenaQR) {
+            return [];
+        }
+
+        $partes = explode('|', $cadenaQR);
+
+        if (count($partes) < 9) {
+            return [];
+        }
+
+        return [
+            'ruc_emisor' => $partes[0] ?? null,
+            'tipo_doc' => $partes[1] ?? null,
+            'serie' => $partes[2] ?? null,
+            'numero' => $partes[3] ?? null,
+            'igv' => (float) str_replace(',', '', $partes[4] ?? '0'),
+            'total' => (float) str_replace(',', '', $partes[5] ?? '0'),
+            'fecha' => $partes[6] ?? null, // DD/MM/YYYY
+            'cliente_tipo_doc' => $partes[7] ?? null,
+            'cliente_num_doc' => $partes[8] ?? null,
+        ];
+    }
+
+    /**
      * Crear comprobante en BD desde respuesta de NubeFact
      */
     protected function crearComprobanteDesdeNubefact(
@@ -301,6 +549,9 @@ class NubefactSyncService
                 }
             }
 
+            // Extraer datos del QR (disponible en consultar_comprobante)
+            $qr = $this->extraerDatosQR($response['cadena_para_codigo_qr'] ?? null);
+
             // Crear comprobante básico
             $comprobante = new Comprobante;
             $comprobante->empresa_id = $empresaId;
@@ -308,37 +559,51 @@ class NubefactSyncService
             $comprobante->serie = $serie;
             $comprobante->correlativo = $numero;
 
-            // Extraer datos del cliente desde la respuesta
-            $comprobante->cliente_tipo_doc = $response['cliente_tipo_de_documento'] ?? '6';
-            $comprobante->cliente_num_doc = $response['cliente_numero_de_documento'] ?? '';
-            $comprobante->cliente_razon_social = $response['cliente_denominacion'] ?? '';
+            // Cliente - primero del response directo, luego del QR
+            $comprobante->cliente_tipo_doc = $response['cliente_tipo_de_documento']
+                ?? $qr['cliente_tipo_doc'] ?? '6';
+            $comprobante->cliente_num_doc = $response['cliente_numero_de_documento']
+                ?? $qr['cliente_num_doc'] ?? '';
+            $comprobante->cliente_razon_social = $response['cliente_denominacion'] ?? 'CLIENTE SINCRONIZADO';
             $comprobante->cliente_direccion = $response['cliente_direccion'] ?? null;
             $comprobante->cliente_email = $response['cliente_email'] ?? null;
 
-            // Fechas
-            $comprobante->fecha_emision = $this->convertirFechaNubefact($response['fecha_de_emision'] ?? null);
+            // Fecha - del response directo, del QR, o fecha actual como último recurso
+            $fechaEmision = $response['fecha_de_emision'] ?? $qr['fecha'] ?? null;
+            $comprobante->fecha_emision = $this->convertirFechaNubefact($fechaEmision)
+                ?? now()->format('Y-m-d H:i:s');
             $comprobante->fecha_vencimiento = $this->convertirFechaNubefact($response['fecha_de_vencimiento'] ?? null);
 
-            // Montos
-            $comprobante->moneda = $this->mapearMoneda($response['codigo_tipo_moneda'] ?? '1');
-            $comprobante->tipo_cambio = $response['tipo_de_cambio'] ?? null;
-            $comprobante->mto_oper_gravadas = $response['total_gravada'] ?? 0;
-            $comprobante->mto_oper_exoneradas = $response['total_exonerada'] ?? 0;
-            $comprobante->mto_oper_inafectas = $response['total_inafecta'] ?? 0;
-            $comprobante->mto_igv = $response['total_igv'] ?? 0;
-            $comprobante->mto_imp_venta = $response['total'] ?? 0;
+            // Montos - del response directo o calculados desde el QR
+            $comprobante->codigo_tipo_moneda = $this->mapearMoneda((string) ($response['moneda'] ?? '1'));
+            $totalIgv = ! empty($response['total_igv']) ? $response['total_igv'] : ($qr['igv'] ?? 0);
+            $totalImporte = ! empty($response['total']) ? $response['total'] : ($qr['total'] ?? 0);
+            $totalGravada = $totalImporte - $totalIgv;
 
-            // Estado
-            $comprobante->estado_sunat = $response['sunat_description'] ?? 'pendiente';
-            $comprobante->pagado = ($response['pagado'] ?? 'NO') === 'SI';
+            $comprobante->mto_oper_gravadas = ! empty($response['total_gravada']) ? $response['total_gravada'] : max($totalGravada, 0);
+            $comprobante->mto_oper_exoneradas = ! empty($response['total_exonerada']) ? $response['total_exonerada'] : 0;
+            $comprobante->mto_oper_inafectas = ! empty($response['total_inafecta']) ? $response['total_inafecta'] : 0;
+            $comprobante->mto_oper_gratuitas = ! empty($response['total_gratuita']) ? $response['total_gratuita'] : 0;
+            $comprobante->mto_igv = $totalIgv;
+            $comprobante->mto_imp_venta = $totalImporte;
+            $comprobante->observaciones = $response['observaciones'] ?? null;
 
-            // Campos NubeFact
+            // Estado basado en aceptación SUNAT
+            $comprobante->estado_sunat = ($response['aceptada_por_sunat'] ?? false) ? 'aceptado' : 'pendiente';
+            $comprobante->anulado = $response['anulado'] ?? false;
+            $comprobante->codigo_sunat = $response['sunat_responsecode'] ?? null;
+            $comprobante->mensaje_sunat = $response['sunat_description'] ?? null;
+            $comprobante->hash_cpe = $response['codigo_hash'] ?? null;
+            $comprobante->pagado = false;
+
+            // Campos NubeFact (enlaces PDF, XML, CDR) + parseo de QR y XML para montos
             $this->actualizarCamposNubefact($comprobante, $response);
 
             $comprobante->save();
 
-            // Sincronizar entidad/cliente si hay datos
-            if (! empty($response['cliente_numero_de_documento'])) {
+            // Sincronizar entidad/cliente si hay datos de documento
+            $numDocCliente = $response['cliente_numero_de_documento'] ?? $qr['cliente_num_doc'] ?? null;
+            if (! empty($numDocCliente)) {
                 $this->sincronizarEntidadDesdeNubefact($comprobante, $response, $empresaId);
             }
 
@@ -359,24 +624,62 @@ class NubefactSyncService
 
     /**
      * Actualizar solo campos NubeFact en un comprobante existente
+     * ADEMÁS parsea el QR y XML para obtener montos reales
      */
     protected function actualizarCamposNubefact(Comprobante $comprobante, array $response): void
     {
         $comprobante->nubefact_enlace = $response['enlace'] ?? $comprobante->nubefact_enlace;
         $comprobante->nubefact_aceptada_por_sunat = $response['aceptada_por_sunat'] ?? false;
-        $comprobante->nubefact_sunat_ticket = $response['sunat_ticket'] ?? null;
-        $comprobante->nubefact_pdf_url = $response['pdf_url'] ?? null;
-        $comprobante->nubefact_xml_url = $response['xml_url'] ?? null;
-        $comprobante->nubefact_cdr_url = $response['cdr_url'] ?? null;
+        $comprobante->nubefact_sunat_ticket = $response['sunat_ticket_numero'] ?? null;
+        $comprobante->nubefact_pdf_url = $response['enlace_del_pdf'] ?? null;
+        $comprobante->nubefact_xml_url = $response['enlace_del_xml'] ?? null;
+        $comprobante->nubefact_cdr_url = $response['enlace_del_cdr'] ?? null;
         $comprobante->nubefact_cadena_qr = $response['cadena_para_codigo_qr'] ?? null;
         $comprobante->nubefact_codigo_hash = $response['codigo_hash'] ?? null;
         $comprobante->nubefact_codigo_barras = $response['codigo_de_barras'] ?? null;
         $comprobante->nubefact_response_json = json_encode($response);
         $comprobante->nubefact_consultado_at = now();
 
-        // Actualizar estado
-        if (! empty($response['sunat_description'])) {
-            $comprobante->estado_sunat = $response['sunat_description'];
+        // Estado basado en aceptación SUNAT
+        $comprobante->estado_sunat = ($response['aceptada_por_sunat'] ?? false) ? 'aceptado' : 'pendiente';
+        $comprobante->codigo_sunat = $response['sunat_responsecode'] ?? null;
+        $comprobante->mensaje_sunat = $response['sunat_description'] ?? null;
+
+        // IMPORTANTE: Actualizar campo anulado desde la API
+        if (isset($response['anulado'])) {
+            $comprobante->anulado = $response['anulado'];
+        }
+
+        // EXTRAER MONTOS DEL CÓDIGO QR (básicos: IGV y Total)
+        $qr = $this->extraerDatosQR($response['cadena_para_codigo_qr'] ?? null);
+        if (!empty($qr)) {
+            // Cliente desde QR si no se había actualizado
+            if (empty($comprobante->cliente_num_doc) && !empty($qr['cliente_num_doc'])) {
+                $comprobante->cliente_num_doc = $qr['cliente_num_doc'];
+                $comprobante->cliente_tipo_doc = $qr['cliente_tipo_doc'] ?? '6';
+            }
+
+            // Montos básicos desde QR
+            if (!empty($qr['igv']) && $comprobante->mto_igv == 0) {
+                $comprobante->mto_igv = $qr['igv'];
+            }
+            if (!empty($qr['total']) && $comprobante->mto_imp_venta == 0) {
+                $comprobante->mto_imp_venta = $qr['total'];
+                // Calcular gravada estimada
+                if ($comprobante->mto_oper_gravadas == 0) {
+                    $comprobante->mto_oper_gravadas = $qr['total'] - $qr['igv'];
+                }
+            }
+        }
+
+        // DESCARGAR Y PARSEAR XML PARA OBTENER TODOS LOS MONTOS DETALLADOS
+        if (!empty($response['enlace_del_xml'])) {
+            try {
+                $this->actualizarMontosDesdeXml($comprobante, $response['enlace_del_xml']);
+            } catch (\Exception $e) {
+                // Si falla el XML, continuar con los datos del QR
+                Log::warning("No se pudo parsear XML para {$comprobante->serie}-{$comprobante->correlativo}: {$e->getMessage()}");
+            }
         }
 
         $comprobante->save();
@@ -388,16 +691,17 @@ class NubefactSyncService
      */
     protected function sincronizarEntidadDesdeNubefact(Comprobante $comprobante, array $response, int $empresaId): void
     {
-        $numDoc = $response['cliente_numero_de_documento'] ?? null;
+        // Usar datos del comprobante ya mapeado (pueden venir del QR o del response directo)
+        $numDoc = $response['cliente_numero_de_documento'] ?? $comprobante->cliente_num_doc ?? null;
 
         if (! $numDoc) {
             return;
         }
 
-        $tipoDoc = $response['cliente_tipo_de_documento'] ?? '6';
-        $denominacion = $response['cliente_denominacion'] ?? '';
-        $direccion = $response['cliente_direccion'] ?? null;
-        $email = $response['cliente_email'] ?? null;
+        $tipoDoc = $response['cliente_tipo_de_documento'] ?? $comprobante->cliente_tipo_doc ?? '6';
+        $denominacion = $response['cliente_denominacion'] ?? $comprobante->cliente_razon_social ?? '';
+        $direccion = $response['cliente_direccion'] ?? $comprobante->cliente_direccion ?? null;
+        $email = $response['cliente_email'] ?? $comprobante->cliente_email ?? null;
 
         // Buscar o crear entidad
         $entidad = Entidad::updateOrCreate(
@@ -431,21 +735,23 @@ class NubefactSyncService
      */
     protected function crearItemsDesdeNubefact(Comprobante $comprobante, array $items, int $empresaId): void
     {
-        foreach ($items as $itemData) {
-            // Crear item del comprobante
+        foreach ($items as $index => $itemData) {
+            $igv = ! empty($itemData['igv']) ? (float) $itemData['igv'] : 0;
+
             $item = new ComprobanteItem;
             $item->comprobante_id = $comprobante->id;
-            $item->unidad_medida = $itemData['unidad_de_medida'] ?? 'NIU';
-            $item->codigo = $itemData['codigo'] ?? null;
+            $item->item = $index + 1;
+            $item->unidad = $itemData['unidad_de_medida'] ?? 'NIU';
+            $item->codigo_producto = $itemData['codigo'] ?? '';
             $item->descripcion = $itemData['descripcion'] ?? '';
             $item->cantidad = $itemData['cantidad'] ?? 1;
             $item->mto_valor_unitario = $itemData['valor_unitario'] ?? 0;
             $item->mto_precio_unitario = $itemData['precio_unitario'] ?? 0;
-            $item->descuento = $itemData['descuento'] ?? 0;
-            $item->subtotal = $itemData['subtotal'] ?? 0;
-            $item->tipo_igv = $itemData['tipo_de_igv'] ?? '10';
-            $item->igv = $itemData['igv'] ?? 0;
-            $item->total = $itemData['total'] ?? 0;
+            $item->mto_valor_venta = $itemData['subtotal'] ?? 0;
+            $item->tip_afe_igv = $itemData['tipo_de_igv'] ?? 1;
+            $item->igv = $igv;
+            $item->total_impuestos = $igv;
+            $item->descuento = ! empty($itemData['descuento']) ? $itemData['descuento'] : 0;
             $item->save();
 
             // Sincronizar producto si tiene código
@@ -523,5 +829,124 @@ class NubefactSyncService
             '3' => 'EUR',
             default => 'PEN',
         };
+    }
+
+    /**
+     * Actualizar montos del comprobante parseando el XML
+     * Obtiene los montos REALES desde el XML UBL 2.1
+     */
+    protected function actualizarMontosDesdeXml(Comprobante $comprobante, string $xmlUrl): void
+    {
+        $xmlContent = @file_get_contents($xmlUrl);
+        if (!$xmlContent) {
+            throw new \Exception("No se pudo descargar el XML desde: {$xmlUrl}");
+        }
+
+        $doc = new \DOMDocument();
+        @$doc->loadXML($xmlContent);
+        $xpath = new \DOMXPath($doc);
+        $xpath->registerNamespace('cac', 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
+        $xpath->registerNamespace('cbc', 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
+
+        // Total Gravada (operaciones afectas a IGV - código 1000)
+        $totalGravada = (float) $xpath->evaluate('string(//cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID="1000"]/cbc:TaxableAmount)');
+
+        // Total Exonerada (código 9997)
+        $totalExonerada = (float) $xpath->evaluate('string(//cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID="9997"]/cbc:TaxableAmount)');
+
+        // Total Inafecta (código 9998)
+        $totalInafecta = (float) $xpath->evaluate('string(//cac:TaxTotal/cac:TaxSubtotal[cac:TaxCategory/cac:TaxScheme/cbc:ID="9998"]/cbc:TaxableAmount)');
+
+        // Total Gratuita (en AllowanceCharge con ChargeIndicator=false)
+        $totalGratuita = (float) $xpath->evaluate('string(//cac:AllowanceCharge[cbc:ChargeIndicator="false"]/cbc:Amount)');
+
+        // Total IGV
+        $totalIgv = (float) $xpath->evaluate('string(//cac:TaxTotal[cac:TaxSubtotal/cac:TaxCategory/cac:TaxScheme/cbc:ID="1000"]/cbc:TaxAmount)');
+
+        // Total Venta (PayableAmount)
+        $totalVenta = (float) $xpath->evaluate('string(//cac:LegalMonetaryTotal/cbc:PayableAmount)');
+
+        // Cliente (si no estaba en el comprobante)
+        $clienteNumDoc = $xpath->evaluate('string(//cac:AccountingCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID)');
+        $clienteRazonSocial = $xpath->evaluate('string(//cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationName)');
+        $clienteTipoDoc = $xpath->evaluate('string(//cac:AccountingCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID/@schemeID)');
+        $clienteDireccion = $xpath->evaluate('string(//cac:AccountingCustomerParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationAddress/cac:AddressLine/cbc:Line)');
+
+        // Fecha de emisión del XML (más precisa)
+        $fechaEmision = $xpath->evaluate('string(//cbc:IssueDate)');
+        $horaEmision = $xpath->evaluate('string(//cbc:IssueTime)');
+
+        // Moneda
+        $moneda = $xpath->evaluate('string(//cbc:DocumentCurrencyCode)');
+
+        // Forma de pago
+        $formaPago = $xpath->evaluate('string(//cac:PaymentTerms/cbc:PaymentMeansID)');
+
+        // Fecha de vencimiento
+        $fechaVencimiento = $xpath->evaluate('string(//cbc:DueDate)');
+
+        // ACTUALIZAR CAMPOS DEL COMPROBANTE
+        if ($totalGravada > 0) {
+            $comprobante->mto_oper_gravadas = $totalGravada;
+        }
+        if ($totalExonerada > 0) {
+            $comprobante->mto_oper_exoneradas = $totalExonerada;
+        }
+        if ($totalInafecta > 0) {
+            $comprobante->mto_oper_inafectas = $totalInafecta;
+        }
+        if ($totalGratuita > 0) {
+            $comprobante->mto_oper_gratuitas = $totalGratuita;
+        }
+        if ($totalIgv > 0) {
+            $comprobante->mto_igv = $totalIgv;
+        }
+        if ($totalVenta > 0) {
+            $comprobante->mto_imp_venta = $totalVenta;
+        }
+
+        // Actualizar cliente si no está completo
+        if ($clienteNumDoc && empty($comprobante->cliente_num_doc)) {
+            $comprobante->cliente_num_doc = $clienteNumDoc;
+        }
+        if ($clienteRazonSocial && ($comprobante->cliente_razon_social === 'CLIENTE SINCRONIZADO' || empty($comprobante->cliente_razon_social))) {
+            $comprobante->cliente_razon_social = $clienteRazonSocial;
+        }
+        if ($clienteTipoDoc && empty($comprobante->cliente_tipo_doc)) {
+            $comprobante->cliente_tipo_doc = $clienteTipoDoc;
+        }
+        if ($clienteDireccion && empty($comprobante->cliente_direccion)) {
+            $comprobante->cliente_direccion = $clienteDireccion;
+        }
+
+        // Actualizar fecha de emisión (más precisa del XML)
+        if ($fechaEmision) {
+            $fechaCompleta = $horaEmision ? "{$fechaEmision} {$horaEmision}" : $fechaEmision;
+            $comprobante->fecha_emision = $fechaCompleta;
+        }
+
+        // Actualizar moneda
+        if ($moneda) {
+            $comprobante->codigo_tipo_moneda = $moneda;
+        }
+
+        // Actualizar forma de pago
+        if ($formaPago) {
+            $comprobante->forma_pago = $formaPago === 'Credito' || $formaPago === 'Crédito' ? 'Credito' : 'Contado';
+        }
+
+        // Actualizar fecha de vencimiento
+        if ($fechaVencimiento) {
+            $comprobante->fecha_vencimiento = $fechaVencimiento;
+        }
+
+        Log::info("Montos actualizados desde XML para {$comprobante->serie}-{$comprobante->correlativo}", [
+            'gravada' => $totalGravada,
+            'exonerada' => $totalExonerada,
+            'inafecta' => $totalInafecta,
+            'gratuita' => $totalGratuita,
+            'igv' => $totalIgv,
+            'total' => $totalVenta,
+        ]);
     }
 }

@@ -25,15 +25,18 @@ class NubefactMapper
         // Procesar items y obtener totales recalculados con precisión consistente
         [$items, $itemTotals] = self::processItems($comprobante->items);
 
+        // Mapear sunat_transaction desde codigo_tipo_operacion
+        $sunatTransaction = self::mapSunatTransaction($comprobante->codigo_tipo_operacion ?? '0101');
+
         $data = [
             'operacion' => 'generar_comprobante',
-            'tipo_de_comprobante' => (string) self::mapTipoComprobante($comprobante->tipo_doc),
+            'tipo_de_comprobante' => self::mapTipoComprobante($comprobante->tipo_doc),
             'serie' => $comprobante->serie,
-            'numero' => (string) $comprobante->correlativo,
-            'sunat_transaction' => 1, // Por defecto venta interna
+            'numero' => (int) $comprobante->correlativo,
+            'sunat_transaction' => $sunatTransaction,
 
             // Cliente
-            'cliente_tipo_de_documento' => (int) $comprobante->cliente_tipo_doc,
+            'cliente_tipo_de_documento' => (string) $comprobante->cliente_tipo_doc,
             'cliente_numero_de_documento' => $comprobante->cliente_num_doc,
             'cliente_denominacion' => $comprobante->cliente_razon_social,
             'cliente_direccion' => $comprobante->cliente_direccion ?? '-',
@@ -46,27 +49,27 @@ class NubefactMapper
             'fecha_de_vencimiento' => $comprobante->fecha_vencimiento?->format('d-m-Y') ?? '',
 
             // Moneda e IGV
-            'moneda' => (string) self::mapMoneda($comprobante->codigo_tipo_moneda ?? 'PEN'),
+            'moneda' => (int) self::mapMoneda($comprobante->codigo_tipo_moneda ?? 'PEN'),
             'tipo_de_cambio' => $comprobante->tipo_de_cambio ?? '',
-            'porcentaje_de_igv' => '18.00',
+            'porcentaje_de_igv' => 18.00,
 
             // Totales recalculados desde items para consistencia SUNAT
             'descuento_global' => '',
             'total_descuento' => ($comprobante->total_descuentos ?? 0) > 0
-                ? number_format($comprobante->total_descuentos, 2, '.', '') : '',
+                ? round((float) $comprobante->total_descuentos, 2) : '',
             'total_anticipo' => '',
             'total_gravada' => $itemTotals['total_gravada'] > 0
-                ? number_format($itemTotals['total_gravada'], 2, '.', '') : '',
+                ? $itemTotals['total_gravada'] : '',
             'total_inafecta' => $itemTotals['total_inafecta'] > 0
-                ? number_format($itemTotals['total_inafecta'], 2, '.', '') : '',
+                ? $itemTotals['total_inafecta'] : '',
             'total_exonerada' => $itemTotals['total_exonerada'] > 0
-                ? number_format($itemTotals['total_exonerada'], 2, '.', '') : '',
-            'total_igv' => number_format($itemTotals['total_igv'], 2, '.', ''),
+                ? $itemTotals['total_exonerada'] : '',
+            'total_igv' => $itemTotals['total_igv'],
             'total_gratuita' => $itemTotals['total_gratuita'] > 0
-                ? number_format($itemTotals['total_gratuita'], 2, '.', '') : '',
+                ? $itemTotals['total_gratuita'] : '',
             'total_otros_cargos' => ($comprobante->mto_otros_cargos ?? 0) > 0
-                ? number_format($comprobante->mto_otros_cargos, 2, '.', '') : '',
-            'total' => number_format($itemTotals['total'], 2, '.', ''),
+                ? round((float) $comprobante->mto_otros_cargos, 2) : '',
+            'total' => $itemTotals['total'],
 
             // Percepción/Retención
             'percepcion_tipo' => '',
@@ -79,18 +82,18 @@ class NubefactMapper
             'total_impuestos_bolsas' => '',
 
             // Detracción completa según API NubeFact v2.9
-            'detraccion' => $comprobante->tiene_detraccion ? 'true' : 'false',
+            'detraccion' => (bool) $comprobante->tiene_detraccion,
             'detraccion_tipo' => $comprobante->tiene_detraccion && $comprobante->detraccion_tipo
-                ? $comprobante->detraccion_tipo
+                ? (int) $comprobante->detraccion_tipo
                 : '',
             'detraccion_total' => $comprobante->tiene_detraccion && $comprobante->detraccion_monto
-                ? number_format($comprobante->detraccion_monto, 2, '.', '')
+                ? round((float) $comprobante->detraccion_monto, 2)
                 : '',
             'detraccion_porcentaje' => $comprobante->tiene_detraccion && $comprobante->detraccion_porcentaje
-                ? number_format($comprobante->detraccion_porcentaje, 2, '.', '')
+                ? round((float) $comprobante->detraccion_porcentaje, 2)
                 : '',
             'medio_pago_detraccion' => $comprobante->tiene_detraccion && $comprobante->medio_pago_detraccion
-                ? $comprobante->medio_pago_detraccion
+                ? (int) $comprobante->medio_pago_detraccion
                 : '',
 
             // Observaciones
@@ -104,8 +107,8 @@ class NubefactMapper
             'tipo_de_nota_de_debito' => '',
 
             // Configuración de envío
-            'enviar_automaticamente_a_la_sunat' => config('nubefact.enviar_automaticamente_sunat', true) ? 'true' : 'false',
-            'enviar_automaticamente_al_cliente' => config('nubefact.enviar_automaticamente_cliente', false) ? 'true' : 'false',
+            'enviar_automaticamente_a_la_sunat' => (bool) config('nubefact.enviar_automaticamente_sunat', true),
+            'enviar_automaticamente_al_cliente' => (bool) config('nubefact.enviar_automaticamente_cliente', false),
 
             // Opcionales
             'codigo_unico' => '',
@@ -153,18 +156,18 @@ class NubefactMapper
         foreach ($items as $item) {
             $tipoIgv = (int) ($item->tip_afe_igv ?? 1);
 
-            // Redondear valores base a 2 decimales para consistencia SUNAT
-            $cantidad = round((float) $item->cantidad, 2);
-            $valorUnitario = round((float) $item->mto_valor_unitario, 2);
+            // Preservar precisión completa para valor_unitario, precio_unitario y cantidad
+            // NubeFact acepta hasta 10 decimales en estos campos
+            $cantidad = (float) $item->cantidad;
+            $valorUnitario = (float) $item->mto_valor_unitario;
             $descuento = round((float) ($item->descuento ?? 0), 2);
 
-            // Recalcular valores derivados desde los valores redondeados
-            // Esto garantiza: subtotal == valor_unitario * cantidad - descuento
+            // subtotal, igv y total se redondean a 2 decimales según doc NubeFact
             $subtotal = round($valorUnitario * $cantidad - $descuento, 2);
             $igv = $tipoIgv === 1 ? round($subtotal * 0.18, 2) : 0;
             $total = round($subtotal + $igv, 2);
             $precioUnitario = $tipoIgv === 1
-                ? round($valorUnitario * 1.18, 2)
+                ? round($valorUnitario * 1.18, 10)
                 : $valorUnitario;
 
             // Acumular totales por categoría de IGV
@@ -187,16 +190,15 @@ class NubefactMapper
                 'codigo' => $item->codigo_producto ?? '',
                 'codigo_producto_sunat' => $item->codigo_producto_sunat ?? '',
                 'descripcion' => $item->descripcion,
-                'cantidad' => number_format($cantidad, 2, '.', ''),
-                'valor_unitario' => number_format($valorUnitario, 2, '.', ''),
-                'precio_unitario' => number_format($precioUnitario, 2, '.', ''),
-                'descuento' => $descuento > 0
-                    ? number_format($descuento, 2, '.', '') : '',
-                'subtotal' => number_format($subtotal, 2, '.', ''),
+                'cantidad' => $cantidad,
+                'valor_unitario' => $valorUnitario,
+                'precio_unitario' => $precioUnitario,
+                'descuento' => $descuento > 0 ? $descuento : '',
+                'subtotal' => $subtotal,
                 'tipo_de_igv' => $tipoIgv,
-                'igv' => number_format($igv, 2, '.', ''),
-                'total' => number_format($total, 2, '.', ''),
-                'anticipo_regularizacion' => 'false',
+                'igv' => $igv,
+                'total' => $total,
+                'anticipo_regularizacion' => false,
                 'anticipo_documento_serie' => '',
                 'anticipo_documento_numero' => '',
             ];
@@ -229,6 +231,27 @@ class NubefactMapper
         }
 
         return $result;
+    }
+
+    /**
+     * Mapear codigo_tipo_operacion SUNAT a sunat_transaction NubeFact
+     */
+    protected static function mapSunatTransaction(string $codigoTipoOperacion): int
+    {
+        $map = [
+            '0101' => 1,  // Venta interna
+            '0200' => 2,  // Exportación
+            '0401' => 4,  // Venta interna - anticipos
+            '2900' => 29, // Ventas no domiciliados
+            '1001' => 30, // Operación sujeta a detracción
+            '1004' => 33, // Detracción transporte carga
+            '2001' => 34, // Operación sujeta a percepción
+            '1002' => 32, // Detracción transporte pasajeros
+            '1003' => 31, // Detracción recursos hidrobiológicos
+            '3500' => 35, // Venta nacional turistas - Tax Free
+        ];
+
+        return $map[$codigoTipoOperacion] ?? 1;
     }
 
     /**

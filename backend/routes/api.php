@@ -95,6 +95,9 @@ Route::prefix('nubefact-sync')->middleware('api')->group(function () {
 
     // Sincronizar pendientes
     Route::post('/pendientes', [NubefactSyncController::class , 'sincronizarPendientes']);
+
+    // Enriquecer comprobantes descargando datos del XML
+    Route::post('/enriquecer-xml', [NubefactSyncController::class , 'enriquecerDesdeXml']);
 });
 
 Route::prefix('v1')->group(function () {

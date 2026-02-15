@@ -1,17 +1,29 @@
-// Obtener correlativo seguro (sin colisión en NubeFact)
+import apiClient from '../services/api';
+
+// --- UTILIDADES ---
+
+export const apiBaseUrl = (apiClient.defaults.baseURL ?? '').replace(/\/$/, '');
+
+/**
+ * Obtiene el correlativo actual desde el backend para evitar colisiones.
+ * Se debe llamar justo antes de mostrar el formulario o al cambiar la serie.
+ */
 export const obtenerCorrelativoSeguro = async (empresa_id: number, tipo_doc: string, serie: string) => {
   const response = await apiClient.get<{ serie: string; correlativo: string; numero_completo: string }>(
     '/facturacion/correlativo-seguro',
-    { params: { empresa_id, tipo_doc, serie } }
+    { 
+      params: { 
+        empresa_id, 
+        tipo_doc, 
+        serie 
+      } 
+    }
   );
   return response.data;
 };
-import apiClient from '../services/api';
 
-// Utilidades
-export const apiBaseUrl = (apiClient.defaults.baseURL ?? '').replace(/\/$/, '');
+// --- TIPOS Y POSIBLES RESPUESTAS ---
 
-// Tipos genéricos de respuestas API
 export interface PaginatedResponse<T> {
   data: T[];
   current_page: number;
@@ -26,7 +38,8 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-// Tipos específicos
+// --- INTERFACES DE MODELOS ---
+
 export interface Empresa {
   id: number;
   ruc: string;
@@ -99,22 +112,21 @@ export interface ComprobanteEmitido {
   cliente_razon_social: string;
   moneda: string;
   mto_imp_venta: number;
-  mto_base_imp?: number; // Total gravada
-  mto_oper_gratuitas?: number; // Total gratuita
+  mto_base_imp?: number;
+  mto_oper_gratuitas?: number;
   estado_sunat: string;
   mensaje_sunat?: string;
   xml_path?: string;
   cdr_path?: string;
   pdf_path?: string;
-  // Enlaces proporcionados por NubeFact (sin depender de archivos locales)
   nubefact_enlace?: string;
   nubefact_pdf_url?: string;
   nubefact_xml_url?: string;
   nubefact_cdr_url?: string;
   fecha_emision: string;
-  pagado?: boolean; // Si está pagado
-  anulado?: boolean; // Si está anulado
-  enviado_cliente?: boolean; // Si fue enviado al cliente
+  pagado?: boolean;
+  anulado?: boolean;
+  enviado_cliente?: boolean;
   empresa?: Empresa;
   items?: ComprobanteItem[];
 }
@@ -155,26 +167,7 @@ export interface EmisionResponse {
   pdf_url?: string;
 }
 
-export interface Comprobante {
-  id: number;
-  empresa_id: number;
-  tipo: string;
-  serie: string;
-  numero: string;
-  cliente: string;
-  total: number;
-  estado: string;
-  fecha: string;
-}
-
-export type EstadoOportunidad =
-  | 'nuevo'
-  | 'en_proceso'
-  | 'enviado'
-  | 'observado'
-  | 'ganado'
-  | 'perdido'
-  | 'cancelado';
+export type EstadoOportunidad = 'nuevo' | 'en_proceso' | 'enviado' | 'observado' | 'ganado' | 'perdido' | 'cancelado';
 
 export interface Oportunidad {
   id: number;
@@ -191,14 +184,8 @@ export interface Oportunidad {
   fecha_vencimiento?: string | null;
   probabilidad?: number | null;
   notas?: string | null;
-  empresa?: {
-    id: number;
-    razon_social: string;
-  };
-  responsable?: {
-    id: number;
-    name: string;
-  };
+  empresa?: { id: number; razon_social: string };
+  responsable?: { id: number; name: string };
   created_at: string;
   updated_at: string;
 }
@@ -218,15 +205,8 @@ export interface Documento {
   documento_padre_id?: number | null;
   created_at: string;
   updated_at: string;
-  oportunidad?: {
-    id: number;
-    cliente_nombre?: string | null;
-    descripcion?: string | null;
-  } | null;
-  usuario?: {
-    id: number;
-    name: string;
-  } | null;
+  oportunidad?: { id: number; cliente_nombre?: string | null; descripcion?: string | null } | null;
+  usuario?: { id: number; name: string } | null;
 }
 
 export interface Pago {
@@ -245,37 +225,20 @@ export interface Pago {
   observaciones?: string | null;
   created_at: string;
   updated_at: string;
-  oportunidad?: {
-    id: number;
-    cliente_nombre?: string | null;
-    descripcion?: string | null;
-  } | null;
-  comprobante?: {
-    id: number;
-    tipo_doc: string;
-    serie: string;
-    numero: string;
-    mto_imp_venta?: number;
-  } | null;
-  usuario?: {
-    id: number;
-    name: string;
-  } | null;
+  oportunidad?: { id: number; cliente_nombre?: string | null; descripcion?: string | null } | null;
+  comprobante?: { id: number; tipo_doc: string; serie: string; numero: string; mto_imp_venta?: number } | null;
+  usuario?: { id: number; name: string } | null;
 }
 
 export interface Serie {
   id: number;
   empresa_id: number;
-  tipo_comprobante: string; // 01, 03, 07, 08, etc.
+  tipo_comprobante: string;
   serie: string;
   correlativo_actual: number;
   activo: boolean;
   por_defecto: boolean;
-  empresa?: {
-    id: number;
-    ruc: string;
-    razon_social: string;
-  };
+  empresa?: { id: number; ruc: string; razon_social: string };
   created_at: string;
   updated_at: string;
 }
@@ -306,7 +269,7 @@ export interface Producto {
   destacado: boolean;
   activo: boolean;
   stock_actual: number;
-  stock?: number; // Alias para compatibilidad
+  stock?: number;
 }
 
 export interface ProductoFormData {
@@ -376,7 +339,7 @@ export interface GuiaRemision {
   destinatario_denominacion: string;
   destinatario_tipo_documento?: string;
   destinatario_numero_documento?: string;
-  estado: string; // aceptado, rechazado, pendiente, enviado, anulado
+  estado: string;
   fecha_inicio_traslado: string;
   motivo_traslado?: string;
   tipo_transporte?: string;
@@ -421,7 +384,8 @@ export interface NotaVenta {
   actividad?: string;
 }
 
-// Servicios de API
+// --- API OBJECT ---
+
 export const api = {
   // Empresas
   empresas: {
@@ -445,7 +409,7 @@ export const api = {
     },
   },
 
-  // Facturación electrónica
+  // Facturación
   facturacion: {
     emitirFactura: (data: EmisionFacturaPayload) =>
       apiClient.post<EmisionResponse>('/facturacion/emitir/factura', data),
@@ -511,7 +475,7 @@ export const api = {
       ),
   },
 
-  // Entidades (clientes y proveedores)
+  // Entidades
   entidades: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<Entidad[]>('/v1/entidades', { params }),
@@ -525,7 +489,7 @@ export const api = {
       apiClient.delete<ApiResponse<unknown>>(`/v1/entidades/${id}`),
   },
 
-  // Alias para clientes
+  // Clientes
   clientes: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<Entidad[]>('/v1/entidades', { params: { ...params, es_cliente: true } }),
@@ -539,7 +503,7 @@ export const api = {
       apiClient.delete<ApiResponse<unknown>>(`/v1/entidades/${id}`),
   },
 
-  // Alias para proveedores
+  // Proveedores
   proveedores: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<Entidad[]>('/v1/entidades', { params: { ...params, es_proveedor: true } }),
@@ -743,7 +707,7 @@ export const api = {
       apiClient.delete<ApiResponse<unknown>>(`/v1/documentos-digitalizados/${id}`),
   },
 
-  // Series de facturación
+  // Series
   series: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<ApiResponse<Serie[]>>('/v1/series', { params }),
@@ -778,7 +742,7 @@ export const api = {
       }),
   },
 
-  // Guías de Remisión
+  // Guías
   guiasRemision: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<PaginatedResponse<GuiaRemision>>('/v1/guias-remision', { params }),
@@ -794,7 +758,7 @@ export const api = {
       apiClient.get<ApiResponse<unknown>>(`/nubefact/guias/${tipo}/${serie}/${numero}`),
   },
 
-  // Comprobantes (Boletas y Facturas)
+  // Comprobantes
   comprobantes: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<PaginatedResponse<ComprobanteEmitido>>('/facturacion/comprobantes', { params }),
@@ -804,14 +768,12 @@ export const api = {
       window.open(`${apiBaseUrl}/facturacion/comprobantes/export?${new URLSearchParams(params as Record<string, string>).toString()}`, '_blank'),
   },
 
-  //Notas de Venta
+  // Notas Venta
   notasVenta: {
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<PaginatedResponse<NotaVenta>>('/v1/notas-venta', { params }),
-    
     resumenTotales: (params?: Record<string, unknown>) =>
       apiClient.get<ApiResponse<{ total_busqueda: number; total_documentos: number; total_por_cobrar: number }>>('/v1/notas-venta/totales', { params }),
-      
     generarCpeMasivo: (ids: number[]) => 
       apiClient.post('/v1/notas-venta/generar-cpe-masivo', { ids }),
   },

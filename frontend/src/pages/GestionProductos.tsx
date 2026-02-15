@@ -15,8 +15,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 
 const DEBOUNCE_DELAY = 300; // ms
-import { Edit, Plus, Trash2, Eye, Package, Upload, Download, ChevronLeft, ChevronRight, Loader2, Pencil, Check, X } from 'lucide-react';
+import { Edit, Plus, Trash2, Eye, Package, Download, ChevronLeft, ChevronRight, Loader2, Pencil, Check, X, RefreshCw } from 'lucide-react';
 import api, { type Producto } from '@/lib/api';
+import apiClient from '@/services/api';
+import { useEmpresa } from '@/hooks/useEmpresa';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TableSkeleton } from '@/components/ui/table-skeleton';
 
@@ -57,6 +59,20 @@ const TIPOS_IGV = [
   { value: '17', label: 'Gravado - IVAP [17]' },
 ];
 
+const IGV_RATE = 0.18;
+
+/** Devuelve true si el tipo de afectación implica IGV (gravado: 10-17) */
+const tieneIgv = (tipo: string) => {
+  const n = Number(tipo);
+  return n >= 10 && n <= 17;
+};
+
+/** Calcula valor sin IGV a partir del precio con IGV */
+const calcularSinIgv = (precioConIgv: number, tipo: string) => {
+  if (!tieneIgv(tipo)) return precioConIgv;
+  return Math.round((precioConIgv / (1 + IGV_RATE)) * 1000000) / 1000000;
+};
+
 export default function GestionProductos() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,7 +83,8 @@ export default function GestionProductos() {
   const [busqueda, setBusqueda] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<FiltroProducto>('nombre');
   const [filtroEstado, setFiltroEstado] = useState<'habilitados' | 'deshabilitados' | 'todos'>('habilitados');
-  const [empresaId] = useState(1); // TODO: Obtener de contexto
+  const { empresaId } = useEmpresa();
+  const [importando, setImportando] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortOrder,] = useState<'asc' | 'desc'>('asc');
   const [isChangingPage, setIsChangingPage] = useState(false);
@@ -94,7 +111,7 @@ export default function GestionProductos() {
     try {
       setLoading(true);
       const response = await api.productos.listar({
-        empresa_id: empresaId,
+        empresa_id: empresaId || 1,
         buscar: busqueda || undefined,
         sort_by: 'codigo',
         sort_order: sortOrder,
@@ -134,6 +151,9 @@ export default function GestionProductos() {
   const abrirModal = (producto?: Producto) => {
     if (producto) {
       setProductoEditando(producto);
+      const tipo = producto.tipo_afectacion_igv;
+      const precioVenta = Number(producto.precio_venta_unitario || 0);
+      const precioCompra = Number(producto.precio_compra_unitario || 0);
       setFormData({
         codigo: producto.codigo || '',
         descripcion: producto.descripcion,
@@ -141,11 +161,11 @@ export default function GestionProductos() {
         unidad_medida: producto.unidad_medida,
         codigo_producto_sunat: producto.codigo_producto_sunat || '',
         moneda: producto.moneda,
-        valor_venta_unitario: producto.valor_venta_unitario?.toString() || '',
+        valor_venta_unitario: precioVenta ? calcularSinIgv(precioVenta, tipo).toFixed(6) : '',
         precio_venta_unitario: producto.precio_venta_unitario?.toString() || '',
-        costo_compra_unitario: producto.costo_compra_unitario?.toString() || '',
+        costo_compra_unitario: precioCompra ? calcularSinIgv(precioCompra, tipo).toFixed(6) : '',
         precio_compra_unitario: producto.precio_compra_unitario?.toString() || '',
-        tipo_afectacion_igv: producto.tipo_afectacion_igv,
+        tipo_afectacion_igv: tipo,
         destacado: producto.destacado,
         stock_actual: Math.floor(Number(producto.stock_actual || 0)).toString(),
       });
@@ -178,7 +198,7 @@ export default function GestionProductos() {
   const guardarProducto = async () => {
     try {
       const data = {
-        empresa_id: empresaId,
+        empresa_id: empresaId || 1,
         ...formData,
       };
 
@@ -238,6 +258,40 @@ export default function GestionProductos() {
     } catch (error) {
       console.error('Error al actualizar stock:', error);
       toast.error('Error al actualizar stock');
+    }
+  };
+
+  const importarDesdeNubefact = async () => {
+    try {
+      setImportando(true);
+      const response = await apiClient.post('/nubefact-sync/enriquecer-xml', {
+        empresa_id: empresaId || undefined,
+      });
+      const result = response.data as { total?: number; exitosos?: number; errores?: number };
+      const exitosos = result.exitosos ?? 0;
+      const errores = result.errores ?? 0;
+      if (exitosos > 0) {
+        toast.success('Importación completada', {
+          description: `${exitosos} comprobantes procesados${errores > 0 ? `, ${errores} errores` : ''}. Productos actualizados desde XML.`,
+        });
+        void cargarProductos();
+      } else if (errores > 0) {
+        toast.warning('Importación con errores', {
+          description: `${errores} errores al procesar. Verifica que existan comprobantes sincronizados con URL de XML.`,
+        });
+      } else {
+        toast.info('Sin datos nuevos', {
+          description: 'No se encontraron comprobantes con XML para importar. Sincroniza primero desde Boletas y Facturas.',
+        });
+      }
+    } catch (error) {
+      console.error('Error al importar desde NubeFact:', error);
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      toast.error('Error al importar', {
+        description: err.response?.data?.message || err.message || 'Error desconocido',
+      });
+    } finally {
+      setImportando(false);
     }
   };
 
@@ -373,23 +427,28 @@ export default function GestionProductos() {
                     <h3 className="font-semibold mb-3">Para la VENTA (Opcional)</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
+                        <Label>Precio VENTA unitario CON IGV</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.precio_venta_unitario}
+                          onChange={(e) => {
+                            const precio = e.target.value;
+                            const sinIgv = precio ? calcularSinIgv(parseFloat(precio), formData.tipo_afectacion_igv).toFixed(6) : '';
+                            setFormData({ ...formData, precio_venta_unitario: precio, valor_venta_unitario: sinIgv });
+                          }}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
                         <Label>VALOR VENTA unitario SIN IGV</Label>
                         <Input
                           type="number"
                           step="0.000001"
                           value={formData.valor_venta_unitario}
-                          onChange={(e) => setFormData({ ...formData, valor_venta_unitario: e.target.value })}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <Label>Precio VENTA unitario CON IGV</Label>
-                        <Input
-                          type="number"
-                          step="0.000001"
-                          value={formData.precio_venta_unitario}
-                          onChange={(e) => setFormData({ ...formData, precio_venta_unitario: e.target.value })}
-                          placeholder="0.00"
+                          readOnly
+                          className="bg-muted"
+                          placeholder="Se calcula automáticamente"
                         />
                       </div>
                     </div>
@@ -399,23 +458,28 @@ export default function GestionProductos() {
                     <h3 className="font-semibold mb-3">Para la COMPRA (Opcional)</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
+                        <Label>Precio COMPRA unitario CON IGV</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.precio_compra_unitario}
+                          onChange={(e) => {
+                            const precio = e.target.value;
+                            const sinIgv = precio ? calcularSinIgv(parseFloat(precio), formData.tipo_afectacion_igv).toFixed(6) : '';
+                            setFormData({ ...formData, precio_compra_unitario: precio, costo_compra_unitario: sinIgv });
+                          }}
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div>
                         <Label>COSTO unitario SIN IGV</Label>
                         <Input
                           type="number"
                           step="0.000001"
                           value={formData.costo_compra_unitario}
-                          onChange={(e) => setFormData({ ...formData, costo_compra_unitario: e.target.value })}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <Label>Precio COMPRA unitario CON IGV</Label>
-                        <Input
-                          type="number"
-                          step="0.000001"
-                          value={formData.precio_compra_unitario}
-                          onChange={(e) => setFormData({ ...formData, precio_compra_unitario: e.target.value })}
-                          placeholder="0.00"
+                          readOnly
+                          className="bg-muted"
+                          placeholder="Se calcula automáticamente"
                         />
                       </div>
                     </div>
@@ -423,7 +487,16 @@ export default function GestionProductos() {
 
                   <div>
                     <Label>Tipo de afectación (Opcional)</Label>
-                    <Select value={formData.tipo_afectacion_igv} onValueChange={(value) => setFormData({ ...formData, tipo_afectacion_igv: value })}>
+                    <Select value={formData.tipo_afectacion_igv} onValueChange={(value) => {
+                      const nuevosDatos = { ...formData, tipo_afectacion_igv: value };
+                      if (formData.precio_venta_unitario) {
+                        nuevosDatos.valor_venta_unitario = calcularSinIgv(parseFloat(formData.precio_venta_unitario), value).toFixed(6);
+                      }
+                      if (formData.precio_compra_unitario) {
+                        nuevosDatos.costo_compra_unitario = calcularSinIgv(parseFloat(formData.precio_compra_unitario), value).toFixed(6);
+                      }
+                      setFormData(nuevosDatos);
+                    }}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -457,12 +530,22 @@ export default function GestionProductos() {
               </DialogContent>
             </Dialog>
             <Button
-              onClick={() => toast.info('Funcionalidad de Importar en desarrollo')}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={importarDesdeNubefact}
+              disabled={importando}
+              className="bg-green-600 hover:bg-green-700 text-white"
               size="sm"
             >
-              <Upload className="h-4 w-4 mr-1" />
-              Importar
+              {importando ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  Importando...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                  Importar XML
+                </>
+              )}
             </Button>
           </div>
         </div>

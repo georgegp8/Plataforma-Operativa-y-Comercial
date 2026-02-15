@@ -100,6 +100,7 @@ class NubefactController extends Controller
                 // Campos opcionales
                 $comprobante->observaciones = $request->observaciones;
                 $comprobante->orden_compra = $request->orden_compra_servicio;
+                $comprobante->forma_pago = $request->forma_pago ?? 'Contado';
 
                 // Detracción completa
                 if ($request->has('tiene_detraccion') && $request->tiene_detraccion) {

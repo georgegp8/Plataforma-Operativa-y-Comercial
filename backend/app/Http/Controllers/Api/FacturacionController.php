@@ -46,7 +46,7 @@ class FacturacionController extends Controller
         $ultimo = \App\Models\Comprobante::where('empresa_id', $request->empresa_id)
             ->where('tipo_doc', $request->tipo_doc)
             ->where('serie', $request->serie)
-            ->orderBy('correlativo', 'desc')
+            ->orderByRaw('CAST(correlativo AS INTEGER) DESC')
             ->first();
 
         $siguiente = $ultimo ? (int) $ultimo->correlativo + 1 : 1;

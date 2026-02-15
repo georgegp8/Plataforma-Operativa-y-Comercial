@@ -380,10 +380,23 @@ export default function SincronizacionNubefact() {
                     <Label htmlFor="serie">Serie</Label>
                     <Input
                       id="serie"
+                      list="series-suggestions"
                       value={formIndividual.serie}
-                      onChange={(e) => setFormIndividual({ ...formIndividual, serie: e.target.value })}
-                      placeholder="F010"
+                      onChange={(e) => setFormIndividual({ ...formIndividual, serie: e.target.value.toUpperCase() })}
+                      placeholder="Ej: F010, F001, B001"
+                      maxLength={4}
+                      className="font-mono uppercase"
                     />
+                    <datalist id="series-suggestions">
+                      <option value="F010">F010 - Factura</option>
+                      <option value="F001">F001 - Factura Antigua</option>
+                      <option value="B001">B001 - Boleta</option>
+                      <option value="FC01">FC01 - N. Crédito</option>
+                      <option value="FD01">FD01 - N. Débito</option>
+                    </datalist>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Ingrese la serie exacta que tiene en NubeFact
+                    </p>
                   </div>
                   <div>
                     <Label htmlFor="numero">Número</Label>
@@ -444,10 +457,16 @@ export default function SincronizacionNubefact() {
                     <Label htmlFor="serie_rango">Serie</Label>
                     <Input
                       id="serie_rango"
+                      list="series-suggestions"
                       value={formRango.serie}
-                      onChange={(e) => setFormRango({ ...formRango, serie: e.target.value })}
-                      placeholder="F010"
+                      onChange={(e) => setFormRango({ ...formRango, serie: e.target.value.toUpperCase() })}
+                      placeholder="Ej: F010, F001, B001"
+                      maxLength={4}
+                      className="font-mono uppercase"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Ingrese la serie exacta que tiene en NubeFact
+                    </p>
                   </div>
                   <div>
                     <Label htmlFor="numero_inicio">Número Inicio</Label>
@@ -559,9 +578,12 @@ export default function SincronizacionNubefact() {
                     <Label htmlFor="serie_consulta">Serie</Label>
                     <Input
                       id="serie_consulta"
+                      list="series-suggestions"
                       value={formConsulta.serie}
-                      onChange={(e) => setFormConsulta({ ...formConsulta, serie: e.target.value })}
-                      placeholder="F010"
+                      onChange={(e) => setFormConsulta({ ...formConsulta, serie: e.target.value.toUpperCase() })}
+                      placeholder="Ej: F010, F001"
+                      maxLength={4}
+                      className="font-mono uppercase"
                     />
                   </div>
                   <div>

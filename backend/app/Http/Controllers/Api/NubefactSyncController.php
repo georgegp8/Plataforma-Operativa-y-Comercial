@@ -83,6 +83,12 @@ class NubefactSyncController extends Controller
             $request->empresa_id
         );
 
+        // Enriquecer automáticamente con datos del XML (clientes, items, productos)
+        if ($resultados['exitosos'] > 0) {
+            $xmlResult = $this->syncService->enriquecerDesdeXml($request->empresa_id);
+            $resultados['enriquecidos'] = $xmlResult['exitosos'];
+        }
+
         return response()->json($resultados);
     }
 
@@ -113,6 +119,22 @@ class NubefactSyncController extends Controller
         ];
 
         $resultados = $this->syncService->sincronizarPendientes($opciones);
+
+        return response()->json($resultados);
+    }
+
+    /**
+     * Enriquecer comprobantes sincronizados descargando datos del XML
+     *
+     * POST /api/nubefact-sync/enriquecer-xml
+     */
+    public function enriquecerDesdeXml(Request $request): JsonResponse
+    {
+        $request->validate([
+            'empresa_id' => 'nullable|exists:empresas,id',
+        ]);
+
+        $resultados = $this->syncService->enriquecerDesdeXml($request->empresa_id);
 
         return response()->json($resultados);
     }

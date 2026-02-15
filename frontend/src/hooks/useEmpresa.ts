@@ -11,29 +11,40 @@ export function useEmpresa() {
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const cargarPrimeraEmpresa = useCallback(async () => {
+    const res = await api.empresas.listar({ activo: true, per_page: 1 });
+    const lista = (res.data as unknown as { data?: Empresa[] }).data ?? [];
+    if (lista.length > 0) {
+      const primera = lista[0];
+      setEmpresaId(primera.id);
+      setEmpresa(primera);
+      localStorage.setItem(STORAGE_KEY, String(primera.id));
+    }
+  }, []);
+
   const cargarEmpresa = useCallback(async () => {
     try {
       setLoading(true);
       if (empresaId) {
-        const res = await api.empresas.obtener(empresaId);
-        const data = (res.data as unknown as { data?: Empresa }).data ?? res.data as unknown as Empresa;
-        setEmpresa(data);
-      } else {
-        const res = await api.empresas.listar({ activo: true, per_page: 1 });
-        const lista = (res.data as unknown as { data?: Empresa[] }).data ?? [];
-        if (lista.length > 0) {
-          const primera = lista[0];
-          setEmpresaId(primera.id);
-          setEmpresa(primera);
-          localStorage.setItem(STORAGE_KEY, String(primera.id));
+        try {
+          const res = await api.empresas.obtener(empresaId);
+          const data = (res.data as unknown as { data?: Empresa }).data ?? res.data as unknown as Empresa;
+          setEmpresa(data);
+        } catch {
+          // Empresa guardada ya no existe, limpiar y cargar la primera disponible
+          localStorage.removeItem(STORAGE_KEY);
+          setEmpresaId(null);
+          await cargarPrimeraEmpresa();
         }
+      } else {
+        await cargarPrimeraEmpresa();
       }
     } catch (error) {
       console.error('Error al cargar empresa:', error);
     } finally {
       setLoading(false);
     }
-  }, [empresaId]);
+  }, [empresaId, cargarPrimeraEmpresa]);
 
   useEffect(() => {
     void cargarEmpresa();

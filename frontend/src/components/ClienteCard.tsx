@@ -112,7 +112,7 @@ export function ClienteCard({
                 {form.watch('cliente_denominacion') || 'Seleccionar cliente...'}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full p-0" align="start">
+            <PopoverContent className="w-(--radix-popover-trigger-width) max-w-[min(90vw,600px)] p-0" align="start">
               <Command>
                 <CommandInput
                   placeholder="Buscar por RUC, DNI o nombre..."

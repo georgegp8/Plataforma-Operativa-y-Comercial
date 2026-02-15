@@ -3,8 +3,8 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { api, apiBaseUrl, type Serie, type Entidad, type Producto } from '@/lib/api';
-import { Pencil, Trash2, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText, Loader2 } from 'lucide-react';
+import { api, apiBaseUrl, obtenerCorrelativoSeguro, type Serie, type Entidad, type Producto } from '@/lib/api';
+import { Eye, Ban, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText, Loader2, MoreVertical, FileDown, Printer, CheckCircle2, MessageCircle } from 'lucide-react';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -12,8 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import {
   emitirComprobante,
+  anularComprobante,
+  sincronizarRango,
   TIPOS_COMPROBANTE,
   TIPOS_DOCUMENTO,
   TIPOS_IGV,
@@ -22,12 +25,15 @@ import {
   TIPOS_OPERACION_SELECT,
   IGV_PORCENTAJES_SELECT,
   UNIDADES_MEDIDA,
+  FORMAS_PAGO_SELECT,
   esGravado,
   esExonerado,
   esInafecto,
   esGratuita,
+  sunatIgvToNubefact,
   type EmitirComprobanteRequest,
 } from '@/services/nubefact';
+import { Textarea } from '@/components/ui/textarea';
 import { useEmpresa } from '@/hooks/useEmpresa';
 import { ClienteCard } from '@/components/ClienteCard';
 import { ResumenTotalesCard } from '@/components/ResumenTotalesCard';
@@ -45,6 +51,9 @@ interface Comprobante {
   fecha_emision: string;
   moneda: string;
   mto_imp_venta: number;
+  mto_oper_gravadas?: number;
+  mto_oper_gratuitas?: number;
+  mto_igv?: number;
   estado_sunat: string;
   nubefact_aceptada_por_sunat: boolean;
   nubefact_pdf_url?: string;
@@ -85,6 +94,7 @@ const comprobanteSchema = z
     porcentaje_de_igv: z.number().min(1, 'Seleccione un porcentaje de IGV'),
     tipo_de_cambio: z.number().optional(),
     pagado: z.boolean().optional(),
+    forma_pago: z.string().min(1, 'Seleccione forma de pago'),
     fecha_de_vencimiento: z.string().optional(),
     tiene_detraccion: z.boolean().optional(),
     detraccion_tipo: z.string().length(3).optional().nullable(),
@@ -139,8 +149,22 @@ export default function BoletasFacturas() {
   const [openProductoCombobox, setOpenProductoCombobox] = useState(false);
   const [busquedaProducto, setBusquedaProducto] = useState('');
 
+  // --- Estado sync NubeFact ---
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncSerie, setSyncSerie] = useState('F001');
+  const [syncTipoDoc, setSyncTipoDoc] = useState('01');
+  const [syncInicio, setSyncInicio] = useState(1);
+  const [syncFin, setSyncFin] = useState(30);
+  const [syncing, setSyncing] = useState(false);
+
   const [modalItemAbierto, setModalItemAbierto] = useState(false);
   const [itemEditandoIndex, setItemEditandoIndex] = useState<number | null>(null);
+
+  // --- Estado anulación ---
+  const [isAnularModalOpen, setIsAnularModalOpen] = useState(false);
+  const [comprobanteAnular, setComprobanteAnular] = useState<Comprobante | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState('');
+  const [anulando, setAnulando] = useState(false);
 
   const isFactura = tipoActivo === 'factura';
   const requiereDocumento = isFactura;
@@ -186,7 +210,7 @@ export default function BoletasFacturas() {
 
   const fetchComprobantes = useCallback(async () => {
     try {
-      const response = await api.comprobantes.listar();
+      const response = await api.comprobantes.listar({ per_page: 500, sort_by: 'id', sort_order: 'desc' });
       const data = response.data;
       const comprobantesData = (Array.isArray(data) ? data : (data as { data?: unknown[] }).data) || [];
 
@@ -203,6 +227,9 @@ export default function BoletasFacturas() {
           fecha_emision: comp.fecha_emision as string || '',
           moneda: comp.moneda as string || 'PEN',
           mto_imp_venta: typeof comp.mto_imp_venta === 'number' ? comp.mto_imp_venta : parseFloat(String(comp.mto_imp_venta || 0)),
+          mto_oper_gravadas: typeof comp.mto_oper_gravadas === 'number' ? comp.mto_oper_gravadas : parseFloat(String(comp.mto_oper_gravadas || 0)),
+          mto_oper_gratuitas: typeof comp.mto_oper_gratuitas === 'number' ? comp.mto_oper_gratuitas : parseFloat(String(comp.mto_oper_gratuitas || 0)),
+          mto_igv: typeof comp.mto_igv === 'number' ? comp.mto_igv : parseFloat(String(comp.mto_igv || 0)),
           estado_sunat: comp.estado_sunat as string || '',
           nubefact_aceptada_por_sunat: comp.nubefact_aceptada_por_sunat as boolean || false,
           nubefact_pdf_url: comp.nubefact_pdf_url as string,
@@ -231,17 +258,29 @@ export default function BoletasFacturas() {
 
   // --- Carga de datos para el formulario ---
 
+  // Mapear tipo NubeFact (1,2,3,4) a tipo SUNAT (01,03,07,08)
+  const mapTipoSunat: Record<string, string> = { '1': '01', '2': '03', '3': '07', '4': '08' };
+
   const cargarSeries = async (tipoCodigoParam?: string) => {
     try {
       const eid = empresaId || 1;
       const tipoCodigo = tipoCodigoParam || form.getValues('tipo_comprobante');
+      const tipoSunat = mapTipoSunat[tipoCodigo] || tipoCodigo;
       const res = await api.series.listar({ empresa_id: eid, tipo_comprobante: tipoCodigo });
       const lista = res.data.data;
       setSeries(lista);
       if (lista.length > 0) {
         const serieDefecto = lista.find((s: Serie) => s.por_defecto) ?? lista[0];
         form.setValue('serie', serieDefecto.serie);
-        form.setValue('numero', (serieDefecto.correlativo_actual ?? 0) + 1);
+        // Obtener correlativo real consultando la tabla de comprobantes
+        try {
+          const corr = await obtenerCorrelativoSeguro(eid, tipoSunat, serieDefecto.serie);
+          const num = parseInt(String(corr.correlativo), 10);
+          form.setValue('numero', num);
+        } catch {
+          // Fallback: usar correlativo_actual de la serie
+          form.setValue('numero', (serieDefecto.correlativo_actual ?? 0) + 1);
+        }
       }
     } catch {
       // Mantener modo manual
@@ -279,13 +318,14 @@ export default function BoletasFacturas() {
   };
 
   useEffect(() => {
-    if (isCreateModalOpen) {
+    if (isCreateModalOpen && empresaId) {
+      form.setValue('empresa_id', empresaId);
       void cargarSeries();
       void cargarClientes();
       void cargarProductos();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCreateModalOpen]);
+  }, [isCreateModalOpen, empresaId]);
 
   // --- Funciones del formulario ---
 
@@ -316,7 +356,8 @@ export default function BoletasFacturas() {
     const valor_unitario = Number(producto.valor_venta_unitario || 0);
     const precio_unitario = Number(producto.precio_venta_unitario || 0);
     const unidad_medida = producto.unidad_medida || UNIDADES_MEDIDA.NIU;
-    const tipo_igv = producto.tipo_afectacion_igv || TIPOS_IGV.GRAVADO_OPERACION_ONEROSA;
+    // Convertir código SUNAT Catálogo 07 (10,20,30...) a NubeFact (1,8,9...)
+    const tipo_igv = sunatIgvToNubefact(producto.tipo_afectacion_igv || '10');
     append({
       unidad_de_medida: unidad_medida,
       codigo: producto.codigo || producto.id.toString(),
@@ -362,23 +403,23 @@ export default function BoletasFacturas() {
     const item = form.getValues(`items.${index}`);
     if (!item) return { subtotal: 0, igv: 0, total: 0, precio_unitario: 0, valor_unitario: 0 };
     const { cantidad, valor_unitario, descuento = 0, tipo_de_igv } = item;
-    // Redondear a 2 decimales para consistencia con SUNAT
-    const valUnit = Math.round(valor_unitario * 100) / 100;
-    const desc = Math.round(descuento * 100) / 100;
+    // NubeFact permite hasta 10 decimales en valor_unitario/precio_unitario
+    const valUnit = valor_unitario;
+    const desc = descuento;
     const subtotal = Math.round((cantidad * valUnit - desc) * 100) / 100;
     const aplicaIgv = esGravado(tipo_de_igv);
     const igvRate = aplicaIgv ? (form.getValues('porcentaje_de_igv') || 18) / 100 : 0;
     const igv = Math.round(subtotal * igvRate * 100) / 100;
     const total = Math.round((subtotal + igv) * 100) / 100;
     const precio_unitario = aplicaIgv
-      ? Math.round(valUnit * (1 + igvRate) * 100) / 100
+      ? Math.round(valUnit * (1 + igvRate) * 1000000) / 1000000
       : valUnit;
     return { subtotal, igv, total, precio_unitario, valor_unitario: valUnit };
   };
 
   const calcularItem = (index: number) => {
     const calc = calcularItemSolo(index);
-    form.setValue(`items.${index}.precio_unitario`, parseFloat(calc.precio_unitario.toFixed(2)));
+    form.setValue(`items.${index}.precio_unitario`, parseFloat(calc.precio_unitario.toFixed(6)));
     return calc;
   };
 
@@ -416,6 +457,45 @@ export default function BoletasFacturas() {
       total_igv: parseFloat(total_igv.toFixed(2)),
       total: parseFloat(total.toFixed(2)),
     };
+  };
+
+  // --- Sincronización NubeFact ---
+  const handleSync = async () => {
+    if (syncFin - syncInicio + 1 > 100) {
+      toast.error('El rango máximo es de 100 comprobantes');
+      return;
+    }
+    try {
+      setSyncing(true);
+      const result = await sincronizarRango({
+        tipo_doc: syncTipoDoc,
+        serie: syncSerie,
+        numero_inicio: syncInicio,
+        numero_fin: syncFin,
+        empresa_id: empresaId || undefined,
+      });
+      const partes = [];
+      if (result.creados > 0) partes.push(`${result.creados} creados`);
+      if (result.actualizados > 0) partes.push(`${result.actualizados} actualizados`);
+      if ((result as unknown as Record<string, number>).enriquecidos > 0) partes.push(`${(result as unknown as Record<string, number>).enriquecidos} enriquecidos con XML`);
+      if (result.no_encontrados > 0) partes.push(`${result.no_encontrados} no encontrados`);
+      if (result.errores > 0) partes.push(`${result.errores} errores`);
+      const desc = partes.length > 0 ? partes.join(', ') : 'No se encontraron comprobantes en el rango';
+      if (result.exitosos > 0) {
+        toast.success(`Sincronización completada`, { description: desc });
+      } else {
+        toast.info(`Sincronización completada`, { description: desc });
+      }
+      setIsSyncModalOpen(false);
+      void fetchComprobantes();
+    } catch (error) {
+      const err = error as { response?: { data?: { mensaje?: string; message?: string } }; message?: string };
+      toast.error('Error al sincronizar', {
+        description: err.response?.data?.mensaje || err.response?.data?.message || err.message || 'Error desconocido',
+      });
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const watchedItems = form.watch('items');
@@ -530,6 +610,29 @@ export default function BoletasFacturas() {
     setIsDetailModalOpen(true);
   };
 
+  const handleEnviarWhatsApp = (comprobante: Comprobante) => {
+    const tipoDoc = comprobante.tipo_doc === '01' ? 'Factura' : 'Boleta';
+    const numero = comprobante.numero_completo;
+    const cliente = comprobante.cliente_razon_social;
+    const total = comprobante.mto_imp_venta.toFixed(2);
+    const moneda = comprobante.moneda === 'PEN' ? 'S/' : 'USD';
+
+    let mensaje = `Hola ${cliente},%0A%0A`;
+    mensaje += `Le enviamos su ${tipoDoc} Electrónica:%0A`;
+    mensaje += `📄 *${numero}*%0A`;
+    mensaje += `💰 Total: *${moneda} ${total}*%0A%0A`;
+
+    if (comprobante.nubefact_pdf_url) {
+      mensaje += `Puede descargar su comprobante aquí:%0A`;
+      mensaje += `${comprobante.nubefact_pdf_url}%0A%0A`;
+    }
+
+    mensaje += `Gracias por su preferencia.`;
+
+    // Abrir WhatsApp Web con el mensaje pre-cargado
+    window.open(`https://web.whatsapp.com/send?text=${mensaje}`, '_blank');
+  };
+
   const handleNuevoComprobante = () => {
     setTipoActivo('factura');
     form.reset({
@@ -547,6 +650,7 @@ export default function BoletasFacturas() {
       sunat_transaction: 1,
       porcentaje_de_igv: 18,
       pagado: false,
+      forma_pago: 'Contado',
       fecha_de_vencimiento: new Date().toISOString().split('T')[0],
       tiene_detraccion: false,
       detraccion_tipo: null,
@@ -565,6 +669,63 @@ export default function BoletasFacturas() {
     });
   };
 
+  // Mapeo inverso: SUNAT tipo_doc → NubeFact tipo_de_comprobante
+  const mapSunatToNubefact: Record<string, number> = { '01': 1, '03': 2, '07': 3, '08': 4 };
+
+  const abrirModalAnular = (comprobante: Comprobante) => {
+    setComprobanteAnular(comprobante);
+    setMotivoAnulacion('');
+    setIsAnularModalOpen(true);
+  };
+
+  const handleAnularComprobante = async () => {
+    if (!comprobanteAnular || !motivoAnulacion.trim()) {
+      toast.error('Debe ingresar un motivo de anulación');
+      return;
+    }
+    try {
+      setAnulando(true);
+      const tipoSunat = comprobanteAnular.tipo_doc; // '01','03','07','08'
+      const tipoNubefact = mapSunatToNubefact[tipoSunat] || 1;
+      const correlativo = parseInt(comprobanteAnular.correlativo, 10);
+
+      const response = await anularComprobante(
+        tipoSunat,
+        comprobanteAnular.serie,
+        correlativo,
+        {
+          empresa_id: empresaId || 1,
+          tipo_de_comprobante: tipoNubefact,
+          serie: comprobanteAnular.serie,
+          numero: correlativo,
+          motivo: motivoAnulacion.trim(),
+          fecha_de_baja: new Date().toISOString().split('T')[0],
+        }
+      );
+
+      if (response.success === false) {
+        toast.error('Error al anular', {
+          description: response.message || 'No se pudo anular el comprobante',
+        });
+        return;
+      }
+
+      toast.success('Comprobante anulado', {
+        description: `${comprobanteAnular.numero_completo} ha sido anulado exitosamente`,
+      });
+      setIsAnularModalOpen(false);
+      setComprobanteAnular(null);
+      void fetchComprobantes();
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } }; message?: string };
+      toast.error('Error al anular comprobante', {
+        description: err.response?.data?.message || err.message || 'Error desconocido',
+      });
+    } finally {
+      setAnulando(false);
+    }
+  };
+
   const getEstadoBadge = (comprobante: Comprobante) => {
     if (comprobante.anulado) {
       return <Badge className="bg-red-500 text-white dark:bg-red-400 dark:text-gray-900 border-0">Anulado</Badge>;
@@ -572,19 +733,33 @@ export default function BoletasFacturas() {
     if (comprobante.nubefact_aceptada_por_sunat) {
       return <Badge className="bg-green-500 text-white dark:bg-green-400 dark:text-gray-900 border-0">Aceptado</Badge>;
     }
-    if (comprobante.estado_sunat === 'pendiente') {
+    const estadoLower = (comprobante.estado_sunat ?? '').toLowerCase();
+    if (estadoLower === 'pendiente') {
       return <Badge className="bg-yellow-500 text-white dark:bg-yellow-400 dark:text-gray-900 border-0">Pendiente</Badge>;
     }
-    return <Badge className="bg-gray-500 text-white dark:bg-gray-400 dark:text-gray-900 border-0">Desconocido</Badge>;
+    if (estadoLower === 'rechazado') {
+      return <Badge className="bg-orange-500 text-white dark:bg-orange-400 dark:text-gray-900 border-0">Rechazado</Badge>;
+    }
+    return <Badge className="bg-gray-500 text-white dark:bg-gray-400 dark:text-gray-900 border-0">{comprobante.estado_sunat || 'Sin estado'}</Badge>;
   };
 
   const getTipoDocLabel = (tipo: string) => {
     switch (tipo) {
-      case '01': return 'Factura';
-      case '03': return 'Boleta';
-      case '07': return 'N. Crédito';
-      case '08': return 'N. Débito';
+      case '01': return 'FAC';
+      case '03': return 'BOL';
+      case '07': return 'NC';
+      case '08': return 'ND';
       default: return tipo;
+    }
+  };
+
+  const getTipoDocColor = (tipo: string) => {
+    switch (tipo) {
+      case '01': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+      case '03': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+      case '07': return 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200';
+      case '08': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200';
     }
   };
 
@@ -632,14 +807,24 @@ export default function BoletasFacturas() {
             <FileText className="h-5 w-5 dark:text-white" />
             <span className="dark:text-white">Boletas y Facturas</span>
           </h1>
-          <Button
-            size="sm"
-            className="bg-green-500 hover:bg-green-600 text-white dark:bg-green-400 dark:hover:bg-green-500 dark:text-gray-900 border-0"
-            onClick={handleNuevoComprobante}
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Nuevo CPE
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setIsSyncModalOpen(true)}
+            >
+              <RefreshCw className="h-4 w-4 mr-1" />
+              Sincronizar
+            </Button>
+            <Button
+              size="sm"
+              className="bg-green-500 hover:bg-green-600 text-white dark:bg-green-400 dark:hover:bg-green-500 dark:text-gray-900 border-0"
+              onClick={handleNuevoComprobante}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Nuevo CPE
+            </Button>
+          </div>
         </div>
 
         {/* Filtros */}
@@ -716,99 +901,144 @@ export default function BoletasFacturas() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-175">
+              <table className="w-full min-w-300">
                 <thead>
                   <tr className="bg-primary hover:bg-primary">
-                    <th className="w-[4%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">#</th>
-                    <th className="w-[11%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Fecha</th>
-                    <th className="w-[9%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Tipo</th>
-                    <th className="w-[11%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Número</th>
-                    <th className="w-[22%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Cliente</th>
-                    <th className="w-[7%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Moneda</th>
-                    <th className="w-[12%] px-2 py-3 text-right text-xs font-medium text-primary-foreground">Total</th>
-                    <th className="w-[10%] px-2 py-3 text-left text-xs font-medium text-primary-foreground">Estado</th>
-                    <th className="w-[14%] px-2 py-3 text-center text-xs font-medium text-primary-foreground">Acciones</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-primary-foreground uppercase">Fecha</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-medium text-primary-foreground uppercase">Tipo</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-primary-foreground uppercase">Serie</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-primary-foreground uppercase">Núm.</th>
+                    <th className="px-2 py-1.5 text-left text-[10px] font-medium text-primary-foreground uppercase">Cliente</th>
+                    <th className="px-2 py-1.5 text-right text-[10px] font-medium text-primary-foreground uppercase">T. Onerosa</th>
+                    <th className="px-2 py-1.5 text-right text-[10px] font-medium text-primary-foreground uppercase">T. Gratuita</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-medium text-primary-foreground uppercase">Estado</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-medium text-primary-foreground uppercase">Docs</th>
+                    <th className="px-2 py-1.5 text-center text-[10px] font-medium text-primary-foreground uppercase">Opciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {comprobantesPaginados.map((comp, index) => (
+                  {comprobantesPaginados.map((comp) => (
                     <tr key={comp.id} className="hover:bg-muted/50">
-                      <td className="px-2 py-3 text-xs text-muted-foreground">
-                        {startIndex + index + 1}
-                      </td>
-                      <td className="px-2 py-3 text-xs font-medium whitespace-nowrap">
+                      <td className="px-2 py-1.5 text-[11px] whitespace-nowrap">
                         {formatDate(comp.fecha_emision)}
                       </td>
-                      <td className="px-2 py-3 text-xs">
-                        <Badge variant="outline" className="font-normal">
+                      <td className="px-2 py-1.5 text-center">
+                        <Badge className={`text-[10px] px-1.5 py-0.5 font-medium ${getTipoDocColor(comp.tipo_doc)}`}>
                           {getTipoDocLabel(comp.tipo_doc)}
                         </Badge>
                       </td>
-                      <td className="px-2 py-3 text-xs font-medium whitespace-nowrap">
-                        {comp.numero_completo}
+                      <td className="px-2 py-1.5 text-[11px] font-medium">
+                        {comp.serie}
                       </td>
-                      <td className="px-2 py-3 text-xs overflow-hidden">
-                        <div className="truncate" title={comp.cliente_razon_social}>{comp.cliente_razon_social}</div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {comp.cliente_num_doc}
+                      <td className="px-2 py-1.5 text-[11px] font-medium">
+                        {comp.correlativo}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] max-w-62.5">
+                        <div className="truncate font-medium" title={comp.cliente_razon_social}>
+                          {comp.cliente_razon_social}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground">{comp.cliente_num_doc}</div>
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] text-right whitespace-nowrap font-medium">
+                        {formatCurrency((comp.mto_oper_gravadas || 0) + (comp.mto_igv || 0))}
+                      </td>
+                      <td className="px-2 py-1.5 text-[11px] text-right whitespace-nowrap">
+                        {formatCurrency(comp.mto_oper_gratuitas || 0)}
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <div className="flex flex-col items-center gap-0.5">
+                          {getEstadoBadge(comp)}
+                          <div className="flex gap-1 mt-0.5">
+                            {comp.pagado && (
+                              <span title="Pagado">
+                                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-2 py-3 text-xs text-muted-foreground">
-                        {comp.moneda}
-                      </td>
-                      <td className="px-2 py-3 text-xs font-medium text-right whitespace-nowrap">
-                        {formatCurrency(comp.mto_imp_venta)}
-                      </td>
-                      <td className="px-2 py-3 text-xs">
-                        {getEstadoBadge(comp)}
-                      </td>
-                      <td className="px-2 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-blue-600 hover:bg-blue-50 dark:text-white dark:hover:bg-blue-900/20"
-                            onClick={() => handleVerDetalles(comp)}
-                            title="Ver detalles"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          {comp.nubefact_pdf_url && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                              onClick={() => window.open(comp.nubefact_pdf_url, '_blank')}
-                              title="Descargar PDF"
-                            >
-                              <Download className="h-4 w-4" />
+                      <td className="px-2 py-1.5 text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <FileDown className="h-3.5 w-3.5" />
                             </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
-                            onClick={() => handleVerificarSunat(comp)}
-                            title="Verificar SUNAT"
-                          >
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                          {!comp.anulado && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
-                              onClick={() => {
-                                toast.info('Próximamente', {
-                                  description: 'La funcionalidad de anular comprobantes estará disponible pronto',
-                                });
-                              }}
-                              title="Anular"
-                            >
-                              <Trash2 className="h-4 w-4" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {comp.nubefact_pdf_url ? (
+                              <DropdownMenuItem onClick={() => {
+                                const width = 900;
+                                const height = 700;
+                                const left = (window.screen.width / 2) - (width / 2);
+                                const top = (window.screen.height / 2) - (height / 2);
+                                window.open(
+                                  comp.nubefact_pdf_url,
+                                  'Imprimir PDF',
+                                  `width=${width},height=${height},left=${left},top=${top},toolbar=yes,menubar=yes`
+                                );
+                              }}>
+                                <Printer className="h-3.5 w-3.5 mr-2" />
+                                Imprimir
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem disabled>
+                                <Printer className="h-3.5 w-3.5 mr-2 opacity-50" />
+                                PDF no disponible
+                              </DropdownMenuItem>
+                            )}
+                            {comp.nubefact_pdf_url && (
+                              <DropdownMenuItem onClick={() => window.open(comp.nubefact_pdf_url, '_blank')}>
+                                <FileText className="h-3.5 w-3.5 mr-2 text-red-600" />
+                                PDF
+                              </DropdownMenuItem>
+                            )}
+                            {comp.nubefact_xml_url && (
+                              <DropdownMenuItem onClick={() => window.open(comp.nubefact_xml_url, '_blank')}>
+                                <FileText className="h-3.5 w-3.5 mr-2 text-blue-600" />
+                                XML
+                              </DropdownMenuItem>
+                            )}
+                            {comp.nubefact_cdr_url && (
+                              <DropdownMenuItem onClick={() => window.open(comp.nubefact_cdr_url, '_blank')}>
+                                <FileText className="h-3.5 w-3.5 mr-2 text-green-600" />
+                                CDR
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleEnviarWhatsApp(comp)}>
+                              <MessageCircle className="h-3.5 w-3.5 mr-2 text-green-600" />
+                              Enviar por WhatsApp
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
+                              <MoreVertical className="h-3.5 w-3.5" />
                             </Button>
-                          )}
-                        </div>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleVerDetalles(comp)}>
+                              <Eye className="h-3.5 w-3.5 mr-2" />
+                              Ver detalles
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleVerificarSunat(comp)}>
+                              <RefreshCw className="h-3.5 w-3.5 mr-2" />
+                              Verificar SUNAT
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => !comp.anulado && abrirModalAnular(comp)}
+                              disabled={comp.anulado}
+                              className={comp.anulado ? "opacity-50 cursor-not-allowed" : "text-red-600 focus:text-red-600 cursor-pointer"}
+                            >
+                              <Ban className="h-3.5 w-3.5 mr-2" />
+                              {comp.anulado ? 'Ya anulado' : 'Anular comprobante'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))}
@@ -1069,10 +1299,21 @@ export default function BoletasFacturas() {
                         value={form.watch('serie')}
                         onValueChange={(value) => {
                           form.setValue('serie', value);
-                          const encontrada = series.find((s) => s.serie === value);
-                          if (encontrada) {
-                            form.setValue('numero', (encontrada.correlativo_actual ?? 0) + 1);
-                          }
+                          if (!value || value.trim() === '') return;
+                          const eid = empresaId || 1;
+                          const tipoCodigo = form.getValues('tipo_comprobante');
+                          const tipoSunat = mapTipoSunat[tipoCodigo] || tipoCodigo;
+                          if (!tipoSunat) return;
+                          obtenerCorrelativoSeguro(eid, tipoSunat, value)
+                            .then((corr) => {
+                              form.setValue('numero', parseInt(String(corr.correlativo), 10));
+                            })
+                            .catch(() => {
+                              const encontrada = series.find((s) => s.serie === value);
+                              if (encontrada) {
+                                form.setValue('numero', (encontrada.correlativo_actual ?? 0) + 1);
+                              }
+                            });
                         }}
                       >
                         <SelectTrigger className="h-9">
@@ -1096,10 +1337,10 @@ export default function BoletasFacturas() {
                   <div className="space-y-1">
                     <Label className="text-xs">Número *</Label>
                     <Input
-                      type="number"
-                      className="h-9 bg-muted"
+                      type="text"
+                      className="h-9 bg-muted font-mono"
                       readOnly
-                      {...form.register('numero', { valueAsNumber: true })}
+                      value={String(form.watch('numero') || 0).padStart(8, '0')}
                     />
                   </div>
                   <div className="space-y-1">
@@ -1172,6 +1413,22 @@ export default function BoletasFacturas() {
                       })}
                       disabled={form.watch('moneda') === MONEDAS.PEN}
                     />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Forma de Pago *</Label>
+                    <Select
+                      value={form.watch('forma_pago') || 'Contado'}
+                      onValueChange={(value) => form.setValue('forma_pago', value)}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {FORMAS_PAGO_SELECT.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
@@ -1258,6 +1515,169 @@ export default function BoletasFacturas() {
             cerrarModalItem(false);
           }}
         />
+
+        {/* Modal de Sincronización NubeFact */}
+        {/* Modal Anular Comprobante */}
+        <Dialog open={isAnularModalOpen} onOpenChange={(open) => { if (!anulando) setIsAnularModalOpen(open); }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <Ban className="h-5 w-5" />
+                Anular Comprobante
+              </DialogTitle>
+              <DialogDescription>
+                Esta acción enviará una comunicación de baja a SUNAT. El comprobante quedará anulado permanentemente.
+              </DialogDescription>
+            </DialogHeader>
+            {comprobanteAnular && (
+              <div className="space-y-4 py-2">
+                <div className="rounded-lg border border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30 p-3 space-y-1">
+                  <p className="text-sm font-medium">
+                    {comprobanteAnular.tipo_doc === '01' ? 'Factura' : comprobanteAnular.tipo_doc === '03' ? 'Boleta' : 'Comprobante'}: <span className="font-mono">{comprobanteAnular.numero_completo}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Cliente: {comprobanteAnular.cliente_razon_social}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Total: {formatCurrency(comprobanteAnular.mto_imp_venta)}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="motivo-anulacion">Motivo de anulación <span className="text-red-500">*</span></Label>
+                  <Textarea
+                    id="motivo-anulacion"
+                    value={motivoAnulacion}
+                    onChange={(e) => setMotivoAnulacion(e.target.value)}
+                    placeholder="Ej: ERROR EN EL DOCUMENTO, ERROR DE SISTEMA..."
+                    className="resize-none"
+                    rows={3}
+                    maxLength={100}
+                    disabled={anulando}
+                  />
+                  <p className="text-xs text-muted-foreground text-right">{motivoAnulacion.length}/100</p>
+                </div>
+              </div>
+            )}
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsAnularModalOpen(false)} disabled={anulando}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleAnularComprobante}
+                disabled={anulando || !motivoAnulacion.trim()}
+              >
+                {anulando ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Anulando...
+                  </>
+                ) : (
+                  <>
+                    <Ban className="h-4 w-4 mr-2" />
+                    Confirmar Anulación
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={isSyncModalOpen} onOpenChange={setIsSyncModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <RefreshCw className="h-5 w-5" />
+                Sincronizar desde NubeFact
+              </DialogTitle>
+              <DialogDescription>
+                Importa comprobantes emitidos en NubeFact a tu base de datos local.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Tipo documento</Label>
+                  <select
+                    value={syncTipoDoc}
+                    onChange={(e) => {
+                      setSyncTipoDoc(e.target.value);
+                      // Asignar serie correcta según tipo de documento
+                      const serieMap: Record<string, string> = {
+                        '01': 'F010', // Factura
+                        '03': 'B001', // Boleta
+                        '07': 'FC01', // Nota de Crédito
+                        '08': 'FD01', // Nota de Débito
+                      };
+                      setSyncSerie(serieMap[e.target.value] || 'F010');
+                    }}
+                    className="w-full px-3 py-2 text-sm border border-border rounded bg-background"
+                  >
+                    <option value="01">Factura</option>
+                    <option value="03">Boleta</option>
+                    <option value="07">Nota de Crédito</option>
+                    <option value="08">Nota de Débito</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Serie</Label>
+                  <Input
+                    value={syncSerie}
+                    onChange={(e) => setSyncSerie(e.target.value.toUpperCase())}
+                    placeholder="Ej: F010, F001, B001"
+                    maxLength={4}
+                    className="font-mono uppercase"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Puede editar la serie si necesita sincronizar series antiguas (ej: F001)
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Desde N°</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={syncInicio}
+                    onChange={(e) => setSyncInicio(Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Hasta N°</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={syncFin}
+                    onChange={(e) => setSyncFin(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Se consultarán {Math.max(0, syncFin - syncInicio + 1)} comprobantes en NubeFact (máx. 100).
+                Los que no existan se omitirán automáticamente.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsSyncModalOpen(false)} disabled={syncing}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSync} disabled={syncing || syncInicio > syncFin}>
+                {syncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sincronizando...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Sincronizar
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

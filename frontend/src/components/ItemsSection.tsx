@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction } from 'react';
+import { type Dispatch, type SetStateAction, useRef } from 'react';
 import { type UseFormReturn, type FieldArrayWithId } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,6 +51,15 @@ export function ItemsSection({
   onRemoveItem,
   calcularItemSolo,
 }: ItemsSectionProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (scrollContainerRef.current) {
+      e.stopPropagation();
+      scrollContainerRef.current.scrollTop += e.deltaY;
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -79,7 +88,7 @@ export function ItemsSection({
                   <Plus className="w-4 h-4 ml-2" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
+              <PopoverContent className="w-(--radix-popover-trigger-width) max-w-[min(90vw,600px)] p-0" align="start">
                 <Command>
                   <CommandInput
                     placeholder="Buscar por código o descripción..."
@@ -89,7 +98,11 @@ export function ItemsSection({
                   <CommandEmpty>
                     {loadingProductos ? 'Cargando...' : 'No se encontraron productos'}
                   </CommandEmpty>
-                  <CommandGroup className="max-h-80 overflow-auto">
+                  <CommandGroup
+                    ref={scrollContainerRef}
+                    onWheel={handleWheel}
+                    className="max-h-[400px] overflow-y-scroll overscroll-contain"
+                  >
                     {productos
                       .filter((producto) => {
                         const termino = busquedaProducto.toLowerCase();
@@ -109,17 +122,17 @@ export function ItemsSection({
                           }}
                           className="cursor-pointer"
                         >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col flex-1">
-                              <span className="font-medium">
-                                {producto.codigo} - {producto.descripcion}
+                          <div className="flex items-center justify-between w-full gap-2 min-w-0">
+                            <div className="flex flex-col flex-1 min-w-0">
+                              <span className="font-medium text-sm truncate" title={`${producto.codigo} - ${producto.descripcion}`}>
+                                <span className="text-primary">{producto.codigo}</span> - {producto.descripcion}
                               </span>
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-muted-foreground truncate">
                                 {producto.unidad_medida || 'NIU'} · Stock:{' '}
                                 {Number(producto.stock_actual || 0).toFixed(2)}
                               </span>
                             </div>
-                            <span className="font-semibold text-green-600 ml-2">
+                            <span className="font-semibold text-green-600 text-sm shrink-0">
                               S/ {Number(producto.precio_venta_unitario || 0).toFixed(2)}
                             </span>
                           </div>

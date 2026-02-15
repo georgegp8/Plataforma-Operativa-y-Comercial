@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,9 +22,9 @@ import {
   type EmitirComprobanteRequest 
 } from '@/services/nubefact';
 import { api, type Serie, obtenerCorrelativoSeguro } from '@/lib/api';
-import { Plus, Trash2, FileText, Loader2 } from 'lucide-react';
+import { Plus, Trash2, FileText, Loader2, RefreshCcw } from 'lucide-react';
 
-// --- Esquemas de Validación ---
+// --- VALIDACIONES ---
 
 const itemSchema = z.object({
   unidad_de_medida: z.string().min(1, 'Requerido'),
@@ -66,13 +66,14 @@ const facturaSchema = z.object({
 
 type FacturaFormValues = z.infer<typeof facturaSchema>;
 
-// --- Componente Principal ---
+// --- COMPONENTE PRINCIPAL ---
 
 export default function EmitirFactura() {
   const [loading, setLoading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [series, setSeries] = useState<Serie[]>([]);
   const [loadingSeries, setLoadingSeries] = useState(false);
+  const [buscandoCorrelativo, setBuscandoCorrelativo] = useState(false);
 
   const form = useForm<FacturaFormValues>({
     resolver: zodResolver(facturaSchema),
@@ -97,18 +98,16 @@ export default function EmitirFactura() {
       detraccion_monto: null,
       medio_pago_detraccion: null,
       observaciones: '',
-      items: [
-        {
-          unidad_de_medida: UNIDADES_MEDIDA.NIU,
-          codigo: 'PROD001',
-          descripcion: '',
-          cantidad: 1,
-          valor_unitario: 0,
-          precio_unitario: 0,
-          descuento: 0,
-          tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA,
-        },
-      ],
+      items: [{
+        unidad_de_medida: UNIDADES_MEDIDA.NIU,
+        codigo: 'PROD001',
+        descripcion: '',
+        cantidad: 1,
+        valor_unitario: 0,
+        precio_unitario: 0,
+        descuento: 0,
+        tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA,
+      }],
     },
   });
 
@@ -117,24 +116,21 @@ export default function EmitirFactura() {
     name: 'items',
   });
 
-  // Watchers
   const serie = useWatch({ control: form.control, name: 'serie' });
   const empresaId = useWatch({ control: form.control, name: 'empresa_id' });
 
-  // 1. Cargar Series al inicio
+  // 1. Cargar Series
   useEffect(() => {
     const cargarSeries = async () => {
       try {
         setLoadingSeries(true);
         const empId = form.getValues('empresa_id') || 1;
-        // Aseguramos conversión a string para la API
         const res = await api.series.listar({ empresa_id: empId, tipo_comprobante: String(TIPOS_COMPROBANTE.FACTURA) });
         const lista = res.data.data;
         setSeries(lista);
 
         if (lista.length > 0) {
           const serieDefecto = lista.find((s) => s.por_defecto) ?? lista[0];
-          // Solo actualizamos la serie, el efecto 2 se encarga del número
           form.setValue('serie', serieDefecto.serie);
         }
       } catch (e) {
@@ -147,41 +143,38 @@ export default function EmitirFactura() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 2. Obtener correlativo al cambiar serie o empresa
-  useEffect(() => {
-    let isActive = true;
-    const fetchCorrelativo = async () => {
-      if (!serie || !empresaId) return;
-      
-      try {
-        const res = await obtenerCorrelativoSeguro(empresaId, String(TIPOS_COMPROBANTE.FACTURA), serie);
-        
-        if (isActive && res && res.correlativo) {
-          const numeroParsed = parseInt(String(res.correlativo), 10);
-          
-          // SOLUCIÓN CLAVE: Solo actualizamos si el valor es diferente.
-          // Esto permite al usuario editar manualmente sin que el efecto lo sobreescriba
-          // en cada renderizado o si la API responde lento.
-          const valorActual = form.getValues('numero');
-          if (valorActual !== numeroParsed) {
-             form.setValue('numero', numeroParsed, { shouldValidate: true, shouldDirty: true });
-          }
+  // Función para buscar número (Reutilizable)
+  const buscarNumero = useCallback(async () => {
+    const s = form.getValues('serie');
+    const e = form.getValues('empresa_id');
+    if (!s || !e) return;
+
+    try {
+      setBuscandoCorrelativo(true);
+      const res = await obtenerCorrelativoSeguro(e, String(TIPOS_COMPROBANTE.FACTURA), s);
+      if (res && res.correlativo) {
+        const num = parseInt(String(res.correlativo), 10);
+        // Solo actualizamos si es diferente para no bloquear edición
+        if (form.getValues('numero') !== num) {
+          form.setValue('numero', num, { shouldValidate: true, shouldDirty: true });
         }
-      } catch (error) {
-        console.error("Error obteniendo correlativo:", error);
       }
-    };
+    } catch (error) {
+      console.error("Error correlativo:", error);
+    } finally {
+      setBuscandoCorrelativo(false);
+    }
+  }, [form]);
 
-    fetchCorrelativo();
-    
-    return () => { isActive = false; };
-  }, [serie, empresaId, form]);
+  // 2. Trigger automático al cambiar serie (SIN 'form' en deps para evitar loops)
+  useEffect(() => {
+    void buscarNumero();
+  }, [serie, empresaId, buscarNumero]);
 
-  // Cálculos de items (reutilizando la lógica de Comprobantes para consistencia)
+  // Cálculos
   const calcularItem = (index: number) => {
     const item = form.getValues(`items.${index}`);
     const { cantidad, valor_unitario, descuento = 0 } = item;
-    
     const subtotal = cantidad * valor_unitario - descuento;
     const igvRate = (form.getValues('porcentaje_de_igv') || 18) / 100;
     const igv = subtotal * igvRate;
@@ -195,16 +188,12 @@ export default function EmitirFactura() {
   const calcularTotales = () => {
     const items = form.getValues('items');
     let total_gravada = 0, total_igv = 0, total = 0;
-
     items.forEach((_, index) => {
       const calc = calcularItem(index);
-      // Simplificación para Factura (generalmente gravada)
-      // Si necesitas lógica exacta de exonerado/inafecto, usa los helpers como en EmitirComprobante
       total_gravada += calc.subtotal;
       total_igv += calc.igv;
       total += calc.total;
     });
-
     return {
       total_gravada: parseFloat(total_gravada.toFixed(2)),
       total_igv: parseFloat(total_igv.toFixed(2)),
@@ -215,21 +204,16 @@ export default function EmitirFactura() {
   const onSubmit = async (data: FacturaFormValues) => {
     try {
       setLoading(true);
-      
-      // Validación final del correlativo (Evitar duplicados)
+      // Validar correlativo final
       try {
         const res = await obtenerCorrelativoSeguro(data.empresa_id, String(TIPOS_COMPROBANTE.FACTURA), data.serie);
         const serverNum = parseInt(String(res.correlativo), 10);
-        
-        // Si el usuario puso un número menor al que toca, avisamos y corregimos
         if (data.numero < serverNum) {
            data.numero = serverNum;
            form.setValue('numero', serverNum);
-           toast.warning(`El número fue actualizado a ${serverNum} para evitar duplicados.`);
+           toast.warning(`Número actualizado a ${serverNum} por seguridad.`);
         }
-      } catch (e) { 
-        console.error("Validación final de correlativo falló", e); 
-      }
+      } catch (e) { console.error(e); }
 
       const totales = calcularTotales();
       const items = data.items.map((item, index) => {
@@ -259,7 +243,7 @@ export default function EmitirFactura() {
       const response = await emitirComprobante(payload);
 
       if (!response.success) {
-        toast.error(response.message || 'Error al emitir factura');
+        toast.error(response.message || 'Error al emitir');
         return;
       }
 
@@ -267,7 +251,6 @@ export default function EmitirFactura() {
       if (sunatData?.aceptada_por_sunat) {
         toast.success(`Factura emitida! Cod: ${sunatData.sunat_code || ''}`);
         if (sunatData.pdf_url) setPdfUrl(sunatData.pdf_url);
-        // Avanzar al siguiente número localmente para UX inmediata
         form.setValue('numero', data.numero + 1);
       } else {
         toast.warning(sunatData?.sunat_description || 'Enviada, pendiente validación');
@@ -293,6 +276,7 @@ export default function EmitirFactura() {
       </div>
 
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-4 text-sm">
           <Dialog>
             <DialogTrigger asChild>
@@ -303,7 +287,7 @@ export default function EmitirFactura() {
             <DialogContent className="max-w-xl">
               <DialogHeader>
                 <DialogTitle>Datos generales</DialogTitle>
-                <DialogDescription>Configuración general del comprobante</DialogDescription>
+                <DialogDescription>Configuración global</DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-4 mt-4">
                  <div className="space-y-2 col-span-2">
@@ -335,7 +319,7 @@ export default function EmitirFactura() {
             <DialogContent className="max-w-xl">
               <DialogHeader>
                 <DialogTitle>Adicionales</DialogTitle>
-                <DialogDescription>Datos opcionales de la operación</DialogDescription>
+                <DialogDescription>Datos extras del comprobante</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
@@ -355,7 +339,7 @@ export default function EmitirFactura() {
         <Card>
           <CardHeader>
             <CardTitle>Datos del Comprobante</CardTitle>
-            <CardDescription>Detalles de la emisión</CardDescription>
+            <CardDescription>Detalles de emisión</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-4 gap-4">
@@ -363,27 +347,21 @@ export default function EmitirFactura() {
                 <label className="text-sm font-medium">IGV %</label>
                 <Select value={String(form.watch('porcentaje_de_igv') ?? 18)} onValueChange={(v) => form.setValue('porcentaje_de_igv', Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {IGV_PORCENTAJES_SELECT.map((o) => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent>{IGV_PORCENTAJES_SELECT.map((o) => <SelectItem key={o.value} value={String(o.value)}>{o.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Operación</label>
                 <Select value={String(form.watch('sunat_transaction') ?? 1)} onValueChange={(v) => form.setValue('sunat_transaction', Number(v))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {TIPOS_OPERACION_SELECT.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent>{TIPOS_OPERACION_SELECT.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Moneda</label>
                 <Select value={form.watch('moneda')} onValueChange={(v) => form.setValue('moneda', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {MONEDAS_SELECT.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent>{MONEDAS_SELECT.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
@@ -398,22 +376,20 @@ export default function EmitirFactura() {
                 {series.length > 0 ? (
                   <Select value={form.watch('serie')} onValueChange={(v) => form.setValue('serie', v)} disabled={loadingSeries}>
                     <SelectTrigger><SelectValue placeholder="Serie" /></SelectTrigger>
-                    <SelectContent>
-                      {series.map((s) => <SelectItem key={s.id} value={s.serie}>{s.serie}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{series.map((s) => <SelectItem key={s.id} value={s.serie}>{s.serie}</SelectItem>)}</SelectContent>
                   </Select>
                 ) : (
                   <Input {...form.register('serie')} placeholder="F001" maxLength={4} />
                 )}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Número</label>
-                <Input 
-                  type="number" 
-                  {...form.register('numero', { valueAsNumber: true })} 
-                  placeholder="Correlativo" 
-                  // Asegurar que el input no tenga props extrañas que bloqueen la edición
-                />
+                <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium">Número</label>
+                    <button type="button" onClick={buscarNumero} className="text-xs text-primary flex items-center hover:underline">
+                        <RefreshCcw className={`w-3 h-3 mr-1 ${buscandoCorrelativo ? 'animate-spin' : ''}`} /> Actualizar
+                    </button>
+                </div>
+                <Input type="number" {...form.register('numero', { valueAsNumber: true })} placeholder="Correlativo" disabled={buscandoCorrelativo} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Fecha Emisión</label>
@@ -427,7 +403,7 @@ export default function EmitirFactura() {
         <Card>
           <CardHeader>
             <CardTitle>Datos del Cliente</CardTitle>
-            <CardDescription>Receptor del comprobante</CardDescription>
+            <CardDescription>Receptor del documento</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -467,7 +443,7 @@ export default function EmitirFactura() {
             <div className="flex justify-between">
               <div>
                 <CardTitle>Items</CardTitle>
-                <CardDescription>Listado de productos</CardDescription>
+                <CardDescription>Detalle de venta</CardDescription>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => append({ unidad_de_medida: UNIDADES_MEDIDA.NIU, codigo: 'NEW', descripcion: '', cantidad: 1, valor_unitario: 0, precio_unitario: 0, descuento: 0, tipo_de_igv: TIPOS_IGV.GRAVADO_OPERACION_ONEROSA })}>
                 <Plus className="w-4 h-4 mr-2" /> Agregar
@@ -510,10 +486,7 @@ export default function EmitirFactura() {
               {/* Totales */}
               <div className="space-y-4">
                  <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">Totales</CardTitle>
-                    <CardDescription>Resumen de montos</CardDescription>
-                  </CardHeader>
+                  <CardHeader><CardTitle className="text-base">Totales</CardTitle><CardDescription>Resumen</CardDescription></CardHeader>
                   <CardContent className="space-y-1 text-sm">
                     <div className="flex justify-between"><span>Gravada</span><span>{totales.total_gravada.toFixed(2)}</span></div>
                     <div className="flex justify-between"><span>IGV</span><span>{totales.total_igv.toFixed(2)}</span></div>

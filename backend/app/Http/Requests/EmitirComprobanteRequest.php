@@ -42,6 +42,8 @@ class EmitirComprobanteRequest extends FormRequest
             'items.*.descripcion' => [Rule::requiredIf($isNewComprobante), 'string'],
             'items.*.cantidad' => [Rule::requiredIf($isNewComprobante), 'numeric'],
             'items.*.precio_unitario' => [Rule::requiredIf($isNewComprobante), 'numeric'],
+            // Forma de pago
+            'forma_pago' => 'sometimes|string|in:Contado,Credito',
             // Detracción - Campos obligatorios si tiene_detraccion = true
             'tiene_detraccion' => 'sometimes|boolean',
             'detraccion_tipo' => 'required_if:tiene_detraccion,true|nullable|string|size:3',

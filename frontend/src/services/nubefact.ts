@@ -66,6 +66,7 @@ export interface EmitirComprobanteRequest {
   enviar_automaticamente_a_la_sunat?: boolean;
   enviar_automaticamente_al_cliente?: boolean;
   codigo_unico?: string;
+  forma_pago?: string;              // Frontend field (maps to condiciones_de_pago in backend)
   condiciones_de_pago?: string;
   medio_de_pago?: string;
   placa_vehiculo?: string;
@@ -179,9 +180,9 @@ export interface AnularComprobanteResponse {
   sunat_description?: string;
 }
 
-// Anular comprobante
+// Anular comprobante - tipo es formato SUNAT ('01','03','07','08')
 export const anularComprobante = async (
-  tipo: number,
+  tipo: string,
   serie: string,
   numero: number,
   data: AnularComprobanteRequest
@@ -228,6 +229,36 @@ export const descargarCDR = async (comprobanteId: number) => {
   return response.data;
 };
 
+// Sincronizar rango de comprobantes desde NubeFact
+export interface SyncRangoRequest {
+  tipo_doc: string;
+  serie: string;
+  numero_inicio: number;
+  numero_fin: number;
+  empresa_id?: number;
+}
+
+export interface SyncRangoResponse {
+  total: number;
+  exitosos: number;
+  errores: number;
+  creados: number;
+  actualizados: number;
+  no_encontrados: number;
+  detalles: Array<{ numero: number; resultado?: { success: boolean; mensaje?: string }; error?: string }>;
+}
+
+export const sincronizarRango = async (data: SyncRangoRequest): Promise<SyncRangoResponse> => {
+  const response = await api.post('/nubefact-sync/rango', data);
+  return response.data;
+};
+
+// Verificar estado de conexión NubeFact
+export const verificarEstadoNubefact = async () => {
+  const response = await api.get('/nubefact-sync/estado');
+  return response.data;
+};
+
 // Tipos de mapeo
 export const TIPOS_COMPROBANTE = {
   FACTURA: 1,
@@ -265,8 +296,47 @@ export const TIPOS_IGV = {
   INAFECTO_TRANSFERENCIA_GRATUITA: '20',
 } as const;
 
-// Helpers para categorizar tipo de IGV según NubeFact API
-export const esGravado = (tipo: string | number): boolean => Number(tipo) === 10;
+// Mapeo SUNAT Catálogo 07 → NubeFact tipo_de_igv
+// Los productos almacenan códigos SUNAT (10,20,30...), NubeFact usa (1,8,9...)
+const SUNAT_A_NUBEFACT_IGV: Record<number, number> = {
+  10: 1,  // Gravado - Operación Onerosa
+  11: 2,  // Gravado - Retiro por premio
+  12: 3,  // Gravado - Retiro por donación
+  13: 4,  // Gravado - Retiro
+  14: 5,  // Gravado - Retiro por publicidad
+  15: 6,  // Gravado - Bonificaciones
+  16: 7,  // Gravado - Retiro por entrega a trabajadores
+  20: 8,  // Exonerado - Operación Onerosa
+  21: 17, // Exonerado - Transferencia Gratuita
+  30: 9,  // Inafecto - Operación Onerosa
+  31: 10, // Inafecto - Retiro por Bonificación
+  32: 11, // Inafecto - Retiro
+  33: 12, // Inafecto - Retiro por Muestras Médicas
+  34: 13, // Inafecto - Retiro por Convenio Colectivo
+  35: 14, // Inafecto - Retiro por premio
+  36: 15, // Inafecto - Retiro por publicidad
+  37: 20, // Inafecto - Transferencia Gratuita
+  40: 16, // Exportación
+};
+
+/**
+ * Convierte código SUNAT Catálogo 07 a código NubeFact tipo_de_igv.
+ * Si ya es código NubeFact (1-20), lo retorna tal cual.
+ */
+export const sunatIgvToNubefact = (codigo: string | number): string => {
+  const n = Number(codigo);
+  // Si es código SUNAT (>=10 y está en el mapa), convertir
+  if (SUNAT_A_NUBEFACT_IGV[n] !== undefined) {
+    return String(SUNAT_A_NUBEFACT_IGV[n]);
+  }
+  // Ya es código NubeFact o desconocido, retornar tal cual
+  return String(n);
+};
+
+// Helpers para categorizar tipo de IGV según NubeFact API JSON V1
+// Códigos NubeFact: 1=Gravado Onerosa, 2-7=Gravado Gratuita, 8=Exonerado,
+// 9=Inafecto, 10-15=Inafecto Gratuita, 16=Exportación, 17=Exon.Gratuita, 20=Inaf.Gratuita
+export const esGravado = (tipo: string | number): boolean => Number(tipo) === 1;
 export const esExonerado = (tipo: string | number): boolean => Number(tipo) === 8;
 export const esInafecto = (tipo: string | number): boolean => [9, 16].includes(Number(tipo));
 export const esGratuita = (tipo: string | number): boolean =>
@@ -335,6 +405,12 @@ export const UNIDADES_MEDIDA_SELECT = [
   { value: 'GRM', label: 'GRM - Gramo' },
   { value: 'DAY', label: 'DAY - Día' },
   { value: 'HUR', label: 'HUR - Hora' },
+];
+
+// Formas de pago
+export const FORMAS_PAGO_SELECT = [
+  { value: 'Contado', label: 'Contado' },
+  { value: 'Credito', label: 'Crédito' },
 ];
 
 // Tipos de operación (sunat_transaction) según manual NubeFact
