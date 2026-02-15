@@ -376,33 +376,29 @@ class NubefactSyncService
 
             // --- Crear o actualizar entidad ---
             if ($numDoc) {
-                $entidadData = [
-                    'tipo_doc' => $tipoDoc ?: '6',
-                    'denominacion' => $razonSocial ?: '',
-                    'es_cliente' => true,
-                ];
+                // Buscar entidad existente
+                $entidad = Entidad::firstOrNew([
+                    'empresa_id' => $comprobante->empresa_id,
+                    'num_doc' => $numDoc,
+                ]);
 
-                // Agregar campos opcionales solo si no están vacíos
+                // Actualizar campos básicos
+                $entidad->tipo_doc = $tipoDoc ?: '6';
+                $entidad->denominacion = $razonSocial ?: $entidad->denominacion;
+                $entidad->es_cliente = true;
+
+                // Solo actualizar si hay nuevos valores (no sobrescribir con vacíos)
+                if (!empty($razonSocial)) {
+                    $entidad->razon_comercial = $razonSocial;
+                }
                 if (!empty($direccion)) {
-                    $entidadData['direccion'] = $direccion;
+                    $entidad->direccion = $direccion;
                 }
                 if (!empty($comprobante->cliente_email)) {
-                    $entidadData['email'] = $comprobante->cliente_email;
-                }
-                if (!empty($comprobante->cliente_telefono)) {
-                    $entidadData['telefono'] = $comprobante->cliente_telefono;
-                }
-                if (!empty($razonSocial)) {
-                    $entidadData['razon_comercial'] = $razonSocial;
+                    $entidad->email = $comprobante->cliente_email;
                 }
 
-                Entidad::updateOrCreate(
-                    [
-                        'empresa_id' => $comprobante->empresa_id,
-                        'num_doc' => $numDoc,
-                    ],
-                    $entidadData
-                );
+                $entidad->save();
             }
 
             // --- Crear items si no existen ---
@@ -717,24 +713,30 @@ class NubefactSyncService
         $denominacion = $response['cliente_denominacion'] ?? $comprobante->cliente_razon_social ?? '';
         $direccion = $response['cliente_direccion'] ?? $comprobante->cliente_direccion ?? null;
         $email = $response['cliente_email'] ?? $comprobante->cliente_email ?? null;
-        $telefono = $response['cliente_telefono'] ?? $comprobante->cliente_telefono ?? null;
 
         // Buscar o crear entidad
-        $entidad = Entidad::updateOrCreate(
-            [
-                'empresa_id' => $empresaId,
-                'num_doc' => $numDoc,
-            ],
-            [
-                'tipo_doc' => $tipoDoc,
-                'denominacion' => $denominacion,
-                'razon_comercial' => $denominacion,
-                'direccion' => $direccion ?: null,
-                'email' => $email ?: null,
-                'telefono' => $telefono ?: null,
-                'es_cliente' => true,
-            ]
-        );
+        $entidad = Entidad::firstOrNew([
+            'empresa_id' => $empresaId,
+            'num_doc' => $numDoc,
+        ]);
+
+        // Actualizar campos básicos siempre
+        $entidad->tipo_doc = $tipoDoc;
+        $entidad->denominacion = $denominacion;
+        $entidad->es_cliente = true;
+
+        // Solo actualizar opcionales si tienen valor (no sobrescribir con null)
+        if (!empty($denominacion)) {
+            $entidad->razon_comercial = $denominacion;
+        }
+        if (!empty($direccion)) {
+            $entidad->direccion = $direccion;
+        }
+        if (!empty($email)) {
+            $entidad->email = $email;
+        }
+
+        $entidad->save();
 
         // Actualizar email_2 y email_3 si vienen en la respuesta
         if (! empty($response['cliente_email_1']) && $entidad->email_2 === null) {
