@@ -85,8 +85,20 @@ class EntidadController extends Controller
 
         $data = $validator->validated();
 
-        // Prioridad: request->empresa_id, luego Auth::user()->empresa_id, finalmente 1 como default
-        $empresaId = $request->empresa_id ?? Auth::user()->empresa_id ?? 1;
+        // Prioridad: request->empresa_id, luego Auth::user()->empresa_id, finalmente la primera empresa disponible
+        $empresaId = $request->empresa_id ?? Auth::user()->empresa_id ?? null;
+
+        if (!$empresaId) {
+            $primeraEmpresa = \App\Models\Empresa::where('activo', true)->first();
+            $empresaId = $primeraEmpresa ? $primeraEmpresa->id : null;
+        }
+
+        if (!$empresaId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No hay empresas disponibles. Debe crear una empresa primero.',
+            ], 400);
+        }
 
         $entidad = Entidad::updateOrCreate(
             [
