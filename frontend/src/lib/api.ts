@@ -269,6 +269,8 @@ export interface Producto {
   destacado: boolean;
   activo: boolean;
   stock_actual: number;
+  stock_minimo: number;
+  stock_maximo: number;
   stock?: number;
 }
 

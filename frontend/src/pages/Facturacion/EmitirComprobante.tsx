@@ -1064,6 +1064,7 @@ export default function EmitirComprobante() {
           remove(index);
           cerrarModalItem(false);
         }}
+        empresaId={form.watch('empresa_id') || 1}
       />
     </div>
   );

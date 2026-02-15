@@ -125,7 +125,7 @@ class NubefactController extends Controller
 
                 $comprobante->save();
 
-                // Guardar items
+                // Guardar items y descontar stock
                 foreach ($request->items as $index => $itemData) {
                     $item = new \App\Models\ComprobanteItem;
                     $item->comprobante_id = $comprobante->id;
@@ -142,6 +142,20 @@ class NubefactController extends Controller
                     $item->total_impuestos = $itemData['igv'] ?? 0;
                     $item->descuento = $itemData['descuento'] ?? 0;
                     $item->save();
+
+                    // Descontar stock del producto si existe
+                    if (!empty($itemData['codigo'])) {
+                        $producto = \App\Models\Producto::where('empresa_id', $request->empresa_id)
+                            ->where('codigo', $itemData['codigo'])
+                            ->first();
+
+                        if ($producto) {
+                            $producto->stock_actual = max(0, $producto->stock_actual - $itemData['cantidad']);
+                            $producto->save();
+
+                            Log::info("Stock actualizado para producto {$producto->codigo}: {$producto->stock_actual}");
+                        }
+                    }
                 }
 
                 // Recargar con relaciones

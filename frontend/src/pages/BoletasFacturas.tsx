@@ -1576,6 +1576,7 @@ export default function BoletasFacturas() {
             remove(index);
             cerrarModalItem(false);
           }}
+          empresaId={empresaId || 1}
         />
 
         {/* Modal de Sincronización NubeFact */}
