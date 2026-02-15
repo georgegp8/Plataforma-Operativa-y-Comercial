@@ -567,7 +567,21 @@ export default function BoletasFacturas() {
         });
         setIsCreateModalOpen(false);
         form.reset();
-        void fetchComprobantes();
+        await fetchComprobantes();
+
+        // Enviar automáticamente por WhatsApp al número configurado
+        // Esperar un momento para que se cargue el comprobante
+        setTimeout(() => {
+          const comprobanteEmitido = comprobantes.find(
+            (c) => c.serie === data.serie && c.correlativo === String(data.numero)
+          );
+          if (comprobanteEmitido && comprobanteEmitido.nubefact_pdf_url) {
+            enviarWhatsAppAutomatico(comprobanteEmitido);
+            toast.success('Mensaje de WhatsApp enviado', {
+              description: 'Se abrió WhatsApp con el comprobante',
+            });
+          }
+        }, 1000);
       } else {
         toast.warning('Comprobante enviado pero pendiente de aceptación', {
           description: respData?.sunat_description || 'Pendiente de validación SUNAT',
@@ -615,43 +629,54 @@ export default function BoletasFacturas() {
     setIsDetailModalOpen(true);
   };
 
+  // Enviar automáticamente al número configurado (después de emitir)
+  const enviarWhatsAppAutomatico = (comprobante: Comprobante) => {
+    const numeroConfigurdo = '+51907275278'; // Número configurado
+    enviarMensajeWhatsAppA(comprobante, numeroConfigurdo);
+  };
+
+  // Abrir modal para enviar al cliente manualmente
   const handleEnviarWhatsApp = (comprobante: Comprobante) => {
     setComprobanteWhatsApp(comprobante);
-    // Pre-llenar con número del cliente si tiene, o usar número predeterminado
-    setNumeroWhatsApp('+51907275278'); // Número predeterminado
+    // Dejar vacío para que el usuario ingrese el número del cliente
+    setNumeroWhatsApp('');
     setIsWhatsAppModalOpen(true);
   };
 
+  // Enviar mensaje desde el modal
   const enviarMensajeWhatsApp = () => {
     if (!comprobanteWhatsApp) return;
+    enviarMensajeWhatsAppA(comprobanteWhatsApp, numeroWhatsApp);
+    // Cerrar modal
+    setIsWhatsAppModalOpen(false);
+    setComprobanteWhatsApp(null);
+  };
 
-    const tipoDoc = comprobanteWhatsApp.tipo_doc === '01' ? 'Factura' : 'Boleta';
-    const numero = comprobanteWhatsApp.numero_completo;
-    const cliente = comprobanteWhatsApp.cliente_razon_social;
-    const total = comprobanteWhatsApp.mto_imp_venta.toFixed(2);
-    const moneda = comprobanteWhatsApp.moneda === 'PEN' ? 'S/' : 'USD';
+  // Función auxiliar para enviar mensaje de WhatsApp
+  const enviarMensajeWhatsAppA = (comprobante: Comprobante, numeroTelefono: string) => {
+    const tipoDoc = comprobante.tipo_doc === '01' ? 'Factura' : 'Boleta';
+    const numero = comprobante.numero_completo;
+    const cliente = comprobante.cliente_razon_social;
+    const total = comprobante.mto_imp_venta.toFixed(2);
+    const moneda = comprobante.moneda === 'PEN' ? 'S/' : 'USD';
 
     let mensaje = `Hola ${cliente},%0A%0A`;
     mensaje += `Le enviamos su ${tipoDoc} Electrónica:%0A`;
     mensaje += `📄 *${numero}*%0A`;
     mensaje += `💰 Total: *${moneda} ${total}*%0A%0A`;
 
-    if (comprobanteWhatsApp.nubefact_pdf_url) {
+    if (comprobante.nubefact_pdf_url) {
       mensaje += `Puede descargar su comprobante aquí:%0A`;
-      mensaje += `${comprobanteWhatsApp.nubefact_pdf_url}%0A%0A`;
+      mensaje += `${comprobante.nubefact_pdf_url}%0A%0A`;
     }
 
     mensaje += `Gracias por su preferencia.`;
 
     // Limpiar el número de teléfono (quitar espacios, guiones, paréntesis)
-    const numeroLimpio = numeroWhatsApp.replace(/[\s\-()]/g, '');
+    const numeroLimpio = numeroTelefono.replace(/[\s\-()]/g, '');
 
     // Abrir WhatsApp Web con el número y mensaje
     window.open(`https://wa.me/${numeroLimpio}?text=${mensaje}`, '_blank');
-
-    // Cerrar modal
-    setIsWhatsAppModalOpen(false);
-    setComprobanteWhatsApp(null);
   };
 
   const handleNuevoComprobante = () => {
@@ -1610,10 +1635,10 @@ export default function BoletasFacturas() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
                 <MessageCircle className="h-5 w-5" />
-                Enviar Comprobante por WhatsApp
+                Enviar al Cliente por WhatsApp
               </DialogTitle>
               <DialogDescription>
-                Envía el comprobante electrónico al cliente por WhatsApp.
+                Envía el comprobante electrónico al celular del cliente.
               </DialogDescription>
             </DialogHeader>
             {comprobanteWhatsApp && (
@@ -1630,16 +1655,16 @@ export default function BoletasFacturas() {
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="numero-whatsapp">Número de WhatsApp <span className="text-red-500">*</span></Label>
+                  <Label htmlFor="numero-whatsapp">Número de WhatsApp del Cliente <span className="text-red-500">*</span></Label>
                   <Input
                     id="numero-whatsapp"
                     value={numeroWhatsApp}
                     onChange={(e) => setNumeroWhatsApp(e.target.value)}
-                    placeholder="Ej: +51 907 275 278"
+                    placeholder="Ej: +51 987 654 321"
                     className="font-mono"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Ingrese el número con código de país (ej: +51 para Perú)
+                    Ingrese el número del cliente con código de país (ej: +51 para Perú)
                   </p>
                 </div>
                 <div className="rounded-lg border bg-muted/50 p-3">
