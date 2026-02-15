@@ -66,6 +66,7 @@ class EntidadController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
+            'empresa_id' => 'nullable|integer|exists:empresas,id',
             'tipo_doc' => 'required|string|max:2',
             'num_doc' => 'required|string|max:20',
             'denominacion' => 'required|string|max:255',
@@ -84,7 +85,8 @@ class EntidadController extends Controller
 
         $data = $validator->validated();
 
-        $empresaId = Auth::user()->empresa_id ?? null;
+        // Prioridad: request->empresa_id, luego Auth::user()->empresa_id, finalmente 1 como default
+        $empresaId = $request->empresa_id ?? Auth::user()->empresa_id ?? 1;
 
         $entidad = Entidad::updateOrCreate(
             [

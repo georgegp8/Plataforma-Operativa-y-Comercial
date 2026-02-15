@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import type { Cliente, ClienteFormData } from '@/types';
 
 const initialFormData: ClienteFormData = {
+  empresa_id: 1,
   tipo_doc: '6',
   num_doc: '',
   denominacion: '',

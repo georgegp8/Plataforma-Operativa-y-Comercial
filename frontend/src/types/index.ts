@@ -41,6 +41,7 @@ export interface Cliente {
 
 /** Datos del formulario de cliente (crear/editar) */
 export interface ClienteFormData {
+  empresa_id?: number;
   tipo_doc: string;
   num_doc: string;
   denominacion: string;
