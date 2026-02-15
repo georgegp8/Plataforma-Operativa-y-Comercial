@@ -166,6 +166,11 @@ export default function BoletasFacturas() {
   const [motivoAnulacion, setMotivoAnulacion] = useState('');
   const [anulando, setAnulando] = useState(false);
 
+  // --- Estado del modal de WhatsApp ---
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [comprobanteWhatsApp, setComprobanteWhatsApp] = useState<Comprobante | null>(null);
+  const [numeroWhatsApp, setNumeroWhatsApp] = useState('');
+
   const isFactura = tipoActivo === 'factura';
   const requiereDocumento = isFactura;
 
@@ -611,26 +616,42 @@ export default function BoletasFacturas() {
   };
 
   const handleEnviarWhatsApp = (comprobante: Comprobante) => {
-    const tipoDoc = comprobante.tipo_doc === '01' ? 'Factura' : 'Boleta';
-    const numero = comprobante.numero_completo;
-    const cliente = comprobante.cliente_razon_social;
-    const total = comprobante.mto_imp_venta.toFixed(2);
-    const moneda = comprobante.moneda === 'PEN' ? 'S/' : 'USD';
+    setComprobanteWhatsApp(comprobante);
+    // Pre-llenar con número del cliente si tiene, o usar número predeterminado
+    setNumeroWhatsApp('+51907275278'); // Número predeterminado
+    setIsWhatsAppModalOpen(true);
+  };
+
+  const enviarMensajeWhatsApp = () => {
+    if (!comprobanteWhatsApp) return;
+
+    const tipoDoc = comprobanteWhatsApp.tipo_doc === '01' ? 'Factura' : 'Boleta';
+    const numero = comprobanteWhatsApp.numero_completo;
+    const cliente = comprobanteWhatsApp.cliente_razon_social;
+    const total = comprobanteWhatsApp.mto_imp_venta.toFixed(2);
+    const moneda = comprobanteWhatsApp.moneda === 'PEN' ? 'S/' : 'USD';
 
     let mensaje = `Hola ${cliente},%0A%0A`;
     mensaje += `Le enviamos su ${tipoDoc} Electrónica:%0A`;
     mensaje += `📄 *${numero}*%0A`;
     mensaje += `💰 Total: *${moneda} ${total}*%0A%0A`;
 
-    if (comprobante.nubefact_pdf_url) {
+    if (comprobanteWhatsApp.nubefact_pdf_url) {
       mensaje += `Puede descargar su comprobante aquí:%0A`;
-      mensaje += `${comprobante.nubefact_pdf_url}%0A%0A`;
+      mensaje += `${comprobanteWhatsApp.nubefact_pdf_url}%0A%0A`;
     }
 
     mensaje += `Gracias por su preferencia.`;
 
-    // Abrir WhatsApp Web con el mensaje pre-cargado
-    window.open(`https://web.whatsapp.com/send?text=${mensaje}`, '_blank');
+    // Limpiar el número de teléfono (quitar espacios, guiones, paréntesis)
+    const numeroLimpio = numeroWhatsApp.replace(/[\s\-()]/g, '');
+
+    // Abrir WhatsApp Web con el número y mensaje
+    window.open(`https://wa.me/${numeroLimpio}?text=${mensaje}`, '_blank');
+
+    // Cerrar modal
+    setIsWhatsAppModalOpen(false);
+    setComprobanteWhatsApp(null);
   };
 
   const handleNuevoComprobante = () => {
@@ -1578,6 +1599,81 @@ export default function BoletasFacturas() {
                     Confirmar Anulación
                   </>
                 )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Enviar por WhatsApp */}
+        <Dialog open={isWhatsAppModalOpen} onOpenChange={setIsWhatsAppModalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                <MessageCircle className="h-5 w-5" />
+                Enviar Comprobante por WhatsApp
+              </DialogTitle>
+              <DialogDescription>
+                Envía el comprobante electrónico al cliente por WhatsApp.
+              </DialogDescription>
+            </DialogHeader>
+            {comprobanteWhatsApp && (
+              <div className="space-y-4 py-2">
+                <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-3 space-y-1">
+                  <p className="text-sm font-medium">
+                    {comprobanteWhatsApp.tipo_doc === '01' ? 'Factura' : comprobanteWhatsApp.tipo_doc === '03' ? 'Boleta' : 'Comprobante'}: <span className="font-mono">{comprobanteWhatsApp.numero_completo}</span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Cliente: {comprobanteWhatsApp.cliente_razon_social}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Total: {formatCurrency(comprobanteWhatsApp.mto_imp_venta)}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="numero-whatsapp">Número de WhatsApp <span className="text-red-500">*</span></Label>
+                  <Input
+                    id="numero-whatsapp"
+                    value={numeroWhatsApp}
+                    onChange={(e) => setNumeroWhatsApp(e.target.value)}
+                    placeholder="Ej: +51 907 275 278"
+                    className="font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ingrese el número con código de país (ej: +51 para Perú)
+                  </p>
+                </div>
+                <div className="rounded-lg border bg-muted/50 p-3">
+                  <p className="text-xs font-medium mb-2">Vista previa del mensaje:</p>
+                  <div className="text-xs text-muted-foreground space-y-1 font-mono">
+                    <p>Hola {comprobanteWhatsApp.cliente_razon_social},</p>
+                    <p></p>
+                    <p>Le enviamos su {comprobanteWhatsApp.tipo_doc === '01' ? 'Factura' : 'Boleta'} Electrónica:</p>
+                    <p>📄 <strong>{comprobanteWhatsApp.numero_completo}</strong></p>
+                    <p>💰 Total: <strong>{comprobanteWhatsApp.moneda === 'PEN' ? 'S/' : 'USD'} {comprobanteWhatsApp.mto_imp_venta.toFixed(2)}</strong></p>
+                    <p></p>
+                    {comprobanteWhatsApp.nubefact_pdf_url && (
+                      <>
+                        <p>Puede descargar su comprobante aquí:</p>
+                        <p className="text-blue-600 dark:text-blue-400 truncate">{comprobanteWhatsApp.nubefact_pdf_url}</p>
+                        <p></p>
+                      </>
+                    )}
+                    <p>Gracias por su preferencia.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => setIsWhatsAppModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button
+                className="bg-green-600 hover:bg-green-700 text-white"
+                onClick={enviarMensajeWhatsApp}
+                disabled={!numeroWhatsApp.trim()}
+              >
+                <MessageCircle className="h-4 w-4 mr-2" />
+                Enviar por WhatsApp
               </Button>
             </DialogFooter>
           </DialogContent>
