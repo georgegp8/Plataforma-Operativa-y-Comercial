@@ -820,4 +820,43 @@ class FacturacionController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Enviar comprobante por email
+     * POST /api/facturacion/comprobantes/{id}/enviar-email
+     * Body: { "email": "cliente@example.com" }
+     */
+    public function enviarEmail(Request $request, string $id): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'email' => 'required|email',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $comprobante = Comprobante::findOrFail($id);
+
+            // Enviar email
+            \Mail::to($request->email)->send(new \App\Mail\ComprobanteEmitido($comprobante));
+
+            return response()->json([
+                'success' => true,
+                'mensaje' => 'Email enviado exitosamente a ' . $request->email,
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error al enviar email de comprobante: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'mensaje' => 'Error al enviar email: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 }

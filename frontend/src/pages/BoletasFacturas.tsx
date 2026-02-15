@@ -1074,6 +1074,22 @@ export default function BoletasFacturas() {
                               <RefreshCw className="h-3.5 w-3.5 mr-2" />
                               Verificar SUNAT
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              // Construir URL de SUNAT Portal
+                              const empresaRuc = empresa?.ruc || '20434906301';
+                              const tipoDoc = comp.tipo_doc;
+                              const clienteRuc = comp.cliente_num_doc || '';
+                              const serie = comp.serie;
+                              const numero = comp.correlativo;
+                              const fecha = new Date(comp.fecha_emision).toLocaleDateString('es-PE');
+                              const total = comp.mto_imp_venta.toFixed(1);
+
+                              const url = `https://ww1.sunat.gob.pe/ol-ti-itconsultaunificadalibre/consultaUnificadaLibre/consulta?E=${empresaRuc}&T=${tipoDoc}&R=${clienteRuc}&S=${serie}&N=${numero}&F=${fecha}&T=${total}`;
+                              window.open(url, '_blank');
+                            }}>
+                              <FileText className="h-3.5 w-3.5 mr-2" />
+                              Verificar SUNAT (Portal)
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => !comp.anulado && abrirModalAnular(comp)}

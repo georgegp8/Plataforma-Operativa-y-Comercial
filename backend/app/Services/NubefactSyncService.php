@@ -376,17 +376,32 @@ class NubefactSyncService
 
             // --- Crear o actualizar entidad ---
             if ($numDoc) {
+                $entidadData = [
+                    'tipo_doc' => $tipoDoc ?: '6',
+                    'denominacion' => $razonSocial ?: '',
+                    'es_cliente' => true,
+                ];
+
+                // Agregar campos opcionales solo si no están vacíos
+                if (!empty($direccion)) {
+                    $entidadData['direccion'] = $direccion;
+                }
+                if (!empty($comprobante->cliente_email)) {
+                    $entidadData['email'] = $comprobante->cliente_email;
+                }
+                if (!empty($comprobante->cliente_telefono)) {
+                    $entidadData['telefono'] = $comprobante->cliente_telefono;
+                }
+                if (!empty($razonSocial)) {
+                    $entidadData['razon_comercial'] = $razonSocial;
+                }
+
                 Entidad::updateOrCreate(
                     [
                         'empresa_id' => $comprobante->empresa_id,
                         'num_doc' => $numDoc,
                     ],
-                    [
-                        'tipo_doc' => $tipoDoc ?: '6',
-                        'denominacion' => $razonSocial ?: '',
-                        'direccion' => $direccion ?: null,
-                        'es_cliente' => true,
-                    ]
+                    $entidadData
                 );
             }
 
@@ -702,6 +717,7 @@ class NubefactSyncService
         $denominacion = $response['cliente_denominacion'] ?? $comprobante->cliente_razon_social ?? '';
         $direccion = $response['cliente_direccion'] ?? $comprobante->cliente_direccion ?? null;
         $email = $response['cliente_email'] ?? $comprobante->cliente_email ?? null;
+        $telefono = $response['cliente_telefono'] ?? $comprobante->cliente_telefono ?? null;
 
         // Buscar o crear entidad
         $entidad = Entidad::updateOrCreate(
@@ -712,8 +728,10 @@ class NubefactSyncService
             [
                 'tipo_doc' => $tipoDoc,
                 'denominacion' => $denominacion,
+                'razon_comercial' => $denominacion,
                 'direccion' => $direccion ?: null,
                 'email' => $email ?: null,
+                'telefono' => $telefono ?: null,
                 'es_cliente' => true,
             ]
         );

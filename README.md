@@ -368,35 +368,427 @@ cd frontend
 npm run test
 ```
 
-## 🚀 Deployment
+## 🚀 Deployment (Despliegue en Servidor)
 
-### Producción
+### Requisitos del Servidor
 
-1. **Actualizar credenciales NubeFact:**
-   ```env
-   NUBEFACT_BASE_URL=https://api.nubefact.com/api/v1/{ruc_key}
-   NUBEFACT_TOKEN=token_produccion_aqui
-   NUBEFACT_MODE=production
-   ```
+**Servidor recomendado:**
+- Ubuntu 22.04 LTS o superior
+- 2 CPU cores mínimo (4 recomendado)
+- 4GB RAM mínimo (8GB recomendado)
+- 20GB disco SSD
+- Nginx o Apache
+- Certbot para SSL (Let's Encrypt)
 
-2. **Optimizar Laravel:**
-   ```bash
-   php artisan config:cache
-   php artisan route:cache
-   php artisan view:cache
-   ```
+**Software requerido:**
+- PHP 8.2+ con extensiones: pgsql, mbstring, xml, curl, zip, gd
+- PostgreSQL 15+
+- Node.js 18+ y npm
+- Composer 2.x
+- Supervisor (para colas)
+- Certbot (para SSL)
 
-3. **Build frontend:**
-   ```bash
-   cd frontend
-   npm run build
-   ```
+---
 
-4. **Configurar cron para sincronización:**
-   ```cron
-   # Sincronizar comprobantes cada hora
-   0 * * * * cd /path/to/app && php artisan nubefact:sync --pendientes
-   ```
+### 1. Preparar el Servidor
+
+```bash
+# Actualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar PHP 8.2 y extensiones
+sudo apt install -y php8.2 php8.2-fpm php8.2-pgsql php8.2-mbstring \
+  php8.2-xml php8.2-curl php8.2-zip php8.2-gd php8.2-cli
+
+# Instalar PostgreSQL
+sudo apt install -y postgresql postgresql-contrib
+
+# Instalar Nginx
+sudo apt install -y nginx
+
+# Instalar Composer
+curl -sS https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/local/bin/composer
+
+# Instalar Node.js 18
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Instalar Supervisor (para colas)
+sudo apt install -y supervisor
+
+# Instalar Certbot (SSL)
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+---
+
+### 2. Configurar Base de Datos PostgreSQL
+
+```bash
+# Conectar a PostgreSQL
+sudo -u postgres psql
+
+# Crear base de datos y usuario
+CREATE DATABASE plataforma_facturacion;
+CREATE USER facturacion_user WITH PASSWORD 'tu_password_seguro';
+GRANT ALL PRIVILEGES ON DATABASE plataforma_facturacion TO facturacion_user;
+\q
+```
+
+---
+
+### 3. Clonar y Configurar el Proyecto
+
+```bash
+# Ir al directorio de aplicaciones
+cd /var/www
+
+# Clonar el repositorio
+sudo git clone https://github.com/tu-usuario/Plataforma_Op_Com_Facturacion_Elect.git
+sudo chown -R www-data:www-data Plataforma_Op_Com_Facturacion_Elect
+cd Plataforma_Op_Com_Facturacion_Elect
+
+# Backend
+cd backend
+composer install --no-dev --optimize-autoloader
+cp .env.example .env
+php artisan key:generate
+```
+
+**Configurar `.env` de producción:**
+
+```env
+# Aplicación
+APP_NAME="Sistema de Facturación"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://tudominio.com
+
+# Base de datos
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=plataforma_facturacion
+DB_USERNAME=facturacion_user
+DB_PASSWORD=tu_password_seguro
+
+# NubeFact API (PRODUCCIÓN)
+NUBEFACT_BASE_URL=https://api.nubefact.com/api/v1/{tu_ruc_key}
+NUBEFACT_TOKEN=tu_token_produccion_aqui
+NUBEFACT_MODE=production
+NUBEFACT_AUTO_SUNAT=true
+
+# Email (Gmail) - Ver backend/CONFIGURACION_EMAIL.md
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=tu-email@gmail.com
+MAIL_PASSWORD=tu_app_password_aqui
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=tu-email@gmail.com
+MAIL_FROM_NAME="${APP_NAME}"
+
+# Colas (opcional - usar database o redis)
+QUEUE_CONNECTION=database
+
+# Storage (MinIO o S3)
+FILESYSTEM_DISK=s3
+AWS_ACCESS_KEY_ID=tu_access_key
+AWS_SECRET_ACCESS_KEY=tu_secret_key
+AWS_DEFAULT_REGION=us-east-1
+AWS_BUCKET=facturacion-prod
+AWS_URL=https://tu-bucket.s3.amazonaws.com
+```
+
+**Ejecutar migraciones y optimizaciones:**
+
+```bash
+# Migraciones
+php artisan migrate --force
+
+# Seeders (catálogos SUNAT)
+php artisan db:seed --class=CatalogosSunatSeeder
+
+# Storage
+php artisan storage:link
+
+# Optimizaciones de producción
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan optimize
+
+# Permisos
+sudo chown -R www-data:www-data storage bootstrap/cache
+sudo chmod -R 775 storage bootstrap/cache
+```
+
+---
+
+### 4. Configurar Email Automático
+
+Consulta **[backend/CONFIGURACION_EMAIL.md](backend/CONFIGURACION_EMAIL.md)** para:
+- Generar App Password de Gmail
+- Configurar SMTP
+- Probar envío de emails
+
+---
+
+### 5. Build del Frontend
+
+```bash
+cd frontend
+npm ci --production
+npm run build
+
+# Los archivos se generan en frontend/dist/
+# Nginx los servirá desde aquí
+```
+
+---
+
+### 6. Configurar Nginx
+
+Crear archivo `/etc/nginx/sites-available/facturacion`:
+
+```nginx
+server {
+    listen 80;
+    server_name tudominio.com www.tudominio.com;
+
+    # Redirigir a HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name tudominio.com www.tudominio.com;
+
+    # SSL (Certbot lo configurará automáticamente)
+    ssl_certificate /etc/letsencrypt/live/tudominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/tudominio.com/privkey.pem;
+
+    # Root del frontend (React build)
+    root /var/www/Plataforma_Op_Com_Facturacion_Elect/frontend/dist;
+    index index.html;
+
+    # Logs
+    access_log /var/log/nginx/facturacion_access.log;
+    error_log /var/log/nginx/facturacion_error.log;
+
+    # Frontend (SPA React)
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API Laravel
+    location /api {
+        alias /var/www/Plataforma_Op_Com_Facturacion_Elect/backend/public;
+        try_files $uri $uri/ @backend;
+
+        location ~ \.php$ {
+            include snippets/fastcgi-php.conf;
+            fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME /var/www/Plataforma_Op_Com_Facturacion_Elect/backend/public/index.php;
+            include fastcgi_params;
+        }
+    }
+
+    location @backend {
+        rewrite /api/(.*)$ /index.php?/$1 last;
+    }
+
+    # Archivos estáticos
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+}
+```
+
+**Activar sitio y SSL:**
+
+```bash
+# Habilitar sitio
+sudo ln -s /etc/nginx/sites-available/facturacion /etc/nginx/sites-enabled/
+
+# Verificar configuración
+sudo nginx -t
+
+# Reiniciar Nginx
+sudo systemctl restart nginx
+
+# Configurar SSL con Certbot
+sudo certbot --nginx -d tudominio.com -d www.tudominio.com
+
+# Auto-renovación (certbot lo configura automáticamente)
+sudo certbot renew --dry-run
+```
+
+---
+
+### 7. Configurar Cron Jobs
+
+Editar crontab del usuario www-data:
+
+```bash
+sudo crontab -e -u www-data
+```
+
+Agregar:
+
+```cron
+# Laravel Scheduler (ejecuta cada minuto)
+* * * * * cd /var/www/Plataforma_Op_Com_Facturacion_Elect/backend && php artisan schedule:run >> /dev/null 2>&1
+
+# Sincronización NubeFact (cada hora)
+0 * * * * cd /var/www/Plataforma_Op_Com_Facturacion_Elect/backend && php artisan nubefact:sync --pendientes >> /var/log/nubefact-sync.log 2>&1
+
+# Limpiar logs antiguos (cada semana)
+0 0 * * 0 cd /var/www/Plataforma_Op_Com_Facturacion_Elect/backend && php artisan log:clear --days=30 >> /dev/null 2>&1
+```
+
+---
+
+### 8. Configurar Supervisor (Colas)
+
+Si usas colas de Laravel, crear archivo `/etc/supervisor/conf.d/facturacion-worker.conf`:
+
+```ini
+[program:facturacion-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /var/www/Plataforma_Op_Com_Facturacion_Elect/backend/artisan queue:work --sleep=3 --tries=3 --max-time=3600
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/facturacion-worker.log
+stopwaitsecs=3600
+```
+
+**Iniciar Supervisor:**
+
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start facturacion-worker:*
+```
+
+---
+
+### 9. Verificación Post-Deploy
+
+```bash
+# Verificar servicios
+sudo systemctl status nginx
+sudo systemctl status postgresql
+sudo systemctl status php8.2-fpm
+sudo systemctl status supervisor
+
+# Probar API
+curl https://tudominio.com/api/facturacion/comprobantes
+
+# Ver logs en tiempo real
+tail -f /var/log/nginx/facturacion_error.log
+tail -f /var/www/Plataforma_Op_Com_Facturacion_Elect/backend/storage/logs/laravel.log
+```
+
+---
+
+### 10. Actualizaciones Futuras
+
+```bash
+# En el servidor
+cd /var/www/Plataforma_Op_Com_Facturacion_Elect
+
+# Pull cambios
+sudo -u www-data git pull origin main
+
+# Backend
+cd backend
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+
+# Frontend
+cd ../frontend
+npm ci --production
+npm run build
+
+# Reiniciar servicios
+sudo systemctl restart php8.2-fpm
+sudo systemctl reload nginx
+sudo supervisorctl restart facturacion-worker:*
+```
+
+---
+
+### 📋 Checklist de Producción
+
+- [ ] SSL/HTTPS configurado con Certbot
+- [ ] `.env` con credenciales de producción
+- [ ] `APP_DEBUG=false` en `.env`
+- [ ] Base de datos PostgreSQL creada y migrada
+- [ ] Permisos correctos (www-data) en storage/
+- [ ] Email configurado y probado (ver `CONFIGURACION_EMAIL.md`)
+- [ ] NubeFact API en modo producción
+- [ ] Cron jobs configurados
+- [ ] Supervisor corriendo (si usas colas)
+- [ ] Nginx configurado y probado
+- [ ] Backups automáticos de BD configurados
+- [ ] Monitoreo de logs activo
+- [ ] Firewall configurado (ufw)
+
+---
+
+### 🔒 Seguridad Adicional
+
+```bash
+# Configurar firewall
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+
+# Deshabilitar listado de directorios en Nginx
+# (ya está en la config de arriba con try_files)
+
+# Cambiar permisos sensibles
+chmod 600 /var/www/Plataforma_Op_Com_Facturacion_Elect/backend/.env
+
+# Fail2ban (opcional - protección contra ataques)
+sudo apt install fail2ban
+```
+
+---
+
+### 📊 Monitoreo y Logs
+
+```bash
+# Logs de aplicación
+tail -f backend/storage/logs/laravel.log
+tail -f backend/storage/logs/nubefact-*.log
+
+# Logs de Nginx
+tail -f /var/log/nginx/facturacion_error.log
+
+# Logs de PostgreSQL
+sudo tail -f /var/log/postgresql/postgresql-15-main.log
+
+# Monitoreo de recursos
+htop
+df -h
+```
 
 ## 📚 Documentación
 

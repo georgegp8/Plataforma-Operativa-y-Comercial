@@ -766,6 +766,8 @@ export const api = {
       apiClient.get<ApiResponse<ComprobanteEmitido>>(`/facturacion/comprobantes/${id}`),
     exportar: (params?: Record<string, unknown>) =>
       window.open(`${apiBaseUrl}/facturacion/comprobantes/export?${new URLSearchParams(params as Record<string, string>).toString()}`, '_blank'),
+    enviarEmail: (id: number, email: string) =>
+      apiClient.post<ApiResponse<{ mensaje: string }>>(`/facturacion/enviar-email/${id}`, { email }),
   },
 
   // Notas Venta
