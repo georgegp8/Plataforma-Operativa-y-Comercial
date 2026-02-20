@@ -25,7 +25,7 @@ return [
      *
      * El {ruc_key} es único por cliente y se obtiene desde la cuenta NubeFact
      */
-    'base_url' => env('NUBEFACT_BASE_URL', 'https://api.pse.pe/api/v1/45d35a0d56f7441aaa57f3bee732f3a4123f39273dc843cd8432b2179443b214'),
+    'base_url' => env('NUBEFACT_BASE_URL'),
 
     /**
      * Token de autenticación JWT
@@ -35,8 +35,10 @@ return [
      * 2. tuempresa.pse.pe → API (Integración) [Reseller]
      *
      * Formato: largo string alfanumérico
+     *
+     * ⚠️ IMPORTANTE: Configurar en .env, NUNCA hardcodear aquí
      */
-    'token' => env('NUBEFACT_TOKEN', 'eyJhbGciOiJIUzI1NiJ9.ImY3ODExY2NjMmY5YTRjY2NhZGQwNDFjZWVhNmU2NGY0ZTM1NWM2MjBhZTFlNDA4OGI0NWYxYzljNThmMWZiN2Yi.Jo7VAwq7Nqz9mGvUMr9WOESoQ_mV7UG2C9LBxnNMSVA'),
+    'token' => env('NUBEFACT_TOKEN'),
 
     /**
      * Timeout de requests HTTP en segundos
