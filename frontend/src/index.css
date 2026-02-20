@@ -58,9 +58,9 @@
 }
 
 :root {
-  --background: 0 0% 100%;
+  --background: 210 20% 97%;   /* Gris muy claro con tinte azul: página ≠ cards */
   --foreground: 203 46% 25%;
-  --card: 0 0% 100%;
+  --card: 0 0% 100%;           /* Blanco puro: ligeramente elevado sobre background */
   --card-foreground: 203 46% 25%;
   --popover: 0 0% 100%;
   --popover-foreground: 203 46% 25%;
@@ -68,8 +68,8 @@
   --primary-foreground: 0 0% 98%;
   --secondary: 200 52% 24%;
   --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 96.1%;
-  --muted-foreground: 0 0% 45.1%;
+  --muted: 210 15% 93%;        /* Ligeramente más oscuro que background para tabla/headers */
+  --muted-foreground: 0 0% 40%;  /* Subido de 45% a 40%: mejor contraste en modo claro */
   --accent: 142 79% 73%;
   --accent-foreground: 203 46% 25%;
   --destructive: 0 84.2% 60.2%;
@@ -78,8 +78,8 @@
   --success-foreground: 0 0% 98%;
   --warning: 38 92% 50%;
   --warning-foreground: 0 0% 9%;
-  --border: 0 0% 89.8%;
-  --input: 0 0% 89.8%;
+  --border: 0 0% 82%;          /* Más visible: de 89.8% a 82% */
+  --input: 0 0% 82%;
   --ring: 200 60% 19%;
   --chart-1: 0 84.2% 60.2%;
   --chart-2: 173 58% 39%;
@@ -118,14 +118,14 @@
   --card-foreground: 0 0% 98%;
   --popover: 203 46% 25%;
   --popover-foreground: 0 0% 98%;
-  --primary: 200 60% 35%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 200 52% 30%;
+  --primary: 200 65% 55%;       /* Raised L35→55: text-primary now readable on dark surfaces */
+  --primary-foreground: 203 54% 12%;  /* Dark text on lighter primary bg */
+  --secondary: 200 52% 45%;     /* Raised L30→45: secondary elements visible in dark */
   --secondary-foreground: 0 0% 98%;
   --muted: 203 46% 30%;
-  --muted-foreground: 0 0% 70%;
+  --muted-foreground: 0 0% 65%;
   --accent: 142 79% 73%;
-  --accent-foreground: 203 46% 25%;
+  --accent-foreground: 203 46% 15%;
   --destructive: 0 62.8% 50.6%;
   --destructive-foreground: 0 0% 98%;
   --success: 142 70% 45%;
@@ -134,7 +134,7 @@
   --warning-foreground: 0 0% 9%;
   --border: 0 0% 30%;
   --input: 0 0% 30%;
-  --ring: 200 60% 35%;
+  --ring: 200 65% 55%;           /* Matches new primary */
   --chart-1: 0 84.2% 65.2%;
   --chart-2: 173 58% 45%;
   --chart-3: 197 37% 35%;
@@ -142,12 +142,12 @@
   --chart-5: 142 76% 45%;
   --sidebar-background: 203 54% 19%;
   --sidebar-foreground: 0 0% 98%;
-  --sidebar-primary: 200 60% 35%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 200 52% 30%;
+  --sidebar-primary: 200 65% 55%;
+  --sidebar-primary-foreground: 203 54% 12%;
+  --sidebar-accent: 200 52% 45%;
   --sidebar-accent-foreground: 0 0% 98%;
   --sidebar-border: 0 0% 30%;
-  --sidebar-ring: 200 60% 35%;
+  --sidebar-ring: 200 65% 55%;
   
   /* Dashboard Dark Colors */
   --dashboard-dark: 203 54% 15%;

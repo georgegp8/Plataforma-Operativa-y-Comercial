@@ -1,349 +1,353 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  Plus, 
-  Search, 
-  ChevronLeft, 
-  ChevronRight, 
-  FileCheck, 
-  ShoppingBag
+import {
+  ChevronLeft, ChevronRight, ShoppingBag, RefreshCw,
+  Eye, FileCheck, MoreVertical, FileText,
 } from 'lucide-react';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import type { NotaVenta } from '@/lib/api'; 
-
-const COLORS = {
-  primaryBlue: '#256080',
-  accentLime: '#A4E102',
-
-};
+import { api, type NotaVenta } from '@/lib/api';
+import { formatCurrency } from '@/lib/format';
 
 export default function ConsultaNotaVenta() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [data, setData] = useState<NotaVenta[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const [totales, setTotales] = useState({
-    por_cobrar: 0.00,
-    busqueda: 734547.00,
-    documentos: 707204.00
+    total_busqueda: 0,
+    total_documentos: 0,
+    total_por_cobrar: 0,
   });
 
-  const [filtros, setFiltros] = useState({
-    serie: '',
-    numero: '',
-    fechaInicio: '',
-    fechaFin: '',
-    estado: '',
-    cliente: '',
-    vendedor: ''
-  });
+  // Filtros
+  const [filtroBusqueda, setFiltroBusqueda] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState<'cliente' | 'numero' | 'fecha'>('cliente');
+  const [filtroEstado, setFiltroEstado] = useState<'todos' | 'pagado' | 'pendiente'>('todos');
 
+  // Modal detalle
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [selectedNota, setSelectedNota] = useState<NotaVenta | null>(null);
+
+  // ─── Fetch ────────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      // Simulación de datos para evitar errores de renderizado síncrono
-      setTimeout(() => {
-        const mockData: NotaVenta[] = Array.from({ length: 25 }).map((_, i) => ({
-            id: i + 1,
-            fecha_emision: '2026-02-04',
-            cliente_razon_social: i % 2 === 0 ? 'DISTRIBUIDORA DEL SUR S.A.C.' : 'CLIENTE GENERICO',
-            cliente_num_doc: i % 2 === 0 ? '20100100101' : '10456789',
-            serie: 'NV01',
-            numero: (123 + i).toString().padStart(6, '0'),
-            metodo_pago: i % 3 === 0 ? 'Credito' : 'Contado',
-            pagado: i % 3 !== 0,
-            cpe_relacionado: i % 2 === 0 ? `F001-${4021 + i}` : undefined,
-            motivo: 'Venta regular',
-            estado_pago: i % 3 !== 0 ? 'Pagado' : 'Pendiente',
-            moneda: 'PEN',
-            total: 1500.00 + (i * 10),
-            actividad: 'Venta',
-        } as NotaVenta));
+      const [resLista, resTotales] = await Promise.allSettled([
+        api.notasVenta.listar({ per_page: 500, sort_by: 'id', sort_order: 'desc' }),
+        api.notasVenta.resumenTotales(),
+      ]);
 
-        setData(mockData);
-        setTotales(prev => ({ ...prev, por_cobrar: 500.00 }));
-        setLoading(false);
-      }, 0);
+      if (resLista.status === 'fulfilled') {
+        const raw = resLista.value.data;
+        const lista = (Array.isArray(raw) ? raw : (raw as { data?: NotaVenta[] }).data) ?? [];
+        setData(lista);
+      }
+
+      if (resTotales.status === 'fulfilled') {
+        const t = (resTotales.value.data as unknown as { data?: typeof totales }).data
+          ?? resTotales.value.data as unknown as typeof totales;
+        setTotales({
+          total_busqueda: t?.total_busqueda ?? 0,
+          total_documentos: t?.total_documentos ?? 0,
+          total_por_cobrar: t?.total_por_cobrar ?? 0,
+        });
+      }
     } catch (error) {
       console.error(error);
       toast.error('Error al cargar notas de venta');
+    } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadData();
-  }, [loadData]);
+  useEffect(() => { void loadData(); }, [loadData]);
 
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  // ─── Filtrado ─────────────────────────────────────────────────────────────
+  const datosFiltrados = data.filter(item => {
+    if (filtroEstado !== 'todos') {
+      if (filtroEstado === 'pagado' && !item.pagado) return false;
+      if (filtroEstado === 'pendiente' && item.pagado) return false;
+    }
+    if (!filtroBusqueda) return true;
+    const v = filtroBusqueda.toLowerCase();
+    if (filtroTipo === 'cliente') return item.cliente_razon_social.toLowerCase().includes(v);
+    if (filtroTipo === 'numero') return `${item.serie}-${item.numero}`.toLowerCase().includes(v);
+    if (filtroTipo === 'fecha') return item.fecha_emision.includes(filtroBusqueda);
+    return true;
+  });
+
+  const totalPages = Math.ceil(datosFiltrados.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const dataPaginada = data.slice(startIndex, startIndex + itemsPerPage);
+  const dataPaginada = datosFiltrados.slice(startIndex, startIndex + itemsPerPage);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <NubofactHeader />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+            <p className="text-sm text-muted-foreground">Cargando notas de venta...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <NubofactHeader />
-      
-      <div className="container mx-auto px-4 py-6">
-        <div className="rounded-lg shadow-sm overflow-hidden border border-border bg-card">
-          
-          {/* Cabecera Azul */}
-          <div 
-            className="px-4 py-3 flex items-center justify-between"
-            style={{ backgroundColor: COLORS.primaryBlue }}
-          >
-            <h1 className="text-lg font-semibold text-white flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5" />
-              <span>Consulta de Nota de venta</span>
-            </h1>
-            
-            <div className="flex gap-2">
-                <Button 
-                  size="sm"
-                  variant="ghost"
-                  className="font-bold text-white hover:bg-white/10 hover:text-white border-0"
-                >
-                  <Plus className="h-4 w-4 mr-1" style={{ color: COLORS.accentLime }} />
-                  Nuevo
-                </Button>
-                
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  className="text-xs font-medium text-white hover:bg-white/10 hover:text-white bg-transparent"
-                  style={{ borderColor: COLORS.accentLime }}
-                >
-                  Generar CPE de Multiples NV
-                </Button>
+      <div className="container mx-auto px-4 py-6 max-w-7xl">
+
+        {/* Header */}
+        <div className="bg-primary text-primary-foreground rounded-t-lg px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl font-semibold flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5" />
+            Notas de Venta
+          </h1>
+          <Button onClick={() => void loadData()} variant="secondary" size="sm"
+            className="bg-white/10 hover:bg-white/20 text-white border-0">
+            <RefreshCw className="h-4 w-4 mr-2" />Actualizar
+          </Button>
+        </div>
+
+        {/* Filtros */}
+        <div className="bg-white dark:bg-card border border-t-0 border-border p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 items-end">
+            <div>
+              <Label className="text-xs mb-1 block">Buscar por</Label>
+              <Select value={filtroTipo} onValueChange={v => setFiltroTipo(v as typeof filtroTipo)}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cliente">Cliente</SelectItem>
+                  <SelectItem value="numero">Número N.V.</SelectItem>
+                  <SelectItem value="fecha">Fecha</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">Valor de búsqueda</Label>
+              <Input placeholder="Buscar..." value={filtroBusqueda}
+                onChange={e => { setFiltroBusqueda(e.target.value); setCurrentPage(1); }}
+                className="h-9" />
+            </div>
+            <div>
+              <Label className="text-xs mb-1 block">Estado de pago</Label>
+              <Select value={filtroEstado} onValueChange={v => { setFiltroEstado(v as typeof filtroEstado); setCurrentPage(1); }}>
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="pagado">Pagado</SelectItem>
+                  <SelectItem value="pendiente">Pendiente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">Total por cobrar</Label>
+              <div className="bg-primary/10 text-primary px-3 h-9 rounded border border-primary/25 font-bold text-sm flex items-center justify-center">
+                {formatCurrency(totales.total_por_cobrar)}
+              </div>
             </div>
           </div>
+        </div>
 
-          {/* Sección de Filtros Beige */}
-          <div 
-            className="px-4 py-4 border-b border-border space-y-3 dark:bg-muted/20">
-            <div className="flex flex-wrap items-end gap-2">
-                <div className="w-32">
-                    <Select value={filtros.serie} onValueChange={(v) => setFiltros({...filtros, serie: v})}>
-                        <SelectTrigger className="bg-white dark:bg-background border-0 h-9 rounded-sm">
-                          <SelectValue placeholder="Serie CPE" />
-                        </SelectTrigger>
-                        <SelectContent><SelectItem value="NV01">NV01</SelectItem></SelectContent>
-                    </Select>
-                </div>
-
-                <div className="w-40 relative">
-                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                     <Input 
-                        placeholder="Ingresar Nº Nota Venta" 
-                        className="pl-8 bg-white dark:bg-background border-0 h-9 rounded-sm text-sm"
-                        value={filtros.numero}
-                        onChange={(e) => setFiltros({...filtros, numero: e.target.value})}
-                     />
-                </div>
-
-                <Input 
-                    type="date" 
-                    className="w-36 bg-white dark:bg-background border-0 h-9 rounded-sm text-sm"
-                    value={filtros.fechaInicio}
-                    onChange={(e) => setFiltros({...filtros, fechaInicio: e.target.value})}
-                />
-
-                <Input 
-                    type="date" 
-                    className="w-36 bg-white dark:bg-background border-0 h-9 rounded-sm text-sm"
-                    value={filtros.fechaFin}
-                    onChange={(e) => setFiltros({...filtros, fechaFin: e.target.value})}
-                />
-
-                <div className="w-48">
-                    <Select value={filtros.estado} onValueChange={(v) => setFiltros({...filtros, estado: v})}>
-                        <SelectTrigger className="bg-white dark:bg-background border-0 h-9 rounded-sm">
-                          <SelectValue placeholder="Seleccione un estado" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="pendiente">Pendiente</SelectItem>
-                            <SelectItem value="pagado">Pagado</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="ml-auto flex flex-col items-end">
-                    <span className="text-muted-foreground font-medium text-xs mb-1">Total por cobrar :</span>
-                    <div className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1 rounded font-bold text-lg min-w-24 text-center leading-none">
-                        {totales.por_cobrar.toFixed(2)}
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-                 <div className="flex-1 relative">
-                    <Input 
-                        placeholder="Escriba el nombre o número de documento del cliente"
-                        className="bg-white dark:bg-background border-blue-300 dark:border-border h-9 rounded-sm border text-sm"
-                        value={filtros.cliente}
-                        onChange={(e) => setFiltros({...filtros, cliente: e.target.value})}
-                    />
-                 </div>
-                 <div className="w-64">
-                    <Select value={filtros.vendedor} onValueChange={(v) => setFiltros({...filtros, vendedor: v})}>
-                        <SelectTrigger className="bg-white dark:bg-background border-blue-300 dark:border-border h-9 rounded-sm text-sm">
-                          <SelectValue placeholder="Seleccione un Asesor - Vendedor" />
-                        </SelectTrigger>
-                        <SelectContent><SelectItem value="v1">Vendedor 1</SelectItem></SelectContent>
-                    </Select>
-                 </div>
-            </div>
-          </div>
-
-          {/* Tabla */}
+        {/* Tabla */}
+        <div className="bg-white dark:bg-card border border-t-0 border-border rounded-b-lg overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr style={{ backgroundColor: COLORS.primaryBlue }}>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white">Actividad</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white w-1/4">Cliente</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white">N.V.</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white">Metodo de pago</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white">Pagado</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white">CPE</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white">Motivo</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white">Estado pago</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white">Acciones</th>
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium">#</th>
+                  <th className="px-4 py-3 text-left font-medium">Fecha</th>
+                  <th className="px-4 py-3 text-left font-medium">Cliente</th>
+                  <th className="px-4 py-3 text-center font-medium">N.V.</th>
+                  <th className="px-4 py-3 text-left font-medium">Método Pago</th>
+                  <th className="px-4 py-3 text-center font-medium">Pagado</th>
+                  <th className="px-4 py-3 text-center font-medium">CPE</th>
+                  <th className="px-4 py-3 text-left font-medium">Motivo</th>
+                  <th className="px-4 py-3 text-right font-medium">Total</th>
+                  <th className="px-4 py-3 text-center font-medium">Estado</th>
+                  <th className="px-4 py-3 text-center font-medium">Acciones</th>
                 </tr>
               </thead>
-              <tbody 
-                className="divide-y divide-border" >
-                {loading ? (
-                  <tr><td colSpan={10} className="text-center py-12 text-muted-foreground">Cargando...</td></tr>
+              <tbody>
+                {dataPaginada.length === 0 ? (
+                  <tr><td colSpan={11} className="px-4 py-8 text-center text-muted-foreground">
+                    No se encontraron notas de venta
+                  </td></tr>
                 ) : (
                   dataPaginada.map((item, index) => (
-                    <tr key={item.id} className="hover:bg-background/50 dark:hover:bg-muted/50 transition-colors text-xs border-b border-border">
-                      <td className="px-4 py-2 text-muted-foreground">{startIndex + index + 1}</td>
-                      <td className="px-4 py-2 font-medium">{item.actividad}</td>
-                      <td className="px-4 py-2">
-                        <div className="font-semibold">{item.cliente_razon_social}</div>
-                        <div className="text-[10px] text-muted-foreground">{item.cliente_num_doc}</div>
+                    <tr key={item.id}
+                      className="border-b border-border hover:bg-muted/30 transition-colors text-xs">
+                      <td className="px-4 py-3 text-muted-foreground">{startIndex + index + 1}</td>
+                      <td className="px-4 py-3">{item.fecha_emision}</td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{item.cliente_razon_social}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">{item.cliente_num_doc}</div>
                       </td>
-                      <td className="px-4 py-2 text-center font-bold">{item.serie}-{item.numero}</td>
-                      <td className="px-4 py-2">{item.metodo_pago}</td>
-                      <td className="px-4 py-2 text-center">
-                        {item.pagado ? <FileCheck className="h-4 w-4 text-green-600 dark:text-green-400 mx-auto" /> : <span className="text-destructive font-bold">-</span>}
+                      <td className="px-4 py-3 text-center font-mono font-semibold">
+                        {item.serie}-{item.numero}
                       </td>
-                      <td className="px-4 py-2 text-center text-blue-600 dark:text-blue-400 font-bold cursor-pointer hover:underline">
-                        {item.cpe_relacionado || '-'}
+                      <td className="px-4 py-3">{item.metodo_pago}</td>
+                      <td className="px-4 py-3 text-center">
+                        {item.pagado
+                          ? <FileCheck className="h-4 w-4 text-green-600 mx-auto" />
+                          : <span className="text-destructive font-bold">–</span>}
                       </td>
-                      <td className="px-4 py-2">{item.motivo}</td>
-                      <td className="px-4 py-2 text-center">
-                         <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold border ${item.estado_pago === 'Pagado' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800' : 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800'}`}>
-                            {item.estado_pago}
-                         </span>
+                      <td className="px-4 py-3 text-center">
+                        {item.cpe_relacionado
+                          ? <span className="text-blue-600 dark:text-blue-400 font-semibold font-mono">
+                              {item.cpe_relacionado}
+                            </span>
+                          : <span className="text-muted-foreground">–</span>}
                       </td>
-                      <td className="px-4 py-2 text-center">
-                        <Button variant="ghost" size="icon" className="h-7 w-7">
-                            <Search className="h-4 w-4" />
-                        </Button>
+                      <td className="px-4 py-3 text-muted-foreground">{item.motivo || '–'}</td>
+                      <td className="px-4 py-3 text-right font-semibold">
+                        {formatCurrency(item.total)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <Badge className={item.pagado
+                          ? 'bg-green-500 text-white border-0 text-[10px]'
+                          : 'bg-yellow-500 text-white border-0 text-[10px]'}>
+                          {item.estado_pago || (item.pagado ? 'Pagado' : 'Pendiente')}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0"
+                            onClick={() => { setSelectedNota(item); setIsDetailModalOpen(true); }}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                disabled={!!item.cpe_relacionado}
+                                onClick={() => toast.info('Función disponible próximamente')}>
+                                <FileText className="h-4 w-4 mr-2" />
+                                Generar CPE
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </td>
                     </tr>
                   ))
                 )}
               </tbody>
             </table>
-            
-            <div className="p-4 flex flex-col items-end gap-1 border-t border-border">
-                <div className="flex items-center gap-8 font-bold text-sm">
-                    <span className="text-muted-foreground">Total Por busqueda</span>
-                    <span>S/ {totales.busqueda.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
-                </div>
-                <div className="flex items-center gap-8 font-bold text-sm">
-                    <span className="text-muted-foreground">Total Suma Documentos</span>
-                    <span>S/ {totales.documentos.toLocaleString('es-PE', { minimumFractionDigits: 2 })}</span>
-                </div>
-            </div>
           </div>
 
-          {/* Footer y Paginación */}
-          <div 
-            className="px-4 py-3 border-t border-border relative"> 
-             <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Mostrar</span>
-                    <select
-                        value={itemsPerPage}
-                        onChange={(e) => {
-                            setItemsPerPage(Number(e.target.value));
-                            setCurrentPage(1);
-                        }}
-                        className="px-2 py-1 text-sm border border-border rounded bg-background text-foreground focus:ring-1 focus:ring-primary outline-none"
-                    >
-                        <option value="10">10</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                    <span className="text-sm text-muted-foreground">
-                        registros | Mostrando {data.length > 0 ? startIndex + 1 : 0} a {Math.min(startIndex + itemsPerPage, data.length)} de {data.length}
-                    </span>
-                </div>
-
-              <div className="flex gap-1 flex-wrap">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1 || totalPages === 0}
-                  className="px-3 py-1 text-sm border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </button>
-                {totalPages > 0 && Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  let page;
-                  if (totalPages <= 5) {
-                    page = i + 1;
-                  } else if (currentPage <= 3) {
-                    page = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    page = totalPages - 4 + i;
-                  } else {
-                    page = currentPage - 2 + i;
-                  }
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 text-sm border border-border rounded transition-colors ${
-                        currentPage === page
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-background hover:bg-muted text-foreground'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  className="px-3 py-1 text-sm border border-border rounded bg-background hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
-                >
-                  Siguiente
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+          {/* Totales búsqueda */}
+          {datosFiltrados.length > 0 && (
+            <div className="px-4 py-3 border-t border-border flex flex-col items-end gap-1 text-sm">
+              <div className="flex items-center gap-8 font-semibold">
+                <span className="text-muted-foreground">Total búsqueda:</span>
+                <span>{formatCurrency(totales.total_busqueda)}</span>
+              </div>
+              <div className="flex items-center gap-8 font-bold">
+                <span className="text-muted-foreground">Total documentos:</span>
+                <span>{formatCurrency(totales.total_documentos)}</span>
               </div>
             </div>
-            
-            <div className="absolute bottom-0 left-0 w-full h-1"></div>
+          )}
+
+          {/* Paginación */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs">Mostrar:</Label>
+              <Select value={String(itemsPerPage)} onValueChange={v => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                <SelectTrigger className="h-8 w-20"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[10, 25, 50, 100].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <span className="text-xs text-muted-foreground">
+                {datosFiltrados.length > 0 ? startIndex + 1 : 0}–{Math.min(startIndex + itemsPerPage, datosFiltrados.length)} de {datosFiltrados.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm">Página {currentPage} de {totalPages || 1}</span>
+              <Button variant="outline" size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages || totalPages === 0}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
+
+        {/* Modal Detalle */}
+        <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Detalle Nota de Venta</DialogTitle>
+              <DialogDescription>Información completa del documento</DialogDescription>
+            </DialogHeader>
+            {selectedNota && (
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><Label className="text-xs text-muted-foreground">Número</Label>
+                  <p className="font-mono font-semibold">{selectedNota.serie}-{selectedNota.numero}</p>
+                </div>
+                <div><Label className="text-xs text-muted-foreground">Fecha</Label>
+                  <p>{selectedNota.fecha_emision}</p>
+                </div>
+                <div className="col-span-2"><Label className="text-xs text-muted-foreground">Cliente</Label>
+                  <p className="font-medium">{selectedNota.cliente_razon_social}</p>
+                  <p className="font-mono text-xs text-muted-foreground">{selectedNota.cliente_num_doc}</p>
+                </div>
+                <div><Label className="text-xs text-muted-foreground">Método de Pago</Label>
+                  <p>{selectedNota.metodo_pago}</p>
+                </div>
+                <div><Label className="text-xs text-muted-foreground">Estado</Label>
+                  <Badge className={selectedNota.pagado
+                    ? 'bg-green-500 text-white border-0'
+                    : 'bg-yellow-500 text-white border-0'}>
+                    {selectedNota.estado_pago || (selectedNota.pagado ? 'Pagado' : 'Pendiente')}
+                  </Badge>
+                </div>
+                {selectedNota.cpe_relacionado && (
+                  <div className="col-span-2"><Label className="text-xs text-muted-foreground">CPE Relacionado</Label>
+                    <p className="font-mono text-blue-600">{selectedNota.cpe_relacionado}</p>
+                  </div>
+                )}
+                {selectedNota.motivo && (
+                  <div className="col-span-2"><Label className="text-xs text-muted-foreground">Motivo</Label>
+                    <p>{selectedNota.motivo}</p>
+                  </div>
+                )}
+                <div className="col-span-2 pt-2 border-t">
+                  <Label className="text-xs text-muted-foreground">Total</Label>
+                  <p className="text-xl font-bold text-primary">{formatCurrency(selectedNota.total)}</p>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDetailModalOpen(false)}>Cerrar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     </div>
   );

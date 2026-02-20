@@ -231,7 +231,7 @@ export default function CuentasBancarias() {
           <h1 className="text-xl font-semibold">Módulo de Cuentas Bancarias</h1>
           <Button
             onClick={handleNew}
-            className="bg-white hover:bg-gray-100 text-primary"
+            className="bg-background hover:bg-muted text-primary border border-border"
             size="sm"
           >
             <Plus className="h-4 w-4 mr-1" />

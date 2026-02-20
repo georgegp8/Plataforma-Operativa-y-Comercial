@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Settings,
   ShoppingCart,
@@ -35,15 +35,18 @@ import {
   XCircle,
   FileCheck,
   AlertCircle,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { useAuth } from '@/context/AuthContext';
 
 interface DropdownItem {
   label: string;
   path: string;
   icon: React.ElementType;
   isSectionTitle?: boolean;
+  adminOnly?: boolean;
 }
 
 interface NavItem {
@@ -95,8 +98,8 @@ const cpeItems: DropdownItem[] = [
   { label: 'No Enviados Sunat', path: '/cpes/no-enviados-sunat', icon: XCircle },
   { label: 'Resumenes Sunat', path: '/cpes/resumenes-sunat', icon: FileCheck },
   { label: 'Anulados Sunat', path: '/cpes/anulados-sunat', icon: AlertCircle },
-  { label: 'CONFIGURACION', path: '', icon: Settings, isSectionTitle: true },
-  { label: 'Configuracion Empresa', path: '/configuracion/empresa', icon: Settings },
+  { label: 'CONFIGURACION', path: '', icon: Settings, isSectionTitle: true, adminOnly: true },
+  { label: 'Configuracion Empresa', path: '/configuracion/empresa', icon: Settings, adminOnly: true },
 ];
 
 const navItems: NavItem[] = [
@@ -108,24 +111,25 @@ const navItems: NavItem[] = [
   { label: 'Reportes', icon: BarChart3, path: '/reportes', hasDropdown: true },
 ];
 
-const dashboardTabs = [
-  { label: 'Dashboard', path: '/' },
-  { label: 'Dashboard Caja', path: '/dashboard-caja' },
-];
-
 export function NubofactHeader() {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState('/');
+  const navigate = useNavigate();
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const { user, logout, isAdmin } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
 
   return (
     <header className="bg-[hsl(var(--nubofact-header))] text-white">
-      {/* Top Bar - Altura ajustada para logo más grande */}
+      {/* Top Bar */}
       <div className="flex items-center justify-between px-4 h-16">
         {/* Logo y Navigation Menu */}
         <div className="flex items-center gap-8">
-          {/* Logo Nubefact - SVG inline, pegado a la izquierda */}
-          <Link to="/" className="cursor-pointer" onClick={() => setActiveTab('/')}>
+          {/* Logo Nubefact */}
+          <Link to="/" className="cursor-pointer">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 170 32"
@@ -143,7 +147,6 @@ export function NubofactHeader() {
               >
                 Nubofact
               </text>
-
               <circle
                 cx="161"
                 cy="18"
@@ -156,6 +159,10 @@ export function NubofactHeader() {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isOpen = openDropdown === item.path;
+              // Filter dropdown items by role
+              const visibleItems = item.dropdownItems?.filter(
+                (d) => !d.adminOnly || isAdmin()
+              );
 
               return (
                 <div
@@ -193,27 +200,25 @@ export function NubofactHeader() {
                   )}
 
                   {/* Dropdown Menu */}
-                  {item.hasDropdown && item.dropdownItems && isOpen && (
+                  {item.hasDropdown && visibleItems && isOpen && (
                     <div className="absolute top-full left-0 w-72 bg-card border border-border rounded-md shadow-lg z-50 pt-1">
-                      {item.dropdownItems.map((dropdownItem, idx) => {
+                      {visibleItems.map((dropdownItem, idx) => {
                         const DropdownIcon = dropdownItem.icon;
-                        
-                        // Si es un título de sección
+
                         if (dropdownItem.isSectionTitle) {
                           return (
                             <div
                               key={`section-${idx}`}
                               className={cn(
-                                "px-4 py-2 text-xs font-bold text-primary uppercase tracking-wider",
-                                idx > 0 && "border-t border-border mt-1 pt-3"
+                                'px-4 py-2 text-xs font-bold text-primary uppercase tracking-wider',
+                                idx > 0 && 'border-t border-border mt-1 pt-3'
                               )}
                             >
                               {dropdownItem.label}
                             </div>
                           );
                         }
-                        
-                        // Item normal
+
                         return (
                           <Link
                             key={dropdownItem.path}
@@ -236,7 +241,6 @@ export function NubofactHeader() {
 
         {/* User Info */}
         <div className="flex items-center gap-3">
-          {/* Theme Toggle */}
           <ThemeToggle />
 
           <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden">
@@ -244,30 +248,20 @@ export function NubofactHeader() {
           </div>
           <div className="flex flex-col text-right">
             <span className="text-[hsl(var(--nubofact-accent))] text-xs">
-              Administrador
+              {user?.name ?? '—'}
             </span>
-            <span className="text-xs">PRODUCCION</span>
+            <span className="text-xs uppercase">{user?.rol ?? ''}</span>
           </div>
-        </div>
-      </div>
 
-      {/* Tabs Bar - Altura reducida */}
-      <div className="bg-[hsl(var(--nubofact-header-dark))] h-8 flex items-center">
-        {dashboardTabs.map((tab) => (
-          <Link
-            key={tab.path}
-            to={tab.path}
-            onClick={() => setActiveTab(tab.path)}
-            className={cn(
-              'px-6 py-2 text-sm transition-colors h-full flex items-center text-white',
-              activeTab === tab.path
-                ? 'hover:bg-primary hover:text-primary-foreground active:bg-primary active:text-primary-foreground'
-                : 'hover:bg-white/10'
-            )}
+          <button
+            type="button"
+            onClick={handleLogout}
+            title="Cerrar sesión"
+            className="flex items-center justify-center w-8 h-8 rounded hover:bg-white/10 transition-colors"
           >
-            {tab.label}
-          </Link>
-        ))}
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </header>
   );

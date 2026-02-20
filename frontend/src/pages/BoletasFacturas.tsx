@@ -87,7 +87,7 @@ const comprobanteSchema = z
     cliente_numero_de_documento: z.string().optional(),
     cliente_denominacion: z.string().min(1, 'Requerido'),
     cliente_direccion: z.string().optional(),
-    cliente_email: z.string().email('Email inválido').optional().or(z.literal('')),
+    cliente_email: z.union([z.email({ message: 'Email inválido' }), z.literal('')]).optional(),
     fecha_de_emision: z.string().min(1, 'Requerido'),
     moneda: z.string().min(1, 'Requerido'),
     sunat_transaction: z.number().min(1, 'Seleccione un tipo de operación'),
@@ -137,7 +137,6 @@ export default function BoletasFacturas() {
   const { empresaId, empresa } = useEmpresa();
   const [tipoActivo, setTipoActivo] = useState<'factura' | 'boleta'>('factura');
   const [emitiendo, setEmitiendo] = useState(false);
-  const [series, setSeries] = useState<Serie[]>([]);
 
   const [clientes, setClientes] = useState<Entidad[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
@@ -180,8 +179,8 @@ export default function BoletasFacturas() {
     defaultValues: {
       empresa_id: empresaId || 1,
       tipo_comprobante: String(TIPOS_COMPROBANTE.FACTURA),
-      serie: 'F001',
-      numero: 1,
+      serie: '', // Se cargará desde la API al abrir el modal
+      numero: 0, // Se cargará desde la API al abrir el modal
       cliente_tipo_de_documento: TIPOS_DOCUMENTO.RUC,
       cliente_numero_de_documento: '',
       cliente_denominacion: '',
@@ -219,32 +218,35 @@ export default function BoletasFacturas() {
       const data = response.data;
       const comprobantesData = (Array.isArray(data) ? data : (data as { data?: unknown[] }).data) || [];
 
-      const mappedComprobantes: Comprobante[] = comprobantesData.map((item: unknown) => {
-        const comp = item as Record<string, unknown>;
-        return {
-          id: comp.id as number,
-          tipo_doc: comp.tipo_doc as string || '',
-          serie: comp.serie as string || '',
-          correlativo: comp.correlativo as string || '',
-          numero_completo: comp.numero_completo as string || `${comp.serie}-${comp.correlativo}`,
-          cliente_razon_social: comp.cliente_razon_social as string || '',
-          cliente_num_doc: comp.cliente_num_doc as string || '',
-          fecha_emision: comp.fecha_emision as string || '',
-          moneda: comp.moneda as string || 'PEN',
-          mto_imp_venta: typeof comp.mto_imp_venta === 'number' ? comp.mto_imp_venta : parseFloat(String(comp.mto_imp_venta || 0)),
-          mto_oper_gravadas: typeof comp.mto_oper_gravadas === 'number' ? comp.mto_oper_gravadas : parseFloat(String(comp.mto_oper_gravadas || 0)),
-          mto_oper_gratuitas: typeof comp.mto_oper_gratuitas === 'number' ? comp.mto_oper_gratuitas : parseFloat(String(comp.mto_oper_gratuitas || 0)),
-          mto_igv: typeof comp.mto_igv === 'number' ? comp.mto_igv : parseFloat(String(comp.mto_igv || 0)),
-          estado_sunat: comp.estado_sunat as string || '',
-          nubefact_aceptada_por_sunat: comp.nubefact_aceptada_por_sunat as boolean || false,
-          nubefact_pdf_url: comp.nubefact_pdf_url as string,
-          nubefact_xml_url: comp.nubefact_xml_url as string,
-          nubefact_cdr_url: comp.nubefact_cdr_url as string,
-          anulado: comp.anulado as boolean || false,
-          pagado: comp.pagado as boolean || false,
-          forma_pago: comp.forma_pago as string || 'Contado',
-        };
-      });
+      const mappedComprobantes: Comprobante[] = comprobantesData
+        .map((item: unknown) => {
+          const comp = item as Record<string, unknown>;
+          return {
+            id: comp.id as number,
+            tipo_doc: comp.tipo_doc as string || '',
+            serie: comp.serie as string || '',
+            correlativo: comp.correlativo as string || '',
+            numero_completo: comp.numero_completo as string || `${comp.serie}-${comp.correlativo}`,
+            cliente_razon_social: comp.cliente_razon_social as string || '',
+            cliente_num_doc: comp.cliente_num_doc as string || '',
+            fecha_emision: comp.fecha_emision as string || '',
+            moneda: comp.moneda as string || 'PEN',
+            mto_imp_venta: typeof comp.mto_imp_venta === 'number' ? comp.mto_imp_venta : parseFloat(String(comp.mto_imp_venta || 0)),
+            mto_oper_gravadas: typeof comp.mto_oper_gravadas === 'number' ? comp.mto_oper_gravadas : parseFloat(String(comp.mto_oper_gravadas || 0)),
+            mto_oper_gratuitas: typeof comp.mto_oper_gratuitas === 'number' ? comp.mto_oper_gratuitas : parseFloat(String(comp.mto_oper_gratuitas || 0)),
+            mto_igv: typeof comp.mto_igv === 'number' ? comp.mto_igv : parseFloat(String(comp.mto_igv || 0)),
+            estado_sunat: comp.estado_sunat as string || '',
+            nubefact_aceptada_por_sunat: comp.nubefact_aceptada_por_sunat as boolean || false,
+            nubefact_pdf_url: comp.nubefact_pdf_url as string,
+            nubefact_xml_url: comp.nubefact_xml_url as string,
+            nubefact_cdr_url: comp.nubefact_cdr_url as string,
+            anulado: comp.anulado as boolean || false,
+            pagado: comp.pagado as boolean || false,
+            forma_pago: comp.forma_pago as string || 'Contado',
+          };
+        })
+        // Filtrar solo Facturas (01) y Boletas (03)
+        .filter(comp => comp.tipo_doc === '01' || comp.tipo_doc === '03');
 
       setComprobantes(mappedComprobantes);
     } catch (error) {
@@ -271,23 +273,33 @@ export default function BoletasFacturas() {
       const eid = empresaId || 1;
       const tipoCodigo = tipoCodigoParam || form.getValues('tipo_comprobante');
       const tipoSunat = mapTipoSunat[tipoCodigo] || tipoCodigo;
+
+      console.log('[cargarSeries] Consultando series:', { empresaId: eid, tipoCodigo, tipoSunat });
+
       const res = await api.series.listar({ empresa_id: eid, tipo_comprobante: tipoSunat });
       const lista = res.data.data;
-      setSeries(lista);
+
       if (lista.length > 0) {
         const serieDefecto = lista.find((s: Serie) => s.por_defecto) ?? lista[0];
         form.setValue('serie', serieDefecto.serie);
-        // Obtener correlativo real consultando la tabla de comprobantes
+
+        // Obtener correlativo real consultando la API de NubeFact
         try {
+          console.log('[cargarSeries] Consultando correlativo:', { empresaId: eid, tipoSunat, serie: serieDefecto.serie });
           const corr = await obtenerCorrelativoSeguro(eid, tipoSunat, serieDefecto.serie);
           const num = parseInt(String(corr.correlativo), 10);
+          console.log('[cargarSeries] Correlativo obtenido:', { correlativo: corr.correlativo, numeroParseado: num });
           form.setValue('numero', num);
-        } catch {
+        } catch (err) {
+          console.error('[cargarSeries] Error al obtener correlativo:', err);
           // Fallback: usar correlativo_actual de la serie
-          form.setValue('numero', (serieDefecto.correlativo_actual ?? 0) + 1);
+          const fallbackNum = (serieDefecto.correlativo_actual ?? 0) + 1;
+          console.log('[cargarSeries] Usando fallback:', fallbackNum);
+          form.setValue('numero', fallbackNum);
         }
       }
-    } catch {
+    } catch (err) {
+      console.error('[cargarSeries] Error general:', err);
       // Mantener modo manual
     }
   };
@@ -350,10 +362,13 @@ export default function BoletasFacturas() {
     setTipoActivo(tipo);
     const esFactura = tipo === 'factura';
     const codigo = esFactura ? String(TIPOS_COMPROBANTE.FACTURA) : String(TIPOS_COMPROBANTE.BOLETA);
-    const prefix = esFactura ? 'F' : 'B';
+
+    console.log('[cambiarTipo] Cambiando tipo:', { tipo, codigo, tipoSunat: mapTipoSunat[codigo] });
+
     form.setValue('tipo_comprobante', codigo);
-    form.setValue('serie', `${prefix}001`);
     form.setValue('cliente_tipo_de_documento', esFactura ? TIPOS_DOCUMENTO.RUC : TIPOS_DOCUMENTO.DNI);
+
+    // cargarSeries se encargará de establecer la serie y correlativo correctos
     void cargarSeries(codigo);
   };
 
@@ -684,8 +699,8 @@ export default function BoletasFacturas() {
     form.reset({
       empresa_id: empresaId || 1,
       tipo_comprobante: String(TIPOS_COMPROBANTE.FACTURA),
-      serie: 'F001',
-      numero: 1,
+      serie: '', // Se cargará desde la API
+      numero: 0, // Se cargará desde la API
       cliente_tipo_de_documento: TIPOS_DOCUMENTO.RUC,
       cliente_numero_de_documento: '',
       cliente_denominacion: '',
@@ -1018,7 +1033,7 @@ export default function BoletasFacturas() {
                                 const left = (window.screen.width / 2) - (width / 2);
                                 const top = (window.screen.height / 2) - (height / 2);
                                 window.open(
-                                  comp.nubefact_pdf_url,
+                                  `${apiBaseUrl}/facturacion/descargar/pdf/${comp.id}`,
                                   'Imprimir PDF',
                                   `width=${width},height=${height},left=${left},top=${top},toolbar=yes,menubar=yes`
                                 );
@@ -1033,19 +1048,19 @@ export default function BoletasFacturas() {
                               </DropdownMenuItem>
                             )}
                             {comp.nubefact_pdf_url && (
-                              <DropdownMenuItem onClick={() => window.open(comp.nubefact_pdf_url, '_blank')}>
+                              <DropdownMenuItem onClick={() => window.open(`${apiBaseUrl}/facturacion/descargar/pdf/${comp.id}`, '_blank')}>
                                 <FileText className="h-3.5 w-3.5 mr-2 text-red-600" />
                                 PDF
                               </DropdownMenuItem>
                             )}
                             {comp.nubefact_xml_url && (
-                              <DropdownMenuItem onClick={() => window.open(comp.nubefact_xml_url, '_blank')}>
+                              <DropdownMenuItem onClick={() => window.open(`${apiBaseUrl}/facturacion/descargar/xml/${comp.id}`, '_blank')}>
                                 <FileText className="h-3.5 w-3.5 mr-2 text-blue-600" />
                                 XML
                               </DropdownMenuItem>
                             )}
                             {comp.nubefact_cdr_url && (
-                              <DropdownMenuItem onClick={() => window.open(comp.nubefact_cdr_url, '_blank')}>
+                              <DropdownMenuItem onClick={() => window.open(`${apiBaseUrl}/facturacion/descargar/cdr/${comp.id}`, '_blank')}>
                                 <FileText className="h-3.5 w-3.5 mr-2 text-green-600" />
                                 CDR
                               </DropdownMenuItem>
@@ -1356,42 +1371,12 @@ export default function BoletasFacturas() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Serie *</Label>
-                    {series.length > 0 ? (
-                      <Select
-                        value={form.watch('serie')}
-                        onValueChange={(value) => {
-                          form.setValue('serie', value);
-                          if (!value || value.trim() === '') return;
-                          const eid = empresaId || 1;
-                          const tipoCodigo = form.getValues('tipo_comprobante');
-                          const tipoSunat = mapTipoSunat[tipoCodigo] || tipoCodigo;
-                          if (!tipoSunat) return;
-                          obtenerCorrelativoSeguro(eid, tipoSunat, value)
-                            .then((corr) => {
-                              form.setValue('numero', parseInt(String(corr.correlativo), 10));
-                            })
-                            .catch(() => {
-                              const encontrada = series.find((s) => s.serie === value);
-                              if (encontrada) {
-                                form.setValue('numero', (encontrada.correlativo_actual ?? 0) + 1);
-                              }
-                            });
-                        }}
-                      >
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="Serie" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {series.map((s) => (
-                            <SelectItem key={s.id} value={s.serie}>
-                              {s.serie}{s.por_defecto ? ' (defecto)' : ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input {...form.register('serie')} className="h-9" maxLength={4} />
-                    )}
+                    <Input
+                      type="text"
+                      className="h-9 bg-muted font-mono"
+                      readOnly
+                      value={form.watch('serie') || ''}
+                    />
                     {form.formState.errors.serie && (
                       <p className="text-xs text-destructive">{form.formState.errors.serie.message}</p>
                     )}

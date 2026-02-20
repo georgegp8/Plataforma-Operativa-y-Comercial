@@ -461,6 +461,8 @@ export interface MetricCardProps {
   className?: string;
   /** Variante del estilo (default: card normal, navy: fondo azul marino con icono grande, nubofact: diseño Nubofact original) */
   variant?: 'default' | 'navy' | 'nubofact';
+  /** Ruta interna (react-router) a la que navegar al hacer clic */
+  href?: string;
 }
 
 export interface EmptyStateProps {

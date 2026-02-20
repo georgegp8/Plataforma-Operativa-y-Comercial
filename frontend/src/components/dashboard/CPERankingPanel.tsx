@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface CPERankingItem {
@@ -21,7 +22,9 @@ export function CPERankingPanel({ data, className }: CPERankingPanelProps) {
       
       {/* 'py-2' reduce la altura de la barra azul para que esté más ajustada al texto */}
       <CardHeader className="bg-primary text-primary-foreground px-4 py-2 space-y-0">
-        <CardTitle className="text-sm font-semibold">CPE Emitidos</CardTitle>
+        <Link to="/cpes/boletas-facturas" className="hover:opacity-80 transition-opacity">
+          <CardTitle className="text-sm font-semibold">CPE Emitidos →</CardTitle>
+        </Link>
       </CardHeader>
 
       <CardContent className="bg-muted px-4 py-3">

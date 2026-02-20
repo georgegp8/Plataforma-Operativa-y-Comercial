@@ -217,7 +217,7 @@ export default function Vendedores() {
           <h1 className="text-xl font-semibold">Módulo de Vendedores</h1>
           <Button
             onClick={handleNewVendedor}
-            className="bg-white hover:bg-gray-100 text-primary"
+            className="bg-background hover:bg-muted text-primary border border-border"
             size="sm"
           >
             <Plus className="h-4 w-4 mr-1" />

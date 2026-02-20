@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format';
 
@@ -21,7 +22,9 @@ export function NotasVentaDesglosePanelCompacto({
   return (
     <Card className={`overflow-hidden shadow-md p-0 ${className}`}>
       <CardHeader className="bg-primary text-primary-foreground px-4 py-2 space-y-0">
-        <CardTitle className="text-sm font-semibold">Notas de Venta</CardTitle>
+        <Link to="/cpes/nota-venta" className="hover:opacity-80 transition-opacity">
+          <CardTitle className="text-sm font-semibold">Notas de Venta →</CardTitle>
+        </Link>
       </CardHeader>
       <CardContent className="bg-muted px-4 py-3">
         {/* Desglose de pagos */}

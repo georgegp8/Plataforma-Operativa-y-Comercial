@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { type MetricCardProps } from '@/types';
 import { cn } from '@/lib/utils';
@@ -19,18 +20,19 @@ export function MetricCard({
   details,
   className,
   variant = 'default',
+  href,
 }: MetricCardProps) {
   const isNavy = variant === 'navy';
   const isNubofact = variant === 'nubofact';
 
   if (isNubofact) {
     // Variant Nubofact: Diseño original de Nubofact con colores #0c5078
-    return (
+    const inner = (
       <div className={cn(
         'flex items-center gap-3 p-4 rounded-[10px]',
         'bg-[#0c5078] text-white',
         'transition-all duration-200',
-        className
+        href && 'cursor-pointer hover:brightness-110',
       )}>
         <div className="shrink-0 bg-[#164a6b] rounded p-3">
           <Icon className="h-6 w-6" aria-hidden />
@@ -45,6 +47,10 @@ export function MetricCard({
         </div>
       </div>
     );
+    // className (con lg:col-span-*) debe ir en el elemento raíz del grid
+    return href
+      ? <Link to={href} className={cn('block', className)}>{inner}</Link>
+      : <div className={className}>{inner}</div>;
   }
 
   if (isNavy) {

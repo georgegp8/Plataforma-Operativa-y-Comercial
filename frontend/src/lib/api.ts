@@ -778,8 +778,35 @@ export const api = {
       apiClient.get<PaginatedResponse<NotaVenta>>('/v1/notas-venta', { params }),
     resumenTotales: (params?: Record<string, unknown>) =>
       apiClient.get<ApiResponse<{ total_busqueda: number; total_documentos: number; total_por_cobrar: number }>>('/v1/notas-venta/totales', { params }),
-    generarCpeMasivo: (ids: number[]) => 
+    generarCpeMasivo: (ids: number[]) =>
       apiClient.post('/v1/notas-venta/generar-cpe-masivo', { ids }),
+  },
+
+  // Autenticación
+  auth: {
+    login: (username: string, password: string) =>
+      apiClient.post<{ success: boolean; token: string; user: { id: number; name: string; username: string; email: string; rol: string } }>(
+        '/auth/login',
+        { username, password },
+      ),
+    register: (name: string, username: string, password: string, passwordConfirmation: string) =>
+      apiClient.post<{ success: boolean; token: string; user: { id: number; name: string; username: string; email: string; rol: string } }>(
+        '/auth/register',
+        { name, username, password, password_confirmation: passwordConfirmation },
+      ),
+    logout: () => apiClient.post<{ success: boolean }>('/auth/logout'),
+    me: () =>
+      apiClient.get<{ success: boolean; user: { id: number; name: string; username: string; email: string; rol: string } }>('/auth/me'),
+  },
+
+  // NubeFact Sync
+  nubefactSync: {
+    sincronizarComprobante: (data: { tipo_doc: string; serie: string; numero: number; empresa_id?: number }) =>
+      apiClient.post<ApiResponse<{ success: boolean; mensaje: string }>>('/nubefact-sync/comprobante', data),
+    sincronizarPendientes: (data?: { empresa_id?: number; tipo_doc?: string; fecha_desde?: string; fecha_hasta?: string; limite?: number }) =>
+      apiClient.post<ApiResponse<{ success: boolean; exitosos: number; fallidos: number; mensaje: string }>>('/nubefact-sync/pendientes', data),
+    verificarEstado: () =>
+      apiClient.get<ApiResponse<{ conectado: boolean; modo: string; empresa: string }>>('/nubefact-sync/estado'),
   },
 };
 

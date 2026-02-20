@@ -200,7 +200,7 @@ export default function PersonalEmpresa() {
           <h1 className="text-xl font-semibold">Listado de personal de la empresa</h1>
           <Button
             onClick={handleNewPersonal}
-            className="bg-white hover:bg-gray-100 text-primary"
+            className="bg-background hover:bg-muted text-primary border border-border"
             size="sm"
           >
             <Plus className="h-4 w-4 mr-1" />

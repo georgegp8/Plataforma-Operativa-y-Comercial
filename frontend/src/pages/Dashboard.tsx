@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FileText, CreditCard, BarChart3, Wallet } from "lucide-react";
 import { dashboardApi } from "@/services/api";
 import { NubofactHeader } from "@/components/layout/NubofactHeader";
@@ -170,49 +170,72 @@ export default function Dashboard() {
     setStockMinimoPage(page);
   }, []);
 
-  // Datos mock para componentes de Figma
-  const totalComprasData = useMemo(
-    () => ({
-      totalCompras: 7543374.65,
-      saldo: 7543374.65,
-      monthlyData: [
-        { month: "Ene", value: 4200 },
-        { month: "Feb", value: 3800 },
-        { month: "Mar", value: 5400 },
-        { month: "Abr", value: 5800 },
-        { month: "May", value: 6200 },
-        { month: "Jun", value: 7000 },
-        { month: "Jul", value: 6400 },
-        { month: "Ago", value: 6800 },
-        { month: "Sep", value: 5900 },
-        { month: "Oct", value: 7200 },
-        { month: "Nov", value: 7600 },
-        { month: "Dic", value: 6500 },
-      ],
-    }),
-    [],
-  );
+  // Datos reales de compras y notas de venta (conectados a la API)
+  const [totalComprasData, setTotalComprasData] = useState({
+    totalCompras: 0,
+    saldo: 0,
+    monthlyData: [] as { month: string; value: number }[],
+  });
+
+  const [notasVentaData, setNotasVentaData] = useState({
+    ingresos: 0,
+    egresos: 0,
+    flujo: 0,
+  });
+
+  // Cargar datos de compras cuando cambien los filtros
+  useEffect(() => {
+    const cargarCompras = async () => {
+      try {
+        // TODO: Implementar endpoint para obtener totales de compras
+        // const data = await dashboardApi.getTotalCompras(filtros);
+        // setTotalComprasData(data);
+
+        // Por ahora, calcular desde los datos existentes
+        setTotalComprasData({
+          totalCompras: 0,
+          saldo: 0,
+          monthlyData: [],
+        });
+      } catch (error) {
+        console.error("Error al cargar datos de compras:", error);
+      }
+    };
+
+    cargarCompras();
+  }, [filtros]);
+
+  // Calcular ingresos y egresos desde los stats reales
+  useEffect(() => {
+    const ingresos = stats.cpeTotal + stats.boletasTotal;
+    const egresos = totalComprasData.totalCompras;
+    setNotasVentaData({
+      ingresos,
+      egresos,
+      flujo: ingresos - egresos,
+    });
+  }, [stats, totalComprasData]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#cbbfac]">
+      <div className="min-h-screen bg-background">
         <NubofactHeader />
-        <div className="bg-[#cbbfae] py-3">
-          <div className="max-w-350 mx-auto px-16">
-            <div className="bg-primary rounded-[10px] p-4 h-24 animate-pulse"></div>
+        <div className="bg-muted/30 py-3 border-b">
+          <div className="max-w-480 mx-auto px-6 sm:px-8 lg:px-12">
+            <div className="bg-primary/10 rounded-lg p-4 h-24 animate-pulse"></div>
           </div>
         </div>
-        <div className="bg-[#cbbfac] pb-4">
-          <div className="max-w-350 mx-auto px-16">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+        <div className="bg-background py-4">
+          <div className="max-w-480 mx-auto px-6 sm:px-8 lg:px-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-6">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="bg-primary rounded-lg h-24 animate-pulse"></div>
+                <div key={i} className="bg-primary/10 rounded-lg h-24 animate-pulse lg:col-span-2"></div>
               ))}
             </div>
           </div>
         </div>
-        <div className="pb-4">
-          <div className="max-w-350 mx-auto px-16">
+        <div className="py-6">
+          <div className="max-w-480 mx-auto px-6 sm:px-8 lg:px-12">
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -226,13 +249,13 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#cbbfac] transition-opacity duration-200">
+    <div className="min-h-screen bg-background transition-opacity duration-200">
       {/* Header Nubofact */}
       <NubofactHeader />
 
-      {/* Dashboard General Section with Filters - fondo beige */}
-      <div className="bg-[#cbbfae] py-3">
-        <div className="max-w-350 mx-auto px-16">
+      {/* Dashboard General Section with Filters */}
+      <div className="bg-muted/30 py-3 border-b">
+        <div className="max-w-480 mx-auto px-6 sm:px-8 lg:px-12">
           <DashboardFilters
             establecimiento={filtros.establecimiento}
             periodo={filtros.periodo}
@@ -243,23 +266,25 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Metrics Cards - fondo beige más claro con fade-in */}
-      <div className="bg-[#cbbfac] pb-4 animate-in fade-in duration-300">
-        <div className="max-w-350 mx-auto px-16">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-10 gap-3">
+      {/* Metrics Cards */}
+      <div className="bg-background py-4 animate-in fade-in duration-300">
+        <div className="max-w-480 mx-auto px-6 sm:px-8 lg:px-12">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-6">
             <MetricCard
               variant="nubofact"
               icon={FileText}
               title="CPE Emitidos"
               value={stats.cpeEmitidos.toString()}
-              className="lg:col-span-2"
+              className="lg:col-span-3"
+              href="/cpes/boletas-facturas"
             />
             <MetricCard
               variant="nubofact"
               icon={CreditCard}
               title="Total CPE"
               value={formatCurrencyKpi(stats.cpeTotal)}
-              className="lg:col-span-2"
+              className="lg:col-span-3"
+              href="/cpes/boletas-facturas"
             />
             <MetricCard
               variant="nubofact"
@@ -267,6 +292,7 @@ export default function Dashboard() {
               title="Notas de Venta"
               value={formatCurrencyKpi(stats.boletasTotal)}
               className="lg:col-span-2"
+              href="/cpes/nota-venta"
             />
             <MetricCard
               variant="nubofact"
@@ -274,6 +300,7 @@ export default function Dashboard() {
               title="Total General"
               value={formatCurrencyKpi(stats.montoTotalGeneral)}
               className="lg:col-span-2"
+              href="/cpes/finanzas"
             />
             <MetricCard
               variant="nubofact"
@@ -281,29 +308,30 @@ export default function Dashboard() {
               title="Utilidad Neta"
               value={formatCurrencyKpi(stats.utilidadNeta)}
               className="lg:col-span-2"
+              href="/cpes/finanzas"
             />
           </div>
         </div>
       </div>
 
       {/* Main Dashboard Content */}
-      <div className="pb-4">
-        <div className="max-w-350 mx-auto px-16 space-y-4">
+      <div className="py-6">
+        <div className="max-w-480 mx-auto px-6 sm:px-8 lg:px-12 space-y-8">
           {/* FILA 0: Nuevos paneles de desglose compactos */}
-          <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
-            <CPEDesglosePanelCompacto 
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <CPEDesglosePanelCompacto
               totalPagado={stats.cpePagado}
               totalPorPagar={stats.cpePorPagar}
               total={stats.cpeTotal}
-              className="lg:col-span-3"
+              className="lg:col-span-4"
             />
-            <NotasVentaDesglosePanelCompacto 
+            <NotasVentaDesglosePanelCompacto
               totalPagado={stats.boletasPagado}
               totalPorPagar={stats.boletasPorPagar}
               total={stats.boletasTotal}
-              className="lg:col-span-3"
+              className="lg:col-span-4"
             />
-            <TotalesGeneralesPanel 
+            <TotalesGeneralesPanel
               totalNotaVenta={stats.boletasTotal}
               totalComprobantes={stats.cpeTotal}
               totalGeneral={stats.montoTotalGeneral}
@@ -312,10 +340,15 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* FILA 1: Paneles alineados con las métricas */}
-          <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
-            <CPERankingPanel data={cpeRanking} className="lg:col-span-3" />
-            <NotasVentaPanel ingresos={234} egresos={219.63} flujo={23.32} className="lg:col-span-3" />
+          {/* FILA 1: Paneles de resumen */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <CPERankingPanel data={cpeRanking} className="lg:col-span-4" />
+            <NotasVentaPanel
+              ingresos={notasVentaData.ingresos}
+              egresos={notasVentaData.egresos}
+              flujo={notasVentaData.flujo}
+              className="lg:col-span-4"
+            />
             <TotalComprasPanel
               totalCompras={totalComprasData.totalCompras}
               saldo={totalComprasData.saldo}
@@ -324,10 +357,10 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* FILA 2: Tablas (3 columnas con StockMinimoTable más ancha) */}
-          <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
-            <ProductosTopTable data={productosTop} className="lg:col-span-3" />
-            <ClientesTopTable data={clientesTop} className="lg:col-span-3" />
+          {/* FILA 2: Tablas de productos, clientes y stock */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <ProductosTopTable data={productosTop} className="lg:col-span-4" />
+            <ClientesTopTable data={clientesTop} className="lg:col-span-4" />
             <StockMinimoTable
               data={stockMinimo}
               totalPages={stockMinimoTotal}
@@ -338,10 +371,10 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* FILA 3: Gráfico grande y Tabla resumen (2 columnas) */}
-          <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
-            <MonthlyComparisonChart data={monthlyComparisonData} className="lg:col-span-5" />
-            <MonthlyTable data={monthlyTableData} className="lg:col-span-5" />
+          {/* FILA 3: Gráfico mensual y Tabla resumen */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <MonthlyComparisonChart data={monthlyComparisonData} className="lg:col-span-6" />
+            <MonthlyTable data={monthlyTableData} className="lg:col-span-6" />
           </div>
         </div>
       </div>

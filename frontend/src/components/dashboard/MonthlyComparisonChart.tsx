@@ -1,5 +1,5 @@
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { ChartContainer } from '@/components/ui/chart';
 import { formatCurrency } from '@/lib/format';
 import type { MonthlyComparisonData } from '@/types';
 
@@ -29,6 +29,71 @@ const LEGEND_ITEMS = [
   { label: 'NOTAS DE DÉBITO', color: 'bg-yellow-500' },
   { label: 'COMPRAS', color: 'bg-blue-400' },
 ] as const;
+
+// Tipos para el tooltip
+interface TooltipPayload {
+  dataKey: string;
+  value: number;
+  color: string;
+  name: string;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+}
+
+// Tooltip personalizado con formato mejorado
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
+  if (!active || !payload || !payload.length) {
+    return null;
+  }
+
+  return (
+    <div className="bg-background border border-border rounded-lg shadow-lg p-3 text-sm">
+      <p className="font-semibold mb-2 text-foreground">{label}</p>
+      <div className="space-y-1">
+        {payload.map((entry) => {
+          const value = Number(entry.value);
+          if (value === 0) return null; // No mostrar si es 0
+
+          let label = '';
+          switch (entry.dataKey) {
+            case 'facturas':
+              label = 'Facturas';
+              break;
+            case 'boletas':
+              label = 'Boletas';
+              break;
+            case 'notasCredito':
+              label = 'Notas de Crédito';
+              break;
+            case 'notasDebito':
+              label = 'Notas de Débito';
+              break;
+            case 'compras':
+              label = 'Compras';
+              break;
+          }
+
+          return (
+            <div key={entry.dataKey} className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span className="text-muted-foreground">{label}:</span>
+              </div>
+              <span className="font-medium text-foreground">{formatCurrency(value)}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 export function MonthlyComparisonChart({ data, className }: MonthlyComparisonChartProps) {
   return (
@@ -65,13 +130,7 @@ export function MonthlyComparisonChart({ data, className }: MonthlyComparisonCha
               tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }}
               tickFormatter={(value) => `S/ ${(value / 1000).toFixed(0)}k`}
             />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  formatter={(value) => formatCurrency(Number(value))}
-                />
-              }
-            />
+            <Tooltip content={<CustomTooltip />} />
             <Bar dataKey="facturas" fill="#ef4444" />
             <Bar dataKey="boletas" fill="#fb923c" />
             <Bar dataKey="notasCredito" fill="#22c55e" />

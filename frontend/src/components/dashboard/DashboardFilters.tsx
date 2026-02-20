@@ -103,9 +103,9 @@ export function DashboardFilters({
   };
   return (
     <div className={cn('bg-primary rounded-[10px] p-4', className)}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         {/* Left: Title + Filters */}
-        <div className="flex items-center gap-8">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-4 xl:gap-8 flex-1">
           {/* Title */}
           <div className="flex flex-col gap-1">
             <h1 className="text-primary-foreground text-xl font-bold leading-7">
@@ -117,10 +117,10 @@ export function DashboardFilters({
           </div>
 
           {/* Filters */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-3 xl:gap-4">
             {/* Establecimiento */}
-            <div className="flex flex-col gap-1">
-              <label className="text-primary-foreground text-xs uppercase">
+            <div className="flex flex-col gap-1 min-w-45">
+              <label className="text-primary-foreground text-xs uppercase whitespace-nowrap">
                 ESTABLECIMIENTO
               </label>
               <input
@@ -128,20 +128,20 @@ export function DashboardFilters({
                 value={establecimientoNombre}
                 onChange={handleEstablecimientoChange}
                 placeholder="OFICINA PRINCIPAL"
-                className="bg-white rounded px-3 py-1.5 text-xs text-black w-48 h-7"
+                className="bg-white rounded px-3 py-1.5 text-xs text-black w-full max-w-50 h-7"
                 readOnly
               />
             </div>
 
             {/* Periodo */}
-            <div className="flex flex-col gap-1">
-              <label className="text-primary-foreground text-xs uppercase">
+            <div className="flex flex-col gap-1 min-w-50">
+              <label className="text-primary-foreground text-xs uppercase whitespace-nowrap">
                 PERIODO
               </label>
               <select
                 value={periodo}
                 onChange={handlePeriodoChange}
-                className="bg-white rounded px-3 py-1.5 text-xs text-black w-56 h-7"
+                className="bg-white rounded px-3 py-1.5 text-xs text-black w-full max-w-60 h-7"
               >
                 {PERIODOS.map(p => (
                   <option key={p.value} value={p.value}>{p.label}</option>
@@ -153,38 +153,38 @@ export function DashboardFilters({
             {mostrarInputsFecha ? (
               <>
                 {/* Fecha Del */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-primary-foreground text-xs uppercase">
+                <div className="flex flex-col gap-1 min-w-37.5">
+                  <label className="text-primary-foreground text-xs uppercase whitespace-nowrap">
                     FECHA DESDE
                   </label>
                   <input
                     type="date"
                     value={fechaDel}
                     onChange={handleFechaDelChange}
-                    className="bg-white rounded px-3 py-1.5 text-xs text-black w-32 h-7"
+                    className="bg-white rounded px-3 py-1.5 text-xs text-black w-full max-w-40 h-7"
                   />
                 </div>
 
                 {/* Fecha Hasta */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-primary-foreground text-xs uppercase">
+                <div className="flex flex-col gap-1 min-w-37.5">
+                  <label className="text-primary-foreground text-xs uppercase whitespace-nowrap">
                     FECHA HASTA
                   </label>
                   <input
                     type="date"
                     value={fechaHasta}
                     onChange={handleFechaHastaChange}
-                    className="bg-white rounded px-3 py-1.5 text-xs text-black w-32 h-7"
+                    className="bg-white rounded px-3 py-1.5 text-xs text-black w-full max-w-40 h-7"
                   />
                 </div>
               </>
             ) : (
               /* Mostrar texto descriptivo para periodos predefinidos */
-              <div className="flex flex-col gap-1">
-                <label className="text-primary-foreground text-xs uppercase">
+              <div className="flex flex-col gap-1 min-w-45">
+                <label className="text-primary-foreground text-xs uppercase whitespace-nowrap">
                   PERÍODO ACTUAL
                 </label>
-                <div className="bg-white/90 rounded px-3 py-1.5 text-xs text-black w-48 h-7 flex items-center font-medium">
+                <div className="bg-white/90 rounded px-3 py-1.5 text-xs text-black w-full max-w-52 h-7 flex items-center font-medium">
                   {obtenerTextoFecha()}
                 </div>
               </div>

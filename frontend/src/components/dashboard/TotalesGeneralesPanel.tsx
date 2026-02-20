@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/format';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -34,7 +35,9 @@ export function TotalesGeneralesPanel({
   return (
     <Card className={`overflow-hidden shadow-md p-0 ${className}`}>
       <CardHeader className="bg-primary text-primary-foreground px-4 py-2 space-y-0">
-        <CardTitle className="text-sm font-semibold">Totales Generales</CardTitle>
+        <Link to="/cpes/finanzas" className="hover:opacity-80 transition-opacity">
+          <CardTitle className="text-sm font-semibold">Totales Generales →</CardTitle>
+        </Link>
       </CardHeader>
       <CardContent className="bg-muted px-4 py-3">
         {/* Resumen boxes */}

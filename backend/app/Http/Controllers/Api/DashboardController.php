@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Alerta;
+use App\Models\Compra;
 use App\Models\Comprobante;
 use App\Models\Empresa;
 use App\Models\Entidad;
@@ -718,6 +719,39 @@ class DashboardController extends Controller
                     $mesesData[$mesNombre]['notasDebito'] += (float) $dato->total;
                     break;
             }
+        }
+
+        // Obtener compras y agregarlas a los datos mensuales
+        $queryCompras = \App\Models\Compra::query();
+
+        if ($fechaInicio && $fechaFin) {
+            $queryCompras->whereBetween('fecha_actividad', [$fechaInicio, $fechaFin]);
+        }
+
+        $compras = $queryCompras->selectRaw("
+                TO_CHAR(fecha_actividad, 'YYYY-MM') as mes,
+                SUM(total) as total
+            ")
+            ->groupBy('mes')
+            ->orderBy('mes')
+            ->get();
+
+        foreach ($compras as $compra) {
+            $mesNumero = (int) date('n', strtotime($compra->mes.'-01'));
+            $mesNombre = $meses[$mesNumero - 1];
+
+            if (! isset($mesesData[$mesNombre])) {
+                $mesesData[$mesNombre] = [
+                    'mes' => $mesNombre,
+                    'facturas' => 0,
+                    'boletas' => 0,
+                    'notasCredito' => 0,
+                    'notasDebito' => 0,
+                    'compras' => 0,
+                ];
+            }
+
+            $mesesData[$mesNombre]['compras'] += (float) $compra->total;
         }
 
         // Calcular totales

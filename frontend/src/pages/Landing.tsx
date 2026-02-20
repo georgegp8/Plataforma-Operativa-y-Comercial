@@ -21,7 +21,7 @@ export default function Landing() {
       <main className="flex-1 flex flex-col items-center justify-center px-4 py-10 relative z-10">
         <div className="w-full max-w-md flex flex-col items-center text-center space-y-6">
           {/* Logo en caja, tamaño grande */}
-          <div className="w-full max-w-[420px] h-[160px] flex items-center justify-center rounded-xl border bg-card overflow-hidden shadow-sm">
+          <div className="w-full max-w-105 h-40 flex items-center justify-center rounded-xl border bg-card overflow-hidden shadow-sm">
             <img
               src={logoUrl}
               alt="Nubofact - Facturación Electrónica"
@@ -41,7 +41,7 @@ export default function Landing() {
 
           <Button
             size="lg"
-            className="gap-2 min-w-[200px]"
+            className="gap-2 min-w-50"
             onClick={() => navigate('/app')}
           >
             Entrar
