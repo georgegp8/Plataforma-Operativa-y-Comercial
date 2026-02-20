@@ -271,7 +271,7 @@ export default function BoletasFacturas() {
       const eid = empresaId || 1;
       const tipoCodigo = tipoCodigoParam || form.getValues('tipo_comprobante');
       const tipoSunat = mapTipoSunat[tipoCodigo] || tipoCodigo;
-      const res = await api.series.listar({ empresa_id: eid, tipo_comprobante: tipoCodigo });
+      const res = await api.series.listar({ empresa_id: eid, tipo_comprobante: tipoSunat });
       const lista = res.data.data;
       setSeries(lista);
       if (lista.length > 0) {
