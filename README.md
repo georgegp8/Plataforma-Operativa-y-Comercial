@@ -33,23 +33,42 @@ Las pequeñas y medianas empresas en Perú están obligadas a emitir comprobante
 ## 2. Arquitectura a Nivel Usuario
 
 ```
-Navegador (React SPA)
-        │  HTTP/JSON + Bearer Token
-        ▼
-  Laravel 11 API REST  ──► NubeFact API (SUNAT)
-        │
-        ├──► PostgreSQL 15 (datos)
-        ├──► MinIO S3 (archivos OCR)
-        └──► Python OCR (Tesseract / Gemini AI)
+┌──────────────────────────────────────┐
+│           FRONTEND                   │
+│   React 19 + TypeScript (SPA)        │
+│   Vite 7 · shadcn/ui · TailwindCSS   │
+└──────────────┬───────────────────────┘
+               │  HTTP/JSON + Bearer Token
+               ▼
+┌──────────────────────────────────────┐         ┌─────────────────────┐
+│           BACKEND                    │         │   NubeFact API      │
+│   Laravel 11 · PHP 8.2               │────────►│   (PSE / SUNAT)     │
+│   API REST · Laravel Sanctum         │         │   JSON V1           │
+│   Nginx + PHP-FPM · Debian 12        │         └─────────────────────┘
+└───┬──────────────┬───────────────────┘
+    │              │
+    ▼              ▼
+┌───────────────────────────────────────────┐
+│           Docker Compose                  │
+│  ┌─────────────────────────────────────┐  │
+│  │  PostgreSQL 15      (puerto 5432)   │  │
+│  ├─────────────────────────────────────┤  │
+│  │  MinIO S3 Storage   (puerto 9000)   │  │
+│  ├─────────────────────────────────────┤  │
+│  │  Python OCR Service (puerto 8001)   │  │
+│  │  Tesseract · Google Gemini AI       │  │
+│  └─────────────────────────────────────┘  │
+└───────────────────────────────────────────┘
 ```
 
 | Capa | Tecnología | Rol |
 |------|-----------|-----|
 | Frontend | React 19 + TypeScript + Vite 7 | Interfaz web SPA accesible desde cualquier navegador |
 | Backend | Laravel 11 (PHP 8.2) | API REST, lógica de negocio, integración NubeFact |
-| Base de datos | PostgreSQL 15 | Almacenamiento persistente |
-| Storage | MinIO (S3 compatible) | Archivos digitalizados por OCR |
-| OCR | Python 3.12 + Tesseract / Google Gemini AI | Digitalización de facturas en papel |
+| Infraestructura | **Docker + Docker Compose** | Orquesta PostgreSQL, MinIO y el servicio OCR en contenedores |
+| Base de datos | PostgreSQL 15 (contenedor Docker) | Almacenamiento persistente |
+| Storage | MinIO S3 (contenedor Docker) | Archivos digitalizados por OCR |
+| OCR | Python 3.12 + Tesseract / Gemini AI (contenedor Docker) | Digitalización de facturas en papel |
 | Facturación electrónica | NubeFact API JSON V1 | Emisión y certificación de CPE ante SUNAT |
 | Autenticación | Laravel Sanctum | Tokens Bearer por sesión |
 | Servidor | Nginx + PHP-FPM en Debian 12 | Producción |
