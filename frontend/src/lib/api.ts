@@ -409,6 +409,8 @@ export const api = {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
     },
+    getLogo: (id: number) =>
+      apiClient.get(`/v1/empresas/${id}/logo`, { responseType: 'blob' }),
   },
 
   // Facturación
@@ -758,6 +760,34 @@ export const api = {
       apiClient.delete<ApiResponse<unknown>>(`/v1/guias-remision/${id}`),
     verificar: (tipo: string, serie: string, numero: string) =>
       apiClient.get<ApiResponse<unknown>>(`/nubefact/guias/${tipo}/${serie}/${numero}`),
+    sincronizarRango: (data: { tipo: number; serie: string; numero_inicio: number; numero_fin: number; empresa_id?: number }) =>
+      apiClient.post<{ success: boolean; resultados: { total: number; exitosos: number; creados: number; actualizados: number; no_encontrados: number; errores: number } }>('/nubefact/guias/sincronizar-rango', data),
+    autoDescubrir: (data?: { empresa_id?: number }) =>
+      apiClient.post<{ success: boolean; resultados: { total: number; exitosos: number; creados: number; actualizados: number; no_encontrados: number; errores: number } }>('/nubefact/guias/auto-descubrir', data ?? {}),
+    emitir: (guia_id: number) =>
+      apiClient.post<{ success: boolean; message: string; data: { guia_id: number; enlace: string | null; aceptada_por_sunat: boolean; pdf_url: string | null; xml_url: string | null } }>('/nubefact/guias', { guia_id }),
+  },
+
+  // Productos Compuestos (Ofertas)
+  productosCompuestos: {
+    listar: (params?: Record<string, unknown>) =>
+      apiClient.get('/v1/productos-compuestos', { params }),
+    crear: (data: Record<string, unknown>) =>
+      apiClient.post('/v1/productos-compuestos', data),
+    actualizar: (id: number, data: Record<string, unknown>) =>
+      apiClient.put(`/v1/productos-compuestos/${id}`, data),
+    eliminar: (id: number) =>
+      apiClient.delete(`/v1/productos-compuestos/${id}`),
+  },
+
+  // Movimientos de Inventario
+  movimientosInventario: {
+    listar: (params?: Record<string, unknown>) =>
+      apiClient.get('/v1/movimientos-inventario', { params }),
+    registrar: (data: Record<string, unknown>) =>
+      apiClient.post('/v1/movimientos-inventario', data),
+    eliminar: (id: number) =>
+      apiClient.delete(`/v1/movimientos-inventario/${id}`),
   },
 
   // Comprobantes

@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { api, apiBaseUrl, obtenerCorrelativoSeguro, type Serie, type Entidad, type Producto } from '@/lib/api';
 import { Eye, Ban, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText, Loader2, MoreVertical, FileDown, Printer, CheckCircle2, MessageCircle } from 'lucide-react';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
+import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -120,6 +121,8 @@ const comprobanteSchema = z
 type ComprobanteFormValues = z.infer<typeof comprobanteSchema>;
 
 export default function BoletasFacturas() {
+  const { isAdmin } = useAuth();
+
   // --- Estado de la lista ---
   const [comprobantes, setComprobantes] = useState<Comprobante[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1105,15 +1108,19 @@ export default function BoletasFacturas() {
                               <FileText className="h-3.5 w-3.5 mr-2" />
                               Verificar SUNAT (Portal)
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => !comp.anulado && abrirModalAnular(comp)}
-                              disabled={comp.anulado}
-                              className={comp.anulado ? "opacity-50 cursor-not-allowed" : "text-red-600 focus:text-red-600 cursor-pointer"}
-                            >
-                              <Ban className="h-3.5 w-3.5 mr-2" />
-                              {comp.anulado ? 'Ya anulado' : 'Anular comprobante'}
-                            </DropdownMenuItem>
+                            {isAdmin() && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => !comp.anulado && abrirModalAnular(comp)}
+                                  disabled={comp.anulado}
+                                  className={comp.anulado ? "opacity-50 cursor-not-allowed" : "text-red-600 focus:text-red-600 cursor-pointer"}
+                                >
+                                  <Ban className="h-3.5 w-3.5 mr-2" />
+                                  {comp.anulado ? 'Ya anulado' : 'Anular comprobante'}
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>

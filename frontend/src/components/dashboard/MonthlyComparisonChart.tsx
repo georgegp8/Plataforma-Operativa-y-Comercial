@@ -6,6 +6,8 @@ import type { MonthlyComparisonData } from '@/types';
 interface MonthlyComparisonChartProps {
   data: MonthlyComparisonData[];
   className?: string;
+  incluirAnuladas?: boolean;
+  onToggleAnuladas?: (value: boolean) => void;
 }
 
 /**
@@ -95,18 +97,30 @@ const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
   );
 };
 
-export function MonthlyComparisonChart({ data, className }: MonthlyComparisonChartProps) {
+export function MonthlyComparisonChart({ data, className, incluirAnuladas = false, onToggleAnuladas }: MonthlyComparisonChartProps) {
   return (
     <div className={`bg-muted rounded-lg shadow-md p-4 min-h-70 ${className}`}>
-      {/* Leyenda */}
+      {/* Leyenda + filtro */}
       <div className="bg-card border border-border rounded p-2 mb-2">
-        <div className="flex gap-4 text-xs flex-wrap">
-          {LEGEND_ITEMS.map(({ label, color }) => (
-            <div key={label} className="flex items-center gap-1">
-              <div className={`w-3 h-3 ${color} rounded`}></div>
-              <span className="text-foreground">{label}</span>
-            </div>
-          ))}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex gap-4 text-xs flex-wrap">
+            {LEGEND_ITEMS.map(({ label, color }) => (
+              <div key={label} className="flex items-center gap-1">
+                <div className={`w-3 h-3 ${color} rounded`}></div>
+                <span className="text-foreground">{label}</span>
+              </div>
+            ))}
+          </div>
+          {/* Filtro anuladas */}
+          <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+            <input
+              type="checkbox"
+              checked={incluirAnuladas}
+              onChange={(e) => onToggleAnuladas?.(e.target.checked)}
+              className="w-3.5 h-3.5 accent-primary cursor-pointer"
+            />
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Incluir anuladas</span>
+          </label>
         </div>
       </div>
 

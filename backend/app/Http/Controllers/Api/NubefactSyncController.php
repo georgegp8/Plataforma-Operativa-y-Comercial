@@ -242,4 +242,68 @@ class NubefactSyncController extends Controller
             'estadisticas' => $stats,
         ]);
     }
+
+    /**
+     * Sincronizar un rango de guías de remisión desde NubeFact
+     *
+     * POST /api/nubefact-sync/rango-guias
+     * Body: { "tipo": 7, "serie": "T001", "numero_inicio": 1, "numero_fin": 20, "empresa_id": 1 }
+     */
+    /**
+     * Auto-descubrir y sincronizar guías al cargar el módulo.
+     *
+     * POST /api/nubefact/guias/auto-descubrir
+     * Body: { "empresa_id": 1 }  — empresa_id es opcional
+     */
+    public function autoDescubrirGuias(Request $request): JsonResponse
+    {
+        $request->validate([
+            'empresa_id' => 'nullable|exists:empresas,id',
+        ]);
+
+        $resultados = $this->syncService->autoDescubrirGuias($request->empresa_id);
+
+        return response()->json([
+            'success'    => true,
+            'resultados' => $resultados,
+        ]);
+    }
+
+    /**
+     * Sincronizar un rango de guías de remisión desde NubeFact
+     *
+     * POST /api/nubefact-sync/rango-guias
+     * Body: { "tipo": 7, "serie": "T001", "numero_inicio": 1, "numero_fin": 20, "empresa_id": 1 }
+     */
+    public function sincronizarRangoGuias(Request $request): JsonResponse
+    {
+        $request->validate([
+            'tipo'          => 'required|integer|in:7,8',
+            'serie'         => 'required|string|size:4',
+            'numero_inicio' => 'required|integer|min:1',
+            'numero_fin'    => 'required|integer|gte:numero_inicio',
+            'empresa_id'    => 'nullable|exists:empresas,id',
+        ]);
+
+        $rango = $request->numero_fin - $request->numero_inicio + 1;
+        if ($rango > 100) {
+            return response()->json([
+                'success' => false,
+                'mensaje' => 'El rango máximo permitido es de 100 guías',
+            ], 400);
+        }
+
+        $resultados = $this->syncService->sincronizarRangoGuias(
+            $request->tipo,
+            $request->serie,
+            $request->numero_inicio,
+            $request->numero_fin,
+            $request->empresa_id
+        );
+
+        return response()->json([
+            'success'    => true,
+            'resultados' => $resultados,
+        ]);
+    }
 }

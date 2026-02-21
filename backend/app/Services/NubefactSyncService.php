@@ -6,6 +6,7 @@ use App\Models\Comprobante;
 use App\Models\ComprobanteItem;
 use App\Models\Empresa;
 use App\Models\Entidad;
+use App\Models\GuiaRemision;
 use App\Models\Producto;
 use Exception;
 use Illuminate\Support\Facades\DB;
@@ -599,9 +600,13 @@ class NubefactSyncService
             $comprobante->mto_imp_venta = $totalImporte;
             $comprobante->observaciones = $response['observaciones'] ?? null;
 
-            // Estado basado en aceptación SUNAT
-            $comprobante->estado_sunat = ($response['aceptada_por_sunat'] ?? false) ? 'aceptado' : 'pendiente';
+            // Estado basado en aceptación SUNAT y anulación
             $comprobante->anulado = $response['anulado'] ?? false;
+            if ($comprobante->anulado) {
+                $comprobante->estado_sunat = 'baja';
+            } else {
+                $comprobante->estado_sunat = ($response['aceptada_por_sunat'] ?? false) ? 'aceptado' : 'pendiente';
+            }
             $comprobante->codigo_sunat = $response['sunat_responsecode'] ?? null;
             $comprobante->mensaje_sunat = $response['sunat_description'] ?? null;
             $comprobante->hash_cpe = $response['codigo_hash'] ?? null;
@@ -651,14 +656,17 @@ class NubefactSyncService
         $comprobante->nubefact_response_json = json_encode($response);
         $comprobante->nubefact_consultado_at = now();
 
-        // Estado basado en aceptación SUNAT
-        $comprobante->estado_sunat = ($response['aceptada_por_sunat'] ?? false) ? 'aceptado' : 'pendiente';
         $comprobante->codigo_sunat = $response['sunat_responsecode'] ?? null;
         $comprobante->mensaje_sunat = $response['sunat_description'] ?? null;
 
-        // IMPORTANTE: Actualizar campo anulado desde la API
+        // IMPORTANTE: Actualizar campo anulado desde la API y ajustar estado_sunat
         if (isset($response['anulado'])) {
             $comprobante->anulado = $response['anulado'];
+        }
+        if ($comprobante->anulado) {
+            $comprobante->estado_sunat = 'baja';
+        } else {
+            $comprobante->estado_sunat = ($response['aceptada_por_sunat'] ?? false) ? 'aceptado' : 'pendiente';
         }
 
         // EXTRAER MONTOS DEL CÓDIGO QR (básicos: IGV y Total)
@@ -968,5 +976,456 @@ class NubefactSyncService
             'igv' => $totalIgv,
             'total' => $totalVenta,
         ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // GUÍAS DE REMISIÓN
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Descubrir y sincronizar guías automáticamente al cargar el módulo.
+     *
+     * Lee las series de tipo '09' registradas en la empresa, determina el
+     * número máximo ya en BD y sincroniza hacia adelante hasta 5 fallos
+     * consecutivos. Si no hay series registradas, usa T001 / tipo 7 como
+     * fallback. Ideal para llamarse en segundo plano al entrar al módulo.
+     *
+     * @param  int|null  $empresaId
+     * @return array Estadísticas de la operación
+     */
+    public function autoDescubrirGuias(?int $empresaId = null): array
+    {
+        // Aumentar el tiempo máximo de ejecución para permitir múltiples llamadas a NubeFact
+        set_time_limit(180);
+
+        if (! $empresaId) {
+            $empresaId = Empresa::first()?->id;
+            if (! $empresaId) {
+                return ['success' => false, 'mensaje' => 'No hay empresas registradas'];
+            }
+        }
+
+        // Obtener series de GRE registradas para la empresa
+        $series = DB::table('series')
+            ->where('empresa_id', $empresaId)
+            ->where('tipo_comprobante', '09')
+            ->where('activo', true)
+            ->pluck('serie')
+            ->toArray();
+
+        // Si no hay series registradas, usar las existentes en guia_remisions
+        if (empty($series)) {
+            $series = GuiaRemision::where('empresa_id', $empresaId)
+                ->distinct()
+                ->pluck('serie')
+                ->toArray();
+        }
+
+        // Fallback definitivo: T001
+        if (empty($series)) {
+            $series = ['T001'];
+        }
+
+        $totales = [
+            'total'          => 0,
+            'exitosos'       => 0,
+            'creados'        => 0,
+            'actualizados'   => 0,
+            'no_encontrados' => 0,
+            'errores'        => 0,
+        ];
+
+        foreach ($series as $serie) {
+            // T* = Remitente (tipo 7), V* = Transportista (tipo 8)
+            $tipo = str_starts_with(strtoupper($serie), 'V') ? 8 : 7;
+
+            // Número máximo ya almacenado en BD para esta (tipo, serie)
+            $maxEnBD = (int) GuiaRemision::where('tipo_comprobante', $tipo)
+                ->where('serie', $serie)
+                ->max('numero');
+
+            // Si no hay nada, empezar desde 1; si hay datos, continuar desde max+1
+            $inicio = $maxEnBD === 0 ? 1 : $maxEnBD + 1;
+            $limiteSuperior = $inicio + 99; // Máx 100 por rango
+
+            $consecutivosFallidos = 0;
+            $maxConsecutivos      = 5;
+
+            for ($numero = $inicio; $numero <= $limiteSuperior; $numero++) {
+                $totales['total']++;
+
+                $resultado = $this->sincronizarGuia($tipo, $serie, $numero, $empresaId);
+
+                if ($resultado['success']) {
+                    $consecutivosFallidos = 0;
+                    $totales['exitosos']++;
+                    if ($resultado['accion'] === 'creado') {
+                        $totales['creados']++;
+                    } else {
+                        $totales['actualizados']++;
+                    }
+                } elseif (! empty($resultado['no_encontrado'])) {
+                    $consecutivosFallidos++;
+                    $totales['no_encontrados']++;
+                    if ($consecutivosFallidos >= $maxConsecutivos) {
+                        break; // Parar al encontrar 5 seguidos sin resultado
+                    }
+                } else {
+                    // Error inesperado: también contar como fallo para evitar loops infinitos
+                    $consecutivosFallidos++;
+                    $totales['errores']++;
+                    if ($consecutivosFallidos >= $maxConsecutivos) {
+                        break;
+                    }
+                }
+
+                usleep(200000); // 0.2 s — respetar límites de la API
+            }
+        }
+
+        return $totales;
+    }
+
+    /**
+     * Enriquecer una guía descargando y parseando su XML GRE (DespatchAdvice UBL 2.1).
+     * Extrae destinatario, transportista, conductor, vehículo, puntos de traslado, etc.
+     */
+    public function enriquecerGuiaDesdeXml(GuiaRemision $guia): void
+    {
+        if (! $guia->nubefact_xml_url) {
+            throw new Exception("La guía {$guia->serie}-{$guia->numero} no tiene URL de XML");
+        }
+
+        $xmlContent = @file_get_contents($guia->nubefact_xml_url);
+        if (! $xmlContent) {
+            throw new Exception("No se pudo descargar el XML de la guía {$guia->serie}-{$guia->numero}");
+        }
+
+        $doc = new \DOMDocument();
+        @$doc->loadXML($xmlContent);
+        $xpath = new \DOMXPath($doc);
+
+        // Namespaces del DespatchAdvice UBL 2.1
+        $xpath->registerNamespace('cac', 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2');
+        $xpath->registerNamespace('cbc', 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2');
+        $xpath->registerNamespace('da',  'urn:oasis:names:specification:ubl:schema:xsd:DespatchAdvice-2');
+
+        DB::beginTransaction();
+        try {
+            // ── Fecha inicio traslado ──────────────────────────────────────────
+            $fechaTraslado = $xpath->evaluate('string(//cbc:IssueDate)');
+            if ($fechaTraslado && $guia->fecha_inicio_traslado == $guia->fecha_emision) {
+                // solo sobreescribir si era el placeholder igual a fecha_emision
+                $guia->fecha_inicio_traslado = $fechaTraslado;
+            }
+
+            // ── Destinatario ───────────────────────────────────────────────────
+            $destTipoDoc = $xpath->evaluate('string(//cac:DeliveryCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID/@schemeID)');
+            $destNumDoc  = $xpath->evaluate('string(//cac:DeliveryCustomerParty/cac:Party/cac:PartyIdentification/cbc:ID)');
+            $destNombre  = $xpath->evaluate('string(//cac:DeliveryCustomerParty/cac:Party/cac:PartyLegalEntity/cbc:RegistrationName)');
+            if (! $destNombre) {
+                $destNombre = $xpath->evaluate('string(//cac:DeliveryCustomerParty/cac:Party/cac:PartyName/cbc:Name)');
+            }
+
+            if ($destNumDoc) {
+                $guia->destinatario_tipo_documento  = $destTipoDoc ?: '6';
+                $guia->destinatario_numero_documento = $destNumDoc;
+            }
+            if ($destNombre && $guia->cliente_denominacion === 'SINCRONIZADO DESDE NUBEFACT') {
+                $guia->destinatario_denominacion = $destNombre;
+                $guia->cliente_denominacion      = $destNombre;
+            } elseif ($destNombre && empty($guia->destinatario_denominacion)) {
+                $guia->destinatario_denominacion = $destNombre;
+            }
+
+            // ── Transportista ──────────────────────────────────────────────────
+            $transTipoDoc = $xpath->evaluate('string(//cac:CarrierParty/cac:PartyIdentification/cbc:ID/@schemeID)');
+            $transNumDoc  = $xpath->evaluate('string(//cac:CarrierParty/cac:PartyIdentification/cbc:ID)');
+            $transNombre  = $xpath->evaluate('string(//cac:CarrierParty/cac:PartyLegalEntity/cbc:RegistrationName)');
+            if (! $transNombre) {
+                $transNombre = $xpath->evaluate('string(//cac:CarrierParty/cac:PartyName/cbc:Name)');
+            }
+
+            if ($transNumDoc) {
+                $guia->transportista_tipo_documento  = $transTipoDoc ?: '6';
+                $guia->transportista_numero_documento = $transNumDoc;
+            }
+            if ($transNombre) {
+                $guia->transportista_denominacion = $transNombre;
+            }
+
+            // ── Motivo de traslado y tipo de transporte ────────────────────────
+            $motivoCodigo = $xpath->evaluate('string(//cac:Shipment/cbc:HandlingCode)');
+            if ($motivoCodigo && $guia->motivo_traslado === '01') {
+                $guia->motivo_traslado = $motivoCodigo;
+            }
+
+            // Tipo transporte: 01=Público, 02=Privado
+            $tipoTransp = $xpath->evaluate('string(//cac:Shipment/cac:ShipmentStage/cac:TransportMeans/cac:RoadTransport/cbc:LicensePlateID)');
+            if ($tipoTransp) {
+                $guia->tipo_transporte = '02'; // privado si hay vehículo propio
+            }
+
+            // ── Peso bruto y bultos ────────────────────────────────────────────
+            $peso = $xpath->evaluate('string(//cac:Shipment/cac:GrossWeightMeasure)');
+            $pesoUnidad = $xpath->evaluate('string(//cac:Shipment/cac:GrossWeightMeasure/@unitCode)');
+            if ($peso && $guia->peso_bruto_total == 0) {
+                $guia->peso_bruto_total  = (float) $peso;
+                $guia->peso_bruto_unidad = $pesoUnidad ?: 'KGM';
+            }
+
+            $bultos = $xpath->evaluate('string(//cac:Shipment/cac:TotalTransportHandlingUnitQuantity)');
+            if ($bultos && ! $guia->numero_bultos) {
+                $guia->numero_bultos = (int) $bultos;
+            }
+
+            // ── Vehículo ───────────────────────────────────────────────────────
+            $placa = $xpath->evaluate('string(//cac:Shipment/cac:ShipmentStage/cac:TransportMeans/cac:RoadTransport/cbc:LicensePlateID)');
+            if ($placa && ! $guia->vehiculo_placa) {
+                $guia->vehiculo_placa = strtoupper(trim($placa));
+            }
+
+            // ── Conductor ──────────────────────────────────────────────────────
+            $condNombre    = $xpath->evaluate('string(//cac:Shipment/cac:ShipmentStage/cac:DriverPerson/cbc:FirstName)');
+            $condApellidos = $xpath->evaluate('string(//cac:Shipment/cac:ShipmentStage/cac:DriverPerson/cbc:FamilyName)');
+            $condDni       = $xpath->evaluate('string(//cac:Shipment/cac:ShipmentStage/cac:DriverPerson/cac:IdentityDocumentReference/cbc:ID)');
+            $condLicencia  = $xpath->evaluate('string(//cac:Shipment/cac:ShipmentStage/cac:DriverPerson/cbc:JobTitle)');
+
+            if ($condNombre && ! $guia->conductor_nombre) {
+                $guia->conductor_nombre    = $condNombre;
+                $guia->conductor_apellidos = $condApellidos ?: null;
+            }
+            if ($condDni && ! $guia->conductor_numero_documento) {
+                $guia->conductor_tipo_documento  = '1'; // DNI
+                $guia->conductor_numero_documento = $condDni;
+            }
+            if ($condLicencia && ! $guia->conductor_licencia) {
+                $guia->conductor_licencia = $condLicencia;
+            }
+
+            // ── Punto de partida ───────────────────────────────────────────────
+            $ubigeoPartida = $xpath->evaluate(
+                'string(//cac:Shipment/cac:TransportHandlingUnit/cac:TransshipmentLocation/cbc:ID)'
+            );
+            $dirPartida = $xpath->evaluate(
+                'string(//cac:Shipment/cac:TransportHandlingUnit/cac:TransshipmentLocation/cac:Address/cac:AddressLine/cbc:Line)'
+            );
+
+            if ($ubigeoPartida && ! $guia->punto_partida_ubigeo) {
+                $guia->punto_partida_ubigeo = $ubigeoPartida;
+            }
+            if ($dirPartida && ! $guia->punto_partida_direccion) {
+                $guia->punto_partida_direccion = $dirPartida;
+            }
+
+            // ── Punto de llegada ───────────────────────────────────────────────
+            $ubigeoLlegada = $xpath->evaluate(
+                'string(//cac:Shipment/cac:Delivery/cac:DeliveryAddress/cbc:ID)'
+            );
+            $dirLlegada = $xpath->evaluate(
+                'string(//cac:Shipment/cac:Delivery/cac:DeliveryAddress/cac:AddressLine/cbc:Line)'
+            );
+            // Fallback: FirstArrivalPortLocation
+            if (! $ubigeoLlegada) {
+                $ubigeoLlegada = $xpath->evaluate('string(//cac:Shipment/cac:FirstArrivalPortLocation/cbc:ID)');
+            }
+
+            if ($ubigeoLlegada && ! $guia->punto_llegada_ubigeo) {
+                $guia->punto_llegada_ubigeo = $ubigeoLlegada;
+            }
+            if ($dirLlegada && ! $guia->punto_llegada_direccion) {
+                $guia->punto_llegada_direccion = $dirLlegada;
+            }
+
+            $guia->save();
+            DB::commit();
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+    }
+
+    /**
+     * Sincronizar una guía de remisión específica desde NubeFact.
+     *
+     * @param  int  $tipo  7=GRE Remitente, 8=GRE Transportista
+     * @param  string  $serie  Serie de la guía (T001, V001, etc.)
+     * @param  int  $numero  Número correlativo
+     * @param  int|null  $empresaId  ID de empresa
+     * @return array Resultado de la sincronización
+     */
+    public function sincronizarGuia(int $tipo, string $serie, int $numero, ?int $empresaId = null): array
+    {
+        try {
+            $response = $this->client->consultarGuia($tipo, $serie, $numero);
+
+            if (!$empresaId) {
+                $empresaId = Empresa::first()?->id;
+                if (!$empresaId) {
+                    throw new Exception('No hay empresas registradas en el sistema');
+                }
+            }
+
+            // Buscar registro local
+            $guia = GuiaRemision::where('tipo_comprobante', $tipo)
+                ->where('serie', $serie)
+                ->where('numero', $numero)
+                ->first();
+
+            $aceptada = $response['aceptada_por_sunat'] ?? false;
+
+            if ($guia) {
+                // Actualizar campos NubeFact en la guía existente
+                $guia->update([
+                    'nubefact_aceptada_por_sunat' => $aceptada,
+                    'nubefact_enlace'              => $response['enlace'] ?? $guia->nubefact_enlace,
+                    'nubefact_pdf_url'             => $response['enlace_del_pdf'] ?? $guia->nubefact_pdf_url,
+                    'nubefact_xml_url'             => $response['enlace_del_xml'] ?? $guia->nubefact_xml_url,
+                    'nubefact_cdr_url'             => $response['enlace_del_cdr'] ?? $guia->nubefact_cdr_url,
+                    'nubefact_cadena_qr'           => $response['cadena_para_codigo_qr'] ?? $guia->nubefact_cadena_qr,
+                    'nubefact_consultado_at'       => now(),
+                ]);
+
+                // Enriquecer con datos del XML si la guía fue aceptada y tiene XML
+                if ($aceptada && $guia->nubefact_xml_url) {
+                    try {
+                        $this->enriquecerGuiaDesdeXml($guia->fresh());
+                    } catch (Exception $e) {
+                        Log::warning("No se pudo enriquecer XML guía {$serie}-{$numero}: {$e->getMessage()}");
+                    }
+                }
+
+                return [
+                    'success' => true,
+                    'accion'  => 'actualizado',
+                    'guia'    => $guia->fresh(),
+                ];
+            }
+
+            // No existe localmente: crear registro mínimo con datos de NubeFact
+            $hoy = now()->toDateString();
+            $xmlUrl = $response['enlace_del_xml'] ?? null;
+            $guia = GuiaRemision::create([
+                'empresa_id'                   => $empresaId,
+                'tipo_comprobante'             => $tipo,
+                'serie'                        => $serie,
+                'numero'                       => $numero,
+                'cliente_tipo_documento'       => '6',
+                'cliente_numero_documento'     => '',
+                'cliente_denominacion'         => 'SINCRONIZADO DESDE NUBEFACT',
+                'cliente_direccion'            => '',
+                'fecha_emision'                => $hoy,
+                'fecha_inicio_traslado'        => $hoy,
+                'motivo_traslado'              => '01',
+                'tipo_transporte'              => '02',
+                'peso_bruto_total'             => 0,
+                'peso_bruto_unidad'            => 'KGM',
+                'vehiculo_placa'               => '',
+                'punto_partida_ubigeo'         => '',
+                'punto_partida_direccion'      => '',
+                'punto_llegada_ubigeo'         => '',
+                'punto_llegada_direccion'      => '',
+                'nubefact_aceptada_por_sunat'  => $aceptada,
+                'nubefact_enlace'              => $response['enlace'] ?? null,
+                'nubefact_pdf_url'             => $response['enlace_del_pdf'] ?? null,
+                'nubefact_xml_url'             => $xmlUrl,
+                'nubefact_cdr_url'             => $response['enlace_del_cdr'] ?? null,
+                'nubefact_cadena_qr'           => $response['cadena_para_codigo_qr'] ?? null,
+                'nubefact_enviado_at'          => now(),
+                'nubefact_consultado_at'       => now(),
+            ]);
+
+            // Enriquecer inmediatamente con datos del XML si está disponible
+            if ($xmlUrl) {
+                try {
+                    $this->enriquecerGuiaDesdeXml($guia);
+                } catch (Exception $e) {
+                    Log::warning("No se pudo enriquecer XML guía nueva {$serie}-{$numero}: {$e->getMessage()}");
+                }
+            }
+
+            return [
+                'success' => true,
+                'accion'  => 'creado',
+                'guia'    => $guia->fresh(),
+            ];
+
+        } catch (Exception $e) {
+            // NubeFact devuelve código 24 / "Documento no existe" para guías inexistentes
+            $noEncontrado = str_contains($e->getMessage(), '404')
+                || str_contains($e->getMessage(), 'no encontrado')
+                || str_contains($e->getMessage(), 'No se encontró')
+                || str_contains($e->getMessage(), 'Documento no existe')
+                || str_contains($e->getMessage(), '"codigo":24');
+
+            Log::warning("Error al sincronizar guía {$tipo}/{$serie}/{$numero}: {$e->getMessage()}");
+
+            return [
+                'success'       => false,
+                'no_encontrado' => $noEncontrado,
+                'error'         => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Sincronizar un rango de guías de remisión desde NubeFact.
+     *
+     * @param  int  $tipo  7=GRE Remitente, 8=GRE Transportista
+     * @param  string  $serie  Serie de la guía
+     * @param  int  $inicio  Número inicial
+     * @param  int  $fin  Número final
+     * @param  int|null  $empresaId  ID de empresa
+     * @return array Estadísticas de sincronización
+     */
+    public function sincronizarRangoGuias(int $tipo, string $serie, int $inicio, int $fin, ?int $empresaId = null): array
+    {
+        $resultados = [
+            'total'          => 0,
+            'exitosos'       => 0,
+            'errores'        => 0,
+            'creados'        => 0,
+            'actualizados'   => 0,
+            'no_encontrados' => 0,
+            'detalles'       => [],
+        ];
+
+        for ($numero = $inicio; $numero <= $fin; $numero++) {
+            $resultados['total']++;
+
+            try {
+                $resultado = $this->sincronizarGuia($tipo, $serie, $numero, $empresaId);
+
+                if ($resultado['success']) {
+                    $resultados['exitosos']++;
+                    if ($resultado['accion'] === 'creado') {
+                        $resultados['creados']++;
+                    } else {
+                        $resultados['actualizados']++;
+                    }
+                } elseif (!empty($resultado['no_encontrado'])) {
+                    $resultados['no_encontrados']++;
+                } else {
+                    $resultados['errores']++;
+                }
+
+                $resultados['detalles'][] = [
+                    'numero'    => $numero,
+                    'resultado' => $resultado,
+                ];
+
+                usleep(200000); // 0.2 segundos para no saturar la API
+
+            } catch (Exception $e) {
+                $resultados['errores']++;
+                $resultados['detalles'][] = [
+                    'numero' => $numero,
+                    'error'  => $e->getMessage(),
+                ];
+            }
+        }
+
+        return $resultados;
     }
 }

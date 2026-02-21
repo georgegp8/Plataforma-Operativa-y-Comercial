@@ -106,11 +106,12 @@ export const dashboardApi = {
     return response.data;
   },
 
-  getMonthlyComparison: async (filtros: DashboardFiltros) => {
+  getMonthlyComparison: async (filtros: DashboardFiltros, incluirAnuladas = false) => {
     const params = new URLSearchParams({
       establecimiento: filtros.establecimiento,
       periodo: filtros.periodo,
       fecha_del: filtros.fechaDel,
+      incluir_anuladas: String(incluirAnuladas),
     });
     if (filtros.fechaHasta) {
       params.append('fecha_hasta', filtros.fechaHasta);

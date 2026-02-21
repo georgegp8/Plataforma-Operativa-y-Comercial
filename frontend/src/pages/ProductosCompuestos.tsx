@@ -7,13 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-// import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Plus, Package, Download, ChevronLeft, ChevronRight, Search, Loader2, Pencil, Trash2, Gift } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
+import { api } from '@/lib/api';
+import { useEmpresa } from '@/hooks/useEmpresa';
 
-// Mock data type since we don't have a backend table yet
 interface ProductoCompuesto {
     id: number;
     codigo_interno: string;
@@ -24,7 +24,9 @@ interface ProductoCompuesto {
 }
 
 export default function ProductosCompuestos() {
+    const { empresaId } = useEmpresa();
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [busqueda, setBusqueda] = useState('');
     const [filtroTipo, setFiltroTipo] = useState('nombre');
     const [items, setItems] = useState<ProductoCompuesto[]>([]);
@@ -40,56 +42,46 @@ export default function ProductosCompuestos() {
         tiene_igv: true
     });
 
-    // Seed data generator
-    const generateSeedData = () => {
-        const baseData = [
-            { id: 1, codigo_interno: 'K001', unidad: 'NIU', nombre: 'KIT ESCOLAR BÁSICO (PRIMARIA)', precio_unitario_venta: 45.00, tiene_igv: true },
-            { id: 2, codigo_interno: 'OFE-2024-001', unidad: 'ZZ', nombre: 'PACK LIMPIEZA TOTAL 3x2', precio_unitario_venta: 25.90, tiene_igv: true },
-            { id: 3, codigo_interno: 'GIFT-BOX-05', unidad: 'NIU', nombre: 'CANASTA NAVIDEÑA PREMIUM', precio_unitario_venta: 120.50, tiene_igv: true },
-            { id: 4, codigo_interno: 'K002', unidad: 'NIU', nombre: 'KIT ESCOLAR SECUNDARIA', precio_unitario_venta: 65.00, tiene_igv: true },
-            { id: 5, codigo_interno: 'OFE-2024-002', unidad: 'ZZ', nombre: 'PACK VERANO 2024', precio_unitario_venta: 35.50, tiene_igv: true },
-            { id: 6, codigo_interno: 'K003', unidad: 'NIU', nombre: 'KIT OFICINA HOME OFFICE', precio_unitario_venta: 150.00, tiene_igv: true },
-            { id: 7, codigo_interno: 'OFE-2024-003', unidad: 'ZZ', nombre: 'OFERTA 2x1 DETERGENTE', precio_unitario_venta: 18.90, tiene_igv: true },
-            { id: 8, codigo_interno: 'K004', unidad: 'NIU', nombre: 'KIT LIMPIEZA AUTO', precio_unitario_venta: 40.00, tiene_igv: true },
-            { id: 9, codigo_interno: 'OFE-2024-004', unidad: 'ZZ', nombre: 'PACK DESAYUNO FAMILIAR', precio_unitario_venta: 28.50, tiene_igv: false },
-            { id: 10, codigo_interno: 'K005', unidad: 'NIU', nombre: 'KIT PRIMEROS AUXILIOS', precio_unitario_venta: 55.00, tiene_igv: true },
-            { id: 11, codigo_interno: 'OFE-2024-005', unidad: 'ZZ', nombre: 'PACK ASEO PERSONAL', precio_unitario_venta: 22.00, tiene_igv: true },
-            { id: 12, codigo_interno: 'K006', unidad: 'NIU', nombre: 'KIT JARDINERÍA BÁSICO', precio_unitario_venta: 75.00, tiene_igv: true },
-            { id: 13, codigo_interno: 'OFE-2024-006', unidad: 'ZZ', nombre: 'PACK MERIENDA ESCOLAR', precio_unitario_venta: 15.50, tiene_igv: false },
-            { id: 14, codigo_interno: 'K007', unidad: 'NIU', nombre: 'KIT PINTURA INFANTIL', precio_unitario_venta: 32.00, tiene_igv: true },
-            { id: 15, codigo_interno: 'OFE-2024-007', unidad: 'ZZ', nombre: 'OFERTA FRUTAS FRESCAS', precio_unitario_venta: 20.00, tiene_igv: false },
-        ];
-        return baseData;
+    const fetchProductos = async () => {
+        setLoading(true);
+        try {
+            const params: Record<string, unknown> = {};
+            if (empresaId) params.empresa_id = empresaId;
+            if (busqueda) {
+                if (filtroTipo === 'nombre') params.nombre = busqueda;
+                else if (filtroTipo === 'codigo') params.codigo_interno = busqueda;
+                else params.buscar = busqueda;
+            }
+            const res = await api.productosCompuestos.listar(params);
+            setItems(res.data as ProductoCompuesto[]);
+        } catch {
+            toast.error('Error al cargar productos compuestos');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Mock loading effect
     useEffect(() => {
-        setLoading(true);
-        // Simulate API call with mock data
-        setTimeout(() => {
-            setItems(generateSeedData());
-            setLoading(false);
-        }, 500);
-    }, []);
+        fetchProductos();
+    }, [empresaId]);
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         setBusqueda(e.target.value);
         setCurrentPage(1);
     };
 
-    // Filter items logic
+    // Client-side filter for immediate feedback while typing
     const filteredItems = items.filter(item => {
         const term = busqueda.toLowerCase();
         if (!term) return true;
-
         switch (filtroTipo) {
             case 'codigo':
-                return item.codigo_interno.toLowerCase().includes(term);
+                return item.codigo_interno?.toLowerCase().includes(term);
             case 'unidad':
-                return item.unidad.toLowerCase().includes(term);
+                return item.unidad?.toLowerCase().includes(term);
             case 'nombre':
             default:
-                return item.nombre.toLowerCase().includes(term);
+                return item.nombre?.toLowerCase().includes(term);
         }
     });
 
@@ -98,28 +90,18 @@ export default function ProductosCompuestos() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
 
-    // Generate page numbers for pagination
     const getPageNumbers = () => {
         const pages = [];
         const maxVisiblePages = 5;
-
         if (totalPages <= maxVisiblePages) {
-            for (let i = 1; i <= totalPages; i++) {
-                pages.push(i);
-            }
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
         } else {
             if (currentPage <= 3) {
-                for (let i = 1; i <= 5; i++) {
-                    pages.push(i);
-                }
+                for (let i = 1; i <= 5; i++) pages.push(i);
             } else if (currentPage >= totalPages - 2) {
-                for (let i = totalPages - 4; i <= totalPages; i++) {
-                    pages.push(i);
-                }
+                for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
             } else {
-                for (let i = currentPage - 2; i <= currentPage + 2; i++) {
-                    pages.push(i);
-                }
+                for (let i = currentPage - 2; i <= currentPage + 2; i++) pages.push(i);
             }
         }
         return pages;
@@ -129,8 +111,8 @@ export default function ProductosCompuestos() {
         if (product) {
             setEditingProduct(product);
             setFormData({
-                codigo_interno: product.codigo_interno,
-                unidad: product.unidad,
+                codigo_interno: product.codigo_interno || '',
+                unidad: product.unidad || 'NIU',
                 nombre: product.nombre,
                 precio_unitario_venta: product.precio_unitario_venta.toString(),
                 tiene_igv: product.tiene_igv
@@ -148,30 +130,46 @@ export default function ProductosCompuestos() {
         setIsModalOpen(true);
     };
 
-    const handleSave = () => {
-        const newProduct: ProductoCompuesto = {
-            id: editingProduct ? editingProduct.id : Math.max(...items.map(i => i.id), 0) + 1,
-            codigo_interno: formData.codigo_interno,
-            unidad: formData.unidad,
-            nombre: formData.nombre,
-            precio_unitario_venta: parseFloat(formData.precio_unitario_venta) || 0,
-            tiene_igv: formData.tiene_igv
-        };
-
-        if (editingProduct) {
-            setItems(items.map(i => i.id === editingProduct.id ? newProduct : i));
-            toast.success('Producto actualizado correctamente');
-        } else {
-            setItems([newProduct, ...items]);
-            toast.success('Producto creado correctamente');
+    const handleSave = async () => {
+        if (!formData.nombre.trim()) {
+            toast.error('El nombre es requerido');
+            return;
         }
-        setIsModalOpen(false);
+        setSaving(true);
+        try {
+            const payload = {
+                empresa_id: empresaId,
+                codigo_interno: formData.codigo_interno || null,
+                unidad: formData.unidad,
+                nombre: formData.nombre.trim(),
+                precio_unitario_venta: parseFloat(formData.precio_unitario_venta) || 0,
+                tiene_igv: formData.tiene_igv,
+            };
+
+            if (editingProduct) {
+                await api.productosCompuestos.actualizar(editingProduct.id, payload);
+                toast.success('Producto actualizado correctamente');
+            } else {
+                await api.productosCompuestos.crear(payload);
+                toast.success('Producto creado correctamente');
+            }
+            setIsModalOpen(false);
+            fetchProductos();
+        } catch {
+            toast.error(editingProduct ? 'Error al actualizar el producto' : 'Error al crear el producto');
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const handleDelete = (id: number) => {
-        if (confirm('¿Estás seguro de eliminar este producto?')) {
-            setItems(items.filter(i => i.id !== id));
+    const handleDelete = async (id: number) => {
+        if (!confirm('¿Estás seguro de eliminar este producto?')) return;
+        try {
+            await api.productosCompuestos.eliminar(id);
             toast.success('Producto eliminado correctamente');
+            setItems(items.filter(i => i.id !== id));
+        } catch {
+            toast.error('Error al eliminar el producto');
         }
     };
 
@@ -293,7 +291,7 @@ export default function ProductosCompuestos() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 text-right font-mono text-sm">
-                                                    S/ {item.precio_unitario_venta.toFixed(2)}
+                                                    S/ {Number(item.precio_unitario_venta).toFixed(2)}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 text-center">
                                                     <Badge variant={item.tiene_igv ? "default" : "secondary"} className={item.tiene_igv ? "bg-blue-600 hover:bg-blue-700" : ""}>
@@ -335,7 +333,7 @@ export default function ProductosCompuestos() {
                                     <option value="100">100</option>
                                 </select>
                                 <span className="text-sm text-muted-foreground">
-                                    registros | Mostrando {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredItems.length)} de {filteredItems.length}
+                                    registros | Mostrando {filteredItems.length === 0 ? 0 : startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredItems.length)} de {filteredItems.length}
                                 </span>
                             </div>
 
@@ -357,7 +355,7 @@ export default function ProductosCompuestos() {
                                         variant={currentPage === page ? "default" : "outline"}
                                         size="sm"
                                         onClick={() => setCurrentPage(page)}
-                                        className={`h-8 min-w-[2rem] ${currentPage === page
+                                        className={`h-8 min-w-8 ${currentPage === page
                                             ? 'bg-primary text-primary-foreground hover:bg-primary/90'
                                             : ''
                                             }`}
@@ -370,7 +368,7 @@ export default function ProductosCompuestos() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages}
+                                    disabled={currentPage === totalPages || totalPages === 0}
                                     className="h-8"
                                 >
                                     Siguiente
@@ -447,8 +445,11 @@ export default function ProductosCompuestos() {
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-                            <Button onClick={handleSave}>{editingProduct ? 'Actualizar' : 'Guardar'}</Button>
+                            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancelar</Button>
+                            <Button onClick={handleSave} disabled={saving}>
+                                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                                {editingProduct ? 'Actualizar' : 'Guardar'}
+                            </Button>
                         </DialogFooter>
                     </DialogContent>
                 </Dialog>

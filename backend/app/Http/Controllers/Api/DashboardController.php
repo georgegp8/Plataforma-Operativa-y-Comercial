@@ -622,6 +622,7 @@ class DashboardController extends Controller
         $periodo = $request->query('periodo', 'ESTE_AÑO');
         $fechaDel = $request->query('fecha_del', '');
         $fechaHasta = $request->query('fecha_hasta', null);
+        $incluirAnuladas = $request->boolean('incluir_anuladas', false);
 
         // Determinar rango de fechas según el período
         $fechaInicio = null;
@@ -662,8 +663,13 @@ class DashboardController extends Controller
 
         // Query base con filtros
         $query = Comprobante::query()
-            ->where('estado_sunat', 'aceptado')
-            ->where('anulado', false);
+            ->where('estado_sunat', 'aceptado');
+
+        if (! $incluirAnuladas) {
+            $query->where(function ($q) {
+                $q->whereNull('anulado')->orWhere('anulado', false);
+            });
+        }
 
         if ($fechaInicio && $fechaFin) {
             $query->whereBetween('fecha_emision', [$fechaInicio, $fechaFin]);
@@ -722,7 +728,7 @@ class DashboardController extends Controller
         }
 
         // Obtener compras y agregarlas a los datos mensuales
-        $queryCompras = \App\Models\Compra::query();
+        $queryCompras = \App\Models\Compra::query()->where('activo', true);
 
         if ($fechaInicio && $fechaFin) {
             $queryCompras->whereBetween('fecha_actividad', [$fechaInicio, $fechaFin]);

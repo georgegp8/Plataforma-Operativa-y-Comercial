@@ -14,24 +14,27 @@ import { EmptyState } from '@/components/ui/empty-state';
 import api from '@/lib/api';
 import { format } from 'date-fns';
 import type { Categoria } from '@/types';
+import { useEmpresa } from '@/hooks/useEmpresa';
 
-
-// Mock data types
 interface MovimientoInventario {
     id: number;
-    fecha: string; // ISO string
+    fecha: string;
     codigo_producto: string;
     nombre_producto: string;
     almacen: string;
     categoria_id?: number;
-    categoria_nombre?: string;
+    categoria?: { id: number; nombre: string };
     cantidad: number;
     tipo: 'INGRESO' | 'SALIDA' | 'DEVOLUCION';
     ticket_id?: string;
 }
 
+const ALMACENES = ['Oficina Principal', 'Almacén Central'];
+
 export default function IngresoSalidaProductos() {
+    const { empresaId } = useEmpresa();
     const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [items, setItems] = useState<MovimientoInventario[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -43,66 +46,63 @@ export default function IngresoSalidaProductos() {
     const [categorias, setCategorias] = useState<Categoria[]>([]);
     const [filtroCategoria, setFiltroCategoria] = useState('todos');
     const [filtroAlmacen, setFiltroAlmacen] = useState('todos');
-    // const [fechaInicio, setFechaInicio] = useState('');
-    // const [fechaFin, setFechaFin] = useState('');
+    const [fechaDesde, setFechaDesde] = useState('');
+    const [fechaHasta, setFechaHasta] = useState('');
 
-    // Seed data generator
-    const generateSeedData = () => {
-        const baseData: MovimientoInventario[] = [
-            { id: 1, fecha: '2025-07-04T06:14:11', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 0.00, tipo: 'SALIDA' },
-            { id: 2, fecha: '2025-07-04T06:14:11', codigo_producto: '100033', nombre_producto: 'SVR XERIAL 10 LAIT 400ML', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 6.00, tipo: 'SALIDA' },
-            { id: 3, fecha: '2025-07-04T06:13:01', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 20.00, tipo: 'SALIDA' },
-            { id: 4, fecha: '2025-07-04T05:47:27', codigo_producto: '100389', nombre_producto: 'XERIAL 50 EXTREME CREME PIEDS X50ML SVR', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 1.00, tipo: 'SALIDA' },
-            { id: 5, fecha: '2025-07-04T05:47:27', codigo_producto: '100391', nombre_producto: 'MINI CAPITAL SOLEIL UV AGE DAILY', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 14.00, tipo: 'SALIDA' },
-            { id: 6, fecha: '2025-07-03T18:30:00', codigo_producto: '100101', nombre_producto: 'CETAPHIL LOCION LIMPIADORA 237ML', almacen: 'Almacén Central', categoria_id: 2, categoria_nombre: 'INSUMO', cantidad: 50.00, tipo: 'INGRESO' },
-            { id: 7, fecha: '2025-07-03T15:20:15', codigo_producto: '100205', nombre_producto: 'LA ROCHE POSAY ANTHELIOS 50+', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 2.00, tipo: 'DEVOLUCION' },
-            { id: 8, fecha: '2025-07-02T09:10:00', codigo_producto: '100389', nombre_producto: 'XERIAL 50 EXTREME CREME PIEDS X50ML SVR', almacen: 'Almacén Central', categoria_id: 2, categoria_nombre: 'INSUMO', cantidad: 100.00, tipo: 'INGRESO' },
-            { id: 9, fecha: '2025-07-01T14:45:30', codigo_producto: '100033', nombre_producto: 'SVR XERIAL 10 LAIT 400ML', almacen: 'Oficina Principal', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 5.00, tipo: 'SALIDA' },
-            { id: 10, fecha: '2025-07-01T11:00:00', codigo_producto: '100032', nombre_producto: 'EPI-DERM EDG-499 (3X3X0.9)', almacen: 'Almacén Central', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 10.00, tipo: 'SALIDA' },
-            { id: 11, fecha: '2025-06-30T16:20:00', codigo_producto: '100101', nombre_producto: 'CETAPHIL LOCION LIMPIADORA 237ML', almacen: 'Oficina Principal', categoria_id: 29, categoria_nombre: 'MATERIAL', cantidad: 1.00, tipo: 'DEVOLUCION' },
-            { id: 12, fecha: '2025-06-29T10:00:00', codigo_producto: '100391', nombre_producto: 'MINI CAPITAL SOLEIL UV AGE DAILY', almacen: 'Almacén Central', categoria_id: 3, categoria_nombre: 'PRODUCTO', cantidad: 25.00, tipo: 'INGRESO' },
-        ];
-        return baseData;
+    // Modal form state
+    const [formData, setFormData] = useState({
+        almacen: '',
+        nombre_producto: '',
+        codigo_producto: '',
+        categoria_id: '',
+        cantidad: '',
+        ticket_id: '',
+        fecha: new Date().toISOString().split('T')[0],
+    });
+
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const params: Record<string, unknown> = {};
+            if (empresaId) params.empresa_id = empresaId;
+            if (filtroTipo !== 'todos') params.tipo = filtroTipo;
+            if (filtroAlmacen !== 'todos') params.almacen = filtroAlmacen;
+            if (filtroCategoria !== 'todos') params.categoria_id = filtroCategoria;
+            if (fechaDesde) params.fecha_desde = fechaDesde;
+            if (fechaHasta) params.fecha_hasta = fechaHasta;
+
+            const res = await api.movimientosInventario.listar(params);
+            const data = res.data;
+            setItems(Array.isArray(data) ? data : (data as { data: MovimientoInventario[] }).data ?? []);
+        } catch {
+            toast.error('Error al cargar movimientos');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Load data
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
+        const fetchCategorias = async () => {
             try {
-                // Fetch Items (Mock for now, but simulated async)
-                setItems(generateSeedData());
-
-                // Fetch Categories (Real API)
                 const response = await api.categorias.listar();
                 if (Array.isArray(response.data)) {
                     setCategorias(response.data as Categoria[]);
                 }
-            } catch (error) {
-                console.error('Error loading data:', error);
-                toast.error('Error al cargar datos iniciales');
-            } finally {
-                setLoading(false);
+            } catch {
+                // categorias no bloqueantes
             }
         };
-
-        fetchData();
+        fetchCategorias();
     }, []);
 
-    // Filter logic
-    const filteredItems = items.filter(item => {
-        if (filtroTipo !== 'todos' && item.tipo !== filtroTipo) return false;
-        if (filtroCategoria !== 'todos' && item.categoria_id !== Number(filtroCategoria)) return false;
-        if (filtroAlmacen !== 'todos' && item.almacen.toLowerCase().includes(filtroAlmacen.toLowerCase()) === false && filtroAlmacen !== 'principal' && filtroAlmacen !== 'central') return false;
-        // Simple mock match for almacen
-
-        return true;
-    });
+    useEffect(() => {
+        fetchData();
+    }, [empresaId, filtroTipo, filtroAlmacen, filtroCategoria, fechaDesde, fechaHasta]);
 
     // Pagination logic
-    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+    const totalPages = Math.ceil(items.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
-    const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
+    const paginatedItems = items.slice(startIndex, startIndex + itemsPerPage);
 
     const getPageNumbers = () => {
         const pages = [];
@@ -110,15 +110,74 @@ export default function IngresoSalidaProductos() {
         if (totalPages <= maxVisiblePages) {
             for (let i = 1; i <= totalPages; i++) pages.push(i);
         } else {
-            // ... (Simple logic for brevity, can duplicate full logic if needed)
-            for (let i = 1; i <= Math.min(totalPages, 5); i++) pages.push(i);
+            if (currentPage <= 3) {
+                for (let i = 1; i <= 5; i++) pages.push(i);
+            } else if (currentPage >= totalPages - 2) {
+                for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
+            } else {
+                for (let i = currentPage - 2; i <= currentPage + 2; i++) pages.push(i);
+            }
         }
         return pages;
     };
 
     const handleOpenModal = (type: 'INGRESO' | 'SALIDA' | 'DEVOLUCION') => {
         setModalType(type);
+        setFormData({
+            almacen: ALMACENES[0],
+            nombre_producto: '',
+            codigo_producto: '',
+            categoria_id: '',
+            cantidad: '',
+            ticket_id: '',
+            fecha: new Date().toISOString().split('T')[0],
+        });
         setIsModalOpen(true);
+    };
+
+    const handleSave = async () => {
+        if (!formData.nombre_producto.trim()) {
+            toast.error('El nombre del producto es requerido');
+            return;
+        }
+        if (!formData.cantidad || Number(formData.cantidad) <= 0) {
+            toast.error('La cantidad debe ser mayor a 0');
+            return;
+        }
+        setSaving(true);
+        try {
+            const payload: Record<string, unknown> = {
+                empresa_id: empresaId,
+                fecha: formData.fecha,
+                nombre_producto: formData.nombre_producto.trim(),
+                codigo_producto: formData.codigo_producto || null,
+                almacen: formData.almacen || null,
+                categoria_id: formData.categoria_id || null,
+                cantidad: Number(formData.cantidad),
+                tipo: modalType,
+                ticket_id: formData.ticket_id || null,
+            };
+
+            await api.movimientosInventario.registrar(payload);
+            toast.success(`${modalType === 'DEVOLUCION' ? 'Devolución' : modalType === 'INGRESO' ? 'Ingreso' : 'Salida'} registrado correctamente`);
+            setIsModalOpen(false);
+            fetchData();
+        } catch {
+            toast.error('Error al registrar el movimiento');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!confirm('¿Estás seguro de eliminar este movimiento?')) return;
+        try {
+            await api.movimientosInventario.eliminar(id);
+            toast.success('Movimiento eliminado correctamente');
+            setItems(items.filter(i => i.id !== id));
+        } catch {
+            toast.error('Error al eliminar el movimiento');
+        }
     };
 
     const handleAction = (action: string) => {
@@ -128,7 +187,7 @@ export default function IngresoSalidaProductos() {
     const getBadgeVariant = (tipo: string) => {
         switch (tipo) {
             case 'INGRESO': return 'bg-green-600 hover:bg-green-700';
-            case 'SALIDA': return 'bg-red-600 hover:bg-red-700'; // Screenshot has dark red for Salida
+            case 'SALIDA': return 'bg-red-600 hover:bg-red-700';
             case 'DEVOLUCION': return 'bg-blue-600 hover:bg-blue-700';
             default: return 'bg-gray-600';
         }
@@ -138,7 +197,6 @@ export default function IngresoSalidaProductos() {
         <div className="min-h-screen bg-background text-foreground">
             <NubofactHeader />
             <div className="container mx-auto px-4 py-6">
-                {/* Header */}
                 {/* Header */}
                 <div className="bg-primary text-primary-foreground rounded-t-lg px-4 py-3 flex items-center justify-between">
                     <h1 className="text-xl font-semibold flex items-center gap-2">
@@ -180,18 +238,19 @@ export default function IngresoSalidaProductos() {
                             <select
                                 className="w-full px-3 py-2 border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm"
                                 value={filtroAlmacen}
-                                onChange={(e) => setFiltroAlmacen(e.target.value)}
+                                onChange={(e) => { setFiltroAlmacen(e.target.value); setCurrentPage(1); }}
                             >
                                 <option value="todos">Seleccione Almacén</option>
-                                <option value="principal">Oficina Principal</option>
-                                <option value="central">Almacén Central</option>
+                                {ALMACENES.map(a => (
+                                    <option key={a} value={a}>{a}</option>
+                                ))}
                             </select>
                         </div>
                         <div>
                             <select
                                 className="w-full px-3 py-2 border border-border rounded-md bg-white dark:bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm"
                                 value={filtroCategoria}
-                                onChange={(e) => setFiltroCategoria(e.target.value)}
+                                onChange={(e) => { setFiltroCategoria(e.target.value); setCurrentPage(1); }}
                             >
                                 <option value="todos">Seleccione Categoría</option>
                                 {categorias.map((cat) => (
@@ -202,25 +261,28 @@ export default function IngresoSalidaProductos() {
                             </select>
                         </div>
                         <div>
-                            <Input type="date" placeholder="Fecha inicial" className="bg-white dark:bg-background h-10" />
+                            <Input
+                                type="date"
+                                value={fechaDesde}
+                                onChange={(e) => { setFechaDesde(e.target.value); setCurrentPage(1); }}
+                                className="bg-white dark:bg-background h-10"
+                            />
                         </div>
                         <div>
-                            <Input type="date" placeholder="Fecha final" className="bg-white dark:bg-background h-10" />
+                            <Input
+                                type="date"
+                                value={fechaHasta}
+                                onChange={(e) => { setFechaHasta(e.target.value); setCurrentPage(1); }}
+                                className="bg-white dark:bg-background h-10"
+                            />
                         </div>
-                        <div className="flex gap-2">
-                            {/* Need "Exportar Excel" green button */}
-                        </div>
+                        <div>{/* Spacer */}</div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mt-2">
                         <div>
-                            <select className="w-full px-3 py-2 border border-border rounded-md bg-white dark:bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm">
-                                <option value="todos">Seleccione Producto</option>
-                            </select>
-                        </div>
-                        <div>
                             <select
                                 value={filtroTipo}
-                                onChange={(e) => setFiltroTipo(e.target.value)}
+                                onChange={(e) => { setFiltroTipo(e.target.value); setCurrentPage(1); }}
                                 className="w-full px-3 py-2 border border-border rounded-md bg-white dark:bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary text-sm"
                             >
                                 <option value="todos">Tipo de Ingreso/Salida</option>
@@ -229,6 +291,7 @@ export default function IngresoSalidaProductos() {
                                 <option value="DEVOLUCION">Devolución</option>
                             </select>
                         </div>
+                        <div>{/* Spacer */}</div>
                         <div>{/* Spacer */}</div>
                         <div>{/* Spacer */}</div>
                         <div>
@@ -273,7 +336,7 @@ export default function IngresoSalidaProductos() {
                                             <TableHead className="min-w-32 py-2 px-2 text-primary-foreground">Almacén</TableHead>
                                             <TableHead className="min-w-24 py-2 px-2 text-primary-foreground">Cantidad</TableHead>
                                             <TableHead className="min-w-24 py-2 px-2 text-center text-primary-foreground">Tipo</TableHead>
-                                            <TableHead className="min-w-24 py-2 px-2 text-center text-primary-foreground">Ticket</TableHead>
+                                            <TableHead className="min-w-24 py-2 px-2 text-center text-primary-foreground">Acciones</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -282,27 +345,27 @@ export default function IngresoSalidaProductos() {
                                                 <TableCell className="py-2 px-2 text-center text-xs text-muted-foreground font-medium">
                                                     {startIndex + index + 1}
                                                 </TableCell>
-                                                <TableCell className="py-2 px-2 text-white-500 font-medium text-xs">
+                                                <TableCell className="py-2 px-2 font-medium text-xs">
                                                     <div>{format(new Date(item.fecha), 'yyyy-MM-dd')}</div>
                                                     <div className="text-gray-500">{format(new Date(item.fecha), 'HH:mm:ss')}</div>
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 font-mono text-xs text-muted-foreground font-medium">
-                                                    {item.codigo_producto}
+                                                    {item.codigo_producto || '-'}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 text-xs text-muted-foreground">
-                                                    {item.categoria_nombre || '-'}
+                                                    {item.categoria?.nombre || '-'}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 font-medium text-xs text-foreground">
                                                     {item.nombre_producto}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 text-xs text-muted-foreground">
-                                                    {item.almacen}
+                                                    {item.almacen || '-'}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 text-xs font-mono">
-                                                    {item.cantidad.toFixed(2)}
+                                                    {Number(item.cantidad).toFixed(2)}
                                                 </TableCell>
                                                 <TableCell className="py-2 px-2 text-center">
-                                                    <Badge className={`${getBadgeVariant(item.tipo)} text-white hover:{getBadgeVariant(item.tipo)}`} variant="outline">
+                                                    <Badge className={`${getBadgeVariant(item.tipo)} text-white`} variant="outline">
                                                         {item.tipo.charAt(0) + item.tipo.slice(1).toLowerCase()}
                                                     </Badge>
                                                 </TableCell>
@@ -320,7 +383,7 @@ export default function IngresoSalidaProductos() {
                                                             variant="destructive"
                                                             size="icon"
                                                             className="h-7 w-7 bg-red-600 hover:bg-red-700"
-                                                            onClick={() => handleAction('Revertir Operación')}
+                                                            onClick={() => handleDelete(item.id)}
                                                         >
                                                             <RotateCcw className="h-3 w-3 text-white" />
                                                         </Button>
@@ -333,7 +396,7 @@ export default function IngresoSalidaProductos() {
                             </div>
                         )}
 
-                        {/* Pagination Standard */}
+                        {/* Pagination */}
                         <div className="flex items-center justify-between border-t border-border px-4 py-4 sm:px-6">
                             <div className="flex items-center gap-2">
                                 <span className="text-sm text-muted-foreground">Mostrar</span>
@@ -351,7 +414,7 @@ export default function IngresoSalidaProductos() {
                                     <option value="100">100</option>
                                 </select>
                                 <span className="text-sm text-muted-foreground">
-                                    registros | Mostrando {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredItems.length)} de {filteredItems.length}
+                                    registros | Mostrando {items.length === 0 ? 0 : startIndex + 1} a {Math.min(startIndex + itemsPerPage, items.length)} de {items.length}
                                 </span>
                             </div>
 
@@ -386,7 +449,7 @@ export default function IngresoSalidaProductos() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages}
+                                    disabled={currentPage === totalPages || totalPages === 0}
                                     className="h-8"
                                 >
                                     Siguiente
@@ -397,7 +460,7 @@ export default function IngresoSalidaProductos() {
                     </CardContent>
                 </Card>
 
-                {/* Mock CRUD Modal */}
+                {/* CRUD Modal */}
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                     <DialogContent>
                         <DialogHeader>
@@ -411,41 +474,92 @@ export default function IngresoSalidaProductos() {
                             </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
-                            <div>
-                                <Label>Almacén</Label>
-                                <Select>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione Almacén" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="principal">Oficina Principal</SelectItem>
-                                        <SelectItem value="central">Almacén Central</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Fecha</Label>
+                                    <Input
+                                        type="date"
+                                        value={formData.fecha}
+                                        onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Almacén</Label>
+                                    <Select
+                                        value={formData.almacen}
+                                        onValueChange={(val) => setFormData({ ...formData, almacen: val })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccione Almacén" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {ALMACENES.map(a => (
+                                                <SelectItem key={a} value={a}>{a}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Código de Producto</Label>
+                                    <Input
+                                        value={formData.codigo_producto}
+                                        onChange={(e) => setFormData({ ...formData, codigo_producto: e.target.value })}
+                                        placeholder="Ej: 100032"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Categoría</Label>
+                                    <Select
+                                        value={formData.categoria_id}
+                                        onValueChange={(val) => setFormData({ ...formData, categoria_id: val })}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Sin categoría" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {categorias.map((cat) => (
+                                                <SelectItem key={cat.id} value={String(cat.id)}>{cat.nombre}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
                             </div>
                             <div>
-                                <Label>Producto</Label>
-                                <Select>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione Producto" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="p1">EPI-DERM EDG-499</SelectItem>
-                                        <SelectItem value="p2">SVR XERIAL 10</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label>Nombre del Producto <span className="text-red-500">*</span></Label>
+                                <Input
+                                    value={formData.nombre_producto}
+                                    onChange={(e) => setFormData({ ...formData, nombre_producto: e.target.value })}
+                                    placeholder="Nombre del producto"
+                                />
                             </div>
-                            <div>
-                                <Label>Cantidad</Label>
-                                <Input type="number" placeholder="0.00" />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <Label>Cantidad <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        type="number"
+                                        value={formData.cantidad}
+                                        onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
+                                        placeholder="0.00"
+                                        min="0.001"
+                                        step="0.001"
+                                    />
+                                </div>
+                                <div>
+                                    <Label>Ticket ID</Label>
+                                    <Input
+                                        value={formData.ticket_id}
+                                        onChange={(e) => setFormData({ ...formData, ticket_id: e.target.value })}
+                                        placeholder="Opcional"
+                                    />
+                                </div>
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-                            <Button onClick={() => {
-                                toast.success(`${modalType} registrado correctamente (Mock)`);
-                                setIsModalOpen(false);
-                            }}>
+                            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={saving}>Cancelar</Button>
+                            <Button onClick={handleSave} disabled={saving}>
+                                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                 Guardar
                             </Button>
                         </DialogFooter>

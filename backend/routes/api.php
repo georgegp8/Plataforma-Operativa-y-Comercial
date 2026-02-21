@@ -16,9 +16,11 @@ use App\Http\Controllers\Api\EmpresaController;
 use App\Http\Controllers\Api\EntidadController;
 use App\Http\Controllers\Api\FacturacionController;
 use App\Http\Controllers\Api\MarcaController;
+use App\Http\Controllers\Api\MovimientoInventarioController;
 use App\Http\Controllers\Api\NubefactController;
 use App\Http\Controllers\Api\NubefactSyncController;
 use App\Http\Controllers\Api\OportunidadController;
+use App\Http\Controllers\Api\ProductoCompuestoController;
 use App\Http\Controllers\Api\PagoController;
 use App\Http\Controllers\Api\PersonalController;
 use App\Http\Controllers\Api\ProductoController;
@@ -67,18 +69,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Rutas de emisión y sincronización con NubeFact
     Route::prefix('nubefact')->group(function () {
-        // Comprobantes
+        // Comprobantes — emisión para todos, anulación solo admin
         Route::post('/comprobantes', [NubefactController::class, 'emitirComprobante']);
         Route::get('/comprobantes/{tipo}/{serie}/{numero}', [NubefactController::class, 'consultarComprobante']);
-        Route::delete('/comprobantes/{tipo}/{serie}/{numero}', [NubefactController::class, 'anularComprobante']);
+        Route::delete('/comprobantes/{tipo}/{serie}/{numero}', [NubefactController::class, 'anularComprobante'])->middleware('role:admin');
 
         // Guías de remisión
         Route::post('/guias', [NubefactController::class, 'emitirGuia']);
         Route::get('/guias/{tipo}/{serie}/{numero}', [NubefactController::class, 'consultarGuia']);
+        Route::post('/guias/sincronizar-rango', [NubefactSyncController::class, 'sincronizarRangoGuias']);
+        Route::post('/guias/auto-descubrir', [NubefactSyncController::class, 'autoDescubrirGuias']);
     });
 
-    // Rutas para sincronización directa con NubeFact API
-    Route::prefix('nubefact-sync')->group(function () {
+    // Rutas para sincronización directa con NubeFact API — solo admin
+    Route::prefix('nubefact-sync')->middleware('role:admin')->group(function () {
         Route::get('/estado', [NubefactSyncController::class, 'verificarEstado']);
         Route::get('/estadisticas', [NubefactSyncController::class, 'estadisticas']);
         Route::get('/consultar/{tipo_doc}/{serie}/{numero}', [NubefactSyncController::class, 'consultarEnNubefact']);
@@ -86,6 +90,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/rango', [NubefactSyncController::class, 'sincronizarRango']);
         Route::post('/pendientes', [NubefactSyncController::class, 'sincronizarPendientes']);
         Route::post('/enriquecer-xml', [NubefactSyncController::class, 'enriquecerDesdeXml']);
+        Route::post('/rango-guias', [NubefactSyncController::class, 'sincronizarRangoGuias']);
     });
 
     Route::prefix('v1')->group(function () {
@@ -167,11 +172,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('entidades/{id}', [EntidadController::class, 'update']);
         Route::delete('entidades/{id}', [EntidadController::class, 'destroy']);
 
-        // Series de facturación
+        // Series de facturación — lectura para todos, escritura solo admin
         Route::get('/series', [SerieController::class, 'index']);
-        Route::post('/series', [SerieController::class, 'store']);
-        Route::put('/series/{id}', [SerieController::class, 'update']);
-        Route::delete('/series/{id}', [SerieController::class, 'destroy']);
+        Route::post('/series', [SerieController::class, 'store'])->middleware('role:admin');
+        Route::put('/series/{id}', [SerieController::class, 'update'])->middleware('role:admin');
+        Route::delete('/series/{id}', [SerieController::class, 'destroy'])->middleware('role:admin');
 
         // Productos
         Route::get('productos', [ProductoController::class, 'index']);
@@ -279,6 +284,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('documentos-digitalizados/{id}/validar', [DocumentoDigitalizadoController::class, 'validar']);
         Route::post('documentos-digitalizados/{id}/convertir-compra', [DocumentoDigitalizadoController::class, 'convertirACompra']);
         Route::delete('documentos-digitalizados/{id}', [DocumentoDigitalizadoController::class, 'destroy']);
+
+        // Productos Compuestos (Ofertas)
+        Route::apiResource('productos-compuestos', ProductoCompuestoController::class);
+
+        // Movimientos de Inventario (Ingreso y Salida)
+        Route::apiResource('movimientos-inventario', MovimientoInventarioController::class)
+            ->except(['show', 'update']);
 
         // Notas de Venta
         Route::get('notas-venta', [App\Http\Controllers\Api\NotaVentaController::class, 'index']);

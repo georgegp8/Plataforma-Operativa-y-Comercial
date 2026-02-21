@@ -38,6 +38,7 @@ export default function Dashboard() {
   const [stockMinimoPage, setStockMinimoPage] = useState(1);
   const [monthlyComparisonData, setMonthlyComparisonData] = useState<MonthlyComparisonData[]>([]);
   const [monthlyTableData, setMonthlyTableData] = useState<MonthlyTableRow[]>([]);
+  const [incluirAnuladas, setIncluirAnuladas] = useState(false);
   const [filtros, setFiltros] = useState<DashboardFiltros>({
     establecimiento: "1",
     periodo: "COMPLETO",
@@ -140,7 +141,7 @@ export default function Dashboard() {
   useEffect(() => {
     const cargarMonthlyComparison = async () => {
       try {
-        const data = await dashboardApi.getMonthlyComparison(filtros);
+        const data = await dashboardApi.getMonthlyComparison(filtros, incluirAnuladas);
         setMonthlyComparisonData(data.chart);
         setMonthlyTableData(data.table);
       } catch (error) {
@@ -151,7 +152,7 @@ export default function Dashboard() {
     };
 
     cargarMonthlyComparison();
-  }, [filtros]);
+  }, [filtros, incluirAnuladas]);
 
   // React Best Practice: Memoize callbacks to prevent child re-renders
   const handleFiltrosChange = useCallback(
@@ -373,7 +374,12 @@ export default function Dashboard() {
 
           {/* FILA 3: Gráfico mensual y Tabla resumen */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <MonthlyComparisonChart data={monthlyComparisonData} className="lg:col-span-6" />
+            <MonthlyComparisonChart
+              data={monthlyComparisonData}
+              className="lg:col-span-6"
+              incluirAnuladas={incluirAnuladas}
+              onToggleAnuladas={setIncluirAnuladas}
+            />
             <MonthlyTable data={monthlyTableData} className="lg:col-span-6" />
           </div>
         </div>

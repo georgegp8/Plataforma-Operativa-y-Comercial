@@ -289,6 +289,7 @@ class NubefactController extends Controller
                 $comprobante->update([
                     'anulado' => true,
                     'anulado_at' => now(),
+                    'estado_sunat' => 'baja',
                     'motivo_anulacion' => $validated['motivo'],
                     'nubefact_sunat_ticket' => $response['sunat_ticket_numero'] ?? null,
                 ]);

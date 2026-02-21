@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'sonner';
-import { api, apiBaseUrl, type Empresa } from '@/lib/api';
+import { api, type Empresa } from '@/lib/api';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,20 @@ export default function ConfiguracionEmpresa() {
   });
 
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoBlobRef = useRef<string | null>(null);
+
+  // Descarga el logo con el token de auth y crea un object URL
+  const loadLogo = useCallback(async (id: number) => {
+    try {
+      const res = await api.empresas.getLogo(id);
+      const blobUrl = URL.createObjectURL(res.data as Blob);
+      if (logoBlobRef.current) URL.revokeObjectURL(logoBlobRef.current);
+      logoBlobRef.current = blobUrl;
+      setLogoUrl(blobUrl);
+    } catch {
+      setLogoUrl(null);
+    }
+  }, []);
 
   // Cargar lista de empresas
   useEffect(() => {
@@ -97,7 +111,7 @@ export default function ConfiguracionEmpresa() {
           activo: emp.activo ?? true,
         });
         if (emp.logo_path) {
-          setLogoUrl(`${apiBaseUrl}/v1/empresas/${empresaId}/logo?t=${Date.now()}`);
+          void loadLogo(empresaId);
         } else {
           setLogoUrl(null);
         }
@@ -152,8 +166,7 @@ export default function ConfiguracionEmpresa() {
     try {
       setUploadingLogo(true);
       await api.empresas.uploadLogo(empresaId, file);
-      // Usar el endpoint de logo con cache-bust para forzar recarga
-      setLogoUrl(`${apiBaseUrl}/v1/empresas/${empresaId}/logo?t=${Date.now()}`);
+      void loadLogo(empresaId);
       toast.success('Logo actualizado correctamente');
     } catch {
       toast.error('Error al subir logo');
