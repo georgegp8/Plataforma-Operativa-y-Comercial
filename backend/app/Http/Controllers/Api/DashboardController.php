@@ -522,7 +522,7 @@ class DashboardController extends Controller
         $periodo = $request->get('periodo', 'ESTE_MES');
         $fechaDel = $request->get('fecha_del', now()->format('Y-m-d'));
         $fechaHasta = $request->get('fecha_hasta', null);
-        $limit = $request->get('limit', 5);
+        $limit = $request->get('limit', 10);
 
         // Calcular fecha_hasta según período o usar la proporcionada
         if (! $fechaHasta) {

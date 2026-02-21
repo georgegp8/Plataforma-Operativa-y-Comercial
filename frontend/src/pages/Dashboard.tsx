@@ -111,7 +111,7 @@ export default function Dashboard() {
   useEffect(() => {
     const cargarClientesTop = async () => {
       try {
-        const data = await dashboardApi.getClientesTop(filtros);
+        const data = await dashboardApi.getClientesTop(filtros, 10);
         setClientesTop(data);
       } catch (error) {
         console.error("Error al cargar clientes top:", error);

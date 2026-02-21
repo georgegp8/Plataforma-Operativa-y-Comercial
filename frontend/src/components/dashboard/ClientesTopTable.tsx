@@ -12,10 +12,6 @@ interface ClientesTopTableProps {
   className?: string;
 }
 
-/**
- * ClientesTopTable Component
- * Tabla de clientes top con dropdown (diseño Nubofact)
- */
 export function ClientesTopTable({ data, className }: ClientesTopTableProps) {
   return (
     <Card className={`overflow-hidden shadow-md p-0 ${className}`}>
@@ -23,17 +19,6 @@ export function ClientesTopTable({ data, className }: ClientesTopTableProps) {
         <CardTitle className="text-sm font-semibold">Clientes Top</CardTitle>
       </CardHeader>
       <CardContent className="bg-muted px-4 py-3">
-        {/* Dropdown */}
-        <div className="mb-3">
-          <select className="w-full bg-background text-foreground border border-input rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary">
-            <option>Adicionar anónimemes</option>
-            <option>Top 5</option>
-            <option>Top 10</option>
-            <option>Top 20</option>
-          </select>
-        </div>
-
-        {/* Tabla con scroll horizontal para responsividad */}
         <div className="bg-card rounded overflow-x-auto border border-border">
           <table className="w-full text-xs">
             <thead className="bg-primary text-primary-foreground">

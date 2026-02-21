@@ -83,7 +83,7 @@ export const dashboardApi = {
     return response.data;
   },
 
-  getClientesTop: async (filtros: DashboardFiltros, limit = 5): Promise<ClienteTopItem[]> => {
+  getClientesTop: async (filtros: DashboardFiltros, limit = 10): Promise<ClienteTopItem[]> => {
     const params = new URLSearchParams({
       establecimiento: filtros.establecimiento,
       periodo: filtros.periodo,
