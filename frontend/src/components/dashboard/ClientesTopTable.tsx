@@ -10,15 +10,31 @@ interface ClienteTopItem {
 interface ClientesTopTableProps {
   data: ClienteTopItem[];
   className?: string;
+  limit?: number;
+  onLimitChange?: (limit: number) => void;
 }
 
-export function ClientesTopTable({ data, className }: ClientesTopTableProps) {
+export function ClientesTopTable({ data, className, limit = 10, onLimitChange }: ClientesTopTableProps) {
   return (
     <Card className={`overflow-hidden shadow-md p-0 ${className}`}>
       <CardHeader className="bg-primary text-primary-foreground px-4 py-2 space-y-0">
         <CardTitle className="text-sm font-semibold">Clientes Top</CardTitle>
       </CardHeader>
       <CardContent className="bg-muted px-4 py-3">
+        {/* Selector de cantidad */}
+        <div className="mb-3">
+          <select
+            value={limit}
+            onChange={(e) => onLimitChange?.(Number(e.target.value))}
+            className="w-full bg-background text-foreground border border-input rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value={5}>Top 5</option>
+            <option value={10}>Top 10</option>
+            <option value={20}>Top 20</option>
+          </select>
+        </div>
+
+        {/* Tabla con scroll horizontal para responsividad */}
         <div className="bg-card rounded overflow-x-auto border border-border">
           <table className="w-full text-xs">
             <thead className="bg-primary text-primary-foreground">

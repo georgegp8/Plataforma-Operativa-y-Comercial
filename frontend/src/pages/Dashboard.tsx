@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [cpeRanking, setCpeRanking] = useState<CPERankingItem[]>([]);
   const [productosTop, setProductosTop] = useState<ProductoTopItem[]>([]);
   const [clientesTop, setClientesTop] = useState<ClienteTopItem[]>([]);
+  const [clientesTopLimit, setClientesTopLimit] = useState(10);
   const [stockMinimo, setStockMinimo] = useState<StockMinimoProduct[]>([]);
   const [stockMinimoTotal, setStockMinimoTotal] = useState(0);
   const [stockMinimoPage, setStockMinimoPage] = useState(1);
@@ -111,7 +112,7 @@ export default function Dashboard() {
   useEffect(() => {
     const cargarClientesTop = async () => {
       try {
-        const data = await dashboardApi.getClientesTop(filtros, 10);
+        const data = await dashboardApi.getClientesTop(filtros, clientesTopLimit);
         setClientesTop(data);
       } catch (error) {
         console.error("Error al cargar clientes top:", error);
@@ -120,7 +121,7 @@ export default function Dashboard() {
     };
 
     cargarClientesTop();
-  }, [filtros]);
+  }, [filtros, clientesTopLimit]);
 
   useEffect(() => {
     const cargarStockMinimo = async () => {
@@ -361,7 +362,12 @@ export default function Dashboard() {
           {/* FILA 2: Tablas de productos, clientes y stock */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <ProductosTopTable data={productosTop} className="lg:col-span-4" />
-            <ClientesTopTable data={clientesTop} className="lg:col-span-4" />
+            <ClientesTopTable
+              data={clientesTop}
+              className="lg:col-span-4"
+              limit={clientesTopLimit}
+              onLimitChange={setClientesTopLimit}
+            />
             <StockMinimoTable
               data={stockMinimo}
               totalPages={stockMinimoTotal}
