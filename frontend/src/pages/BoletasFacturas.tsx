@@ -339,6 +339,43 @@ export default function BoletasFacturas() {
     }
   };
 
+  // Descarga un archivo del backend con autenticación y lo abre/descarga en el navegador
+  const descargarArchivo = async (
+    tipo: 'pdf' | 'xml' | 'cdr',
+    id: number,
+    nombre: string,
+  ) => {
+    try {
+      const call =
+        tipo === 'pdf' ? api.facturacion.descargarPdf(id)
+        : tipo === 'xml' ? api.facturacion.descargarXml(id)
+        : api.facturacion.descargarCdr(id);
+
+      const res = await call;
+      const blob = new Blob([res.data as BlobPart], {
+        type: tipo === 'pdf' ? 'application/pdf'
+          : tipo === 'xml' ? 'application/xml'
+          : 'application/zip',
+      });
+      const url = URL.createObjectURL(blob);
+
+      if (tipo === 'pdf') {
+        // Abrir PDF en nueva pestaña para impresión/visualización
+        const tab = window.open(url, '_blank');
+        if (!tab) window.location.href = url;
+      } else {
+        // Forzar descarga para XML y CDR
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombre;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch {
+      toast.error(`No se pudo descargar el ${tipo.toUpperCase()}`);
+    }
+  };
+
   const cargarProductos = async () => {
     try {
       setLoadingProductos(true);
@@ -1059,19 +1096,9 @@ export default function BoletasFacturas() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {comp.nubefact_pdf_url ? (
-                              <DropdownMenuItem onClick={() => {
-                                const width = 900;
-                                const height = 700;
-                                const left = (window.screen.width / 2) - (width / 2);
-                                const top = (window.screen.height / 2) - (height / 2);
-                                window.open(
-                                  `${apiBaseUrl}/facturacion/descargar/pdf/${comp.id}`,
-                                  'Imprimir PDF',
-                                  `width=${width},height=${height},left=${left},top=${top},toolbar=yes,menubar=yes`
-                                );
-                              }}>
+                              <DropdownMenuItem onClick={() => descargarArchivo('pdf', comp.id, `${comp.serie}-${comp.correlativo}.pdf`)}>
                                 <Printer className="h-3.5 w-3.5 mr-2" />
-                                Imprimir
+                                Imprimir / Ver PDF
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem disabled>
@@ -1079,20 +1106,14 @@ export default function BoletasFacturas() {
                                 PDF no disponible
                               </DropdownMenuItem>
                             )}
-                            {comp.nubefact_pdf_url && (
-                              <DropdownMenuItem onClick={() => window.open(`${apiBaseUrl}/facturacion/descargar/pdf/${comp.id}`, '_blank')}>
-                                <FileText className="h-3.5 w-3.5 mr-2 text-red-600" />
-                                PDF
-                              </DropdownMenuItem>
-                            )}
                             {comp.nubefact_xml_url && (
-                              <DropdownMenuItem onClick={() => window.open(`${apiBaseUrl}/facturacion/descargar/xml/${comp.id}`, '_blank')}>
+                              <DropdownMenuItem onClick={() => descargarArchivo('xml', comp.id, `${comp.serie}-${comp.correlativo}.xml`)}>
                                 <FileText className="h-3.5 w-3.5 mr-2 text-blue-600" />
                                 XML
                               </DropdownMenuItem>
                             )}
                             {comp.nubefact_cdr_url && (
-                              <DropdownMenuItem onClick={() => window.open(`${apiBaseUrl}/facturacion/descargar/cdr/${comp.id}`, '_blank')}>
+                              <DropdownMenuItem onClick={() => descargarArchivo('cdr', comp.id, `${comp.serie}-${comp.correlativo}.zip`)}>
                                 <FileText className="h-3.5 w-3.5 mr-2 text-green-600" />
                                 CDR
                               </DropdownMenuItem>
@@ -1305,7 +1326,7 @@ export default function BoletasFacturas() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(selectedComprobante.nubefact_pdf_url, '_blank')}
+                        onClick={() => descargarArchivo('pdf', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.pdf`)}
                         className="text-red-600 border-red-200"
                       >
                         <Download className="h-4 w-4 mr-2" />
@@ -1316,7 +1337,7 @@ export default function BoletasFacturas() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(selectedComprobante.nubefact_xml_url, '_blank')}
+                        onClick={() => descargarArchivo('xml', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.xml`)}
                         className="text-blue-600 border-blue-200"
                       >
                         <Download className="h-4 w-4 mr-2" />
@@ -1327,7 +1348,7 @@ export default function BoletasFacturas() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.open(selectedComprobante.nubefact_cdr_url, '_blank')}
+                        onClick={() => descargarArchivo('cdr', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.zip`)}
                         className="text-green-600 border-green-200"
                       >
                         <Download className="h-4 w-4 mr-2" />

@@ -423,6 +423,12 @@ export const api = {
       apiClient.get<PaginatedResponse<ComprobanteEmitido>>('/facturacion/comprobantes', { params }),
     exportarExcel: (params?: Record<string, unknown>) =>
       window.open(`${apiBaseUrl}/facturacion/comprobantes/export?${new URLSearchParams(params as Record<string, string>).toString()}`, '_blank'),
+    descargarPdf: (id: number) =>
+      apiClient.get(`/facturacion/descargar/pdf/${id}`, { responseType: 'blob' }),
+    descargarXml: (id: number) =>
+      apiClient.get(`/facturacion/descargar/xml/${id}`, { responseType: 'blob' }),
+    descargarCdr: (id: number) =>
+      apiClient.get(`/facturacion/descargar/cdr/${id}`, { responseType: 'blob' }),
   },
 
   // Oportunidades
