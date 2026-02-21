@@ -299,6 +299,8 @@ Los tests de integración con NubeFact real están marcados como `@skip` por def
 | Feature | Prioridad | Nota |
 |---------|-----------|------|
 | Notas de Crédito/Débito (UI completa) | Alta | El backend existe, falta frontend en BoletasFacturas |
+| **Archivo de Caja** | Alta | Módulo para control de caja diaria: apertura, cierre, movimientos de caja chica, arqueo. Requiere migration `cajas` + `movimientos_caja`, modelo, controller y página frontend `ArchivoCaja.tsx` |
+| **Reportes** | Alta | Módulo de reportes gerenciales: ventas por período, inventario valorizado, top clientes, exportación Excel/PDF. Requiere endpoints en `ReportesController` y página frontend `Reportes.tsx` |
 | Resúmenes Diarios SUNAT | Media | Página existe (ResumenesSunat.tsx) pero sin backend real |
 | Retenciones y Percepciones | Media | Comentadas en FacturacionService, pendiente NubeFact |
 | Tests E2E frontend | Media | Sin cobertura de pruebas en React |

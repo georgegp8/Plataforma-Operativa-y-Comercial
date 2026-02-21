@@ -49,18 +49,18 @@ Antes de iniciar, se deben tener listos:
 
 ### 1. Credenciales NubeFact (PSE SUNAT)
 
-1. Ingresar a [https://nubefact.com](https://nubefact.com) con la cuenta de la empresa
-2. Ir a **Configuración → API / Integración**
+1. Ingresar a [https://nubofact.pse.pe/tokens](https://nubofact.pse.pe/tokens) con la cuenta de la empresa
+2. En la tabla de Tokens, ubicar la fila **"PRINCIPAL / LOCAL PRINCIPAL"**
 3. Copiar:
-   - **URL de API** (contiene el RUC key): `https://api.nubefact.com/api/v1/{ruc_key}`
-   - **Token JWT** (cadena larga que empieza con `eyJ...`)
-4. En modo demo (pruebas): la URL es `https://api.pse.pe/api/v1/{ruc_key}`
+   - Campo **RUTA** (URL completa con RUC key): `https://api.pse.pe/api/v1/{ruc_key}` → va en `NUBEFACT_BASE_URL`
+   - Campo **TOKEN** (cadena larga que empieza con `eyJ...`) → va en `NUBEFACT_TOKEN`
+4. Para producción real: la RUTA cambia a `https://api.nubefact.com/api/v1/{ruc_key}`
 
 Estos valores van en `.env`:
 ```env
-NUBEFACT_BASE_URL=https://api.nubefact.com/api/v1/{ruc_key}
+NUBEFACT_BASE_URL=https://api.pse.pe/api/v1/{ruc_key}
 NUBEFACT_TOKEN=eyJhbGciOiJIUzI1NiJ9...
-NUBEFACT_MODE=production
+NUBEFACT_MODE=demo
 ```
 
 ### 2. App Password de Gmail (para envío de emails automáticos)
@@ -459,7 +459,7 @@ DB_DATABASE=plataforma_facturacion
 DB_USERNAME=facturacion_user
 DB_PASSWORD=password_seguro
 
-# NubeFact — PRODUCCIÓN (ver sección B.1)
+# NubeFact — PRODUCCIÓN (obtener RUTA y TOKEN en https://nubofact.pse.pe/tokens)
 NUBEFACT_BASE_URL=https://api.nubefact.com/api/v1/{ruc_key}
 NUBEFACT_TOKEN=eyJhbGciOiJIUzI1NiJ9...
 NUBEFACT_MODE=production
