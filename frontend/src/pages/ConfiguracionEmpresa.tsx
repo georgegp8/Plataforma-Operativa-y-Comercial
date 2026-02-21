@@ -120,7 +120,7 @@ export default function ConfiguracionEmpresa() {
       }
     };
     void cargarEmpresa();
-  }, [empresaId]);
+  }, [empresaId, loadLogo]);
 
   const handleSeleccionarEmpresa = (id: string) => {
     const numId = Number(id);

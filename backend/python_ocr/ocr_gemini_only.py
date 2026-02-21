@@ -19,8 +19,9 @@ if sys.platform == 'win32':
     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
-# API Key de Gemini
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '***REMOVED***')
+# API Key de Gemini — configurar en variables de entorno (ver docs/DESPLIEGUE.md sección B.3)
+# Obtener clave en: https://aistudio.google.com/apikey
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')  # Versión que soporta PDFs
 
 

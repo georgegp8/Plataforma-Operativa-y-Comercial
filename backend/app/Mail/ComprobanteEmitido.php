@@ -32,8 +32,15 @@ class ComprobanteEmitido extends Mailable
     {
         $tipoDoc = $this->comprobante->tipo_doc === '01' ? 'Factura' : 'Boleta';
 
+        $cc = [];
+        $empresaEmail = $this->comprobante->empresa?->email;
+        if (!empty($empresaEmail)) {
+            $cc[] = new \Illuminate\Mail\Mailables\Address($empresaEmail, $this->comprobante->empresa->razon_social);
+        }
+
         return new Envelope(
             subject: "{$tipoDoc} Electrónica {$this->comprobante->numero_completo}",
+            cc: $cc,
         );
     }
 

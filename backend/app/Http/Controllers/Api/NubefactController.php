@@ -172,7 +172,8 @@ class NubefactController extends Controller
             NubefactMapper::updateComprobanteFromNubefact($comprobante, $response);
 
             // Enviar email automáticamente si el comprobante fue aceptado por SUNAT
-            if (($response['aceptada_por_sunat'] ?? false) && !empty($comprobante->cliente_email)) {
+            $aceptadoPorSunat = $response['aceptada_por_sunat'] ?? false;
+            if ($aceptadoPorSunat && !empty($comprobante->cliente_email)) {
                 try {
                     \Mail::to($comprobante->cliente_email)->send(new \App\Mail\ComprobanteEmitido($comprobante));
                     Log::info("Email enviado automáticamente a {$comprobante->cliente_email} para comprobante {$comprobante->serie}-{$comprobante->correlativo}");
@@ -180,6 +181,8 @@ class NubefactController extends Controller
                     Log::error("Error al enviar email automático: " . $e->getMessage());
                     // No fallar la emisión si el email falla
                 }
+            } elseif ($aceptadoPorSunat && empty($comprobante->cliente_email)) {
+                Log::info("Email automático omitido: cliente sin email configurado para comprobante {$comprobante->serie}-{$comprobante->correlativo} ({$comprobante->cliente_razon_social})");
             }
 
             DB::commit();

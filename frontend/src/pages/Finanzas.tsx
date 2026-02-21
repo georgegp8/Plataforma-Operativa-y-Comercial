@@ -4,7 +4,7 @@ import { dashboardApi } from '@/services/api';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
+
 import {
   TrendingUp, TrendingDown, DollarSign, CreditCard, RefreshCw,
   Receipt, ShoppingBag, CheckCircle2, Clock,
@@ -62,7 +62,6 @@ const PERIODOS: { value: DashboardFiltros['periodo']; label: string }[] = [
   { value: 'COMPLETO', label: 'Histórico' },
 ];
 
-const hoy = new Date().toISOString().split('T')[0];
 
 export default function Finanzas() {
   const [loading, setLoading] = useState(true);

@@ -97,6 +97,7 @@ export default function IngresoSalidaProductos() {
 
     useEffect(() => {
         fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [empresaId, filtroTipo, filtroAlmacen, filtroCategoria, fechaDesde, fechaHasta]);
 
     // Pagination logic

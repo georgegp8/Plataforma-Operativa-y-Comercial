@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { api, apiBaseUrl, obtenerCorrelativoSeguro, type Serie, type Entidad, type Producto } from '@/lib/api';
+import { api, obtenerCorrelativoSeguro, type Serie, type Entidad, type Producto } from '@/lib/api';
 import { Eye, Ban, Plus, Download, RefreshCw, ChevronLeft, ChevronRight, Receipt, FileText, Loader2, MoreVertical, FileDown, Printer, CheckCircle2, MessageCircle } from 'lucide-react';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { useAuth } from '@/context/AuthContext';
@@ -339,12 +339,33 @@ export default function BoletasFacturas() {
     }
   };
 
-  // Descarga un archivo del backend con autenticación y lo abre/descarga en el navegador
+  // Descarga un archivo del backend con autenticación y lo abre/descarga en el navegador.
+  // Si se pasa directUrl (URL pública de NubeFact), se abre directamente sin pasar por el backend
+  // para evitar el error de CORS que ocurre cuando el backend hace redirect()->away().
   const descargarArchivo = async (
     tipo: 'pdf' | 'xml' | 'cdr',
     id: number,
     nombre: string,
+    directUrl?: string,
   ) => {
+    // URL pública de NubeFact: abrirla directamente en el navegador
+    if (directUrl) {
+      if (tipo === 'pdf') {
+        const tab = window.open(directUrl, '_blank');
+        if (!tab) window.location.href = directUrl;
+      } else {
+        const a = document.createElement('a');
+        a.href = directUrl;
+        a.download = nombre;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      return;
+    }
+
+    // Fallback: descargar desde el backend (archivo local o base64)
     try {
       const call =
         tipo === 'pdf' ? api.facturacion.descargarPdf(id)
@@ -360,11 +381,9 @@ export default function BoletasFacturas() {
       const url = URL.createObjectURL(blob);
 
       if (tipo === 'pdf') {
-        // Abrir PDF en nueva pestaña para impresión/visualización
         const tab = window.open(url, '_blank');
         if (!tab) window.location.href = url;
       } else {
-        // Forzar descarga para XML y CDR
         const a = document.createElement('a');
         a.href = url;
         a.download = nombre;
@@ -374,6 +393,15 @@ export default function BoletasFacturas() {
     } catch {
       toast.error(`No se pudo descargar el ${tipo.toUpperCase()}`);
     }
+  };
+
+  // Abre el PDF en nueva pestaña para imprimir
+  const imprimirComprobante = (pdfUrl?: string) => {
+    if (!pdfUrl) {
+      toast.error('PDF no disponible para imprimir');
+      return;
+    }
+    window.open(pdfUrl, '_blank');
   };
 
   const cargarProductos = async () => {
@@ -1096,24 +1124,28 @@ export default function BoletasFacturas() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             {comp.nubefact_pdf_url ? (
-                              <DropdownMenuItem onClick={() => descargarArchivo('pdf', comp.id, `${comp.serie}-${comp.correlativo}.pdf`)}>
-                                <Printer className="h-3.5 w-3.5 mr-2" />
-                                Imprimir / Ver PDF
+                              <DropdownMenuItem onClick={() => descargarArchivo('pdf', comp.id, `${comp.serie}-${comp.correlativo}.pdf`, comp.nubefact_pdf_url)}>
+                                <Download className="h-3.5 w-3.5 mr-2 text-red-600" />
+                                Ver PDF
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem disabled>
-                                <Printer className="h-3.5 w-3.5 mr-2 opacity-50" />
+                                <Download className="h-3.5 w-3.5 mr-2 opacity-50" />
                                 PDF no disponible
                               </DropdownMenuItem>
                             )}
+                            <DropdownMenuItem onClick={() => imprimirComprobante(comp.nubefact_pdf_url)}>
+                              <Printer className="h-3.5 w-3.5 mr-2" />
+                              Imprimir
+                            </DropdownMenuItem>
                             {comp.nubefact_xml_url && (
-                              <DropdownMenuItem onClick={() => descargarArchivo('xml', comp.id, `${comp.serie}-${comp.correlativo}.xml`)}>
+                              <DropdownMenuItem onClick={() => descargarArchivo('xml', comp.id, `${comp.serie}-${comp.correlativo}.xml`, comp.nubefact_xml_url)}>
                                 <FileText className="h-3.5 w-3.5 mr-2 text-blue-600" />
                                 XML
                               </DropdownMenuItem>
                             )}
                             {comp.nubefact_cdr_url && (
-                              <DropdownMenuItem onClick={() => descargarArchivo('cdr', comp.id, `${comp.serie}-${comp.correlativo}.zip`)}>
+                              <DropdownMenuItem onClick={() => descargarArchivo('cdr', comp.id, `${comp.serie}-${comp.correlativo}.zip`, comp.nubefact_cdr_url)}>
                                 <FileText className="h-3.5 w-3.5 mr-2 text-green-600" />
                                 CDR
                               </DropdownMenuItem>
@@ -1321,23 +1353,32 @@ export default function BoletasFacturas() {
                 </div>
                 <div className="border-t pt-4">
                   <h3 className="font-semibold mb-3">Archivos</h3>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     {selectedComprobante.nubefact_pdf_url && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => descargarArchivo('pdf', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.pdf`)}
+                        onClick={() => descargarArchivo('pdf', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.pdf`, selectedComprobante.nubefact_pdf_url)}
                         className="text-red-600 border-red-200"
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        Descargar PDF
+                        Ver PDF
                       </Button>
                     )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => imprimirComprobante(selectedComprobante.nubefact_pdf_url)}
+                      className="text-gray-700 border-gray-300"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Imprimir
+                    </Button>
                     {selectedComprobante.nubefact_xml_url && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => descargarArchivo('xml', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.xml`)}
+                        onClick={() => descargarArchivo('xml', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.xml`, selectedComprobante.nubefact_xml_url)}
                         className="text-blue-600 border-blue-200"
                       >
                         <Download className="h-4 w-4 mr-2" />
@@ -1348,7 +1389,7 @@ export default function BoletasFacturas() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => descargarArchivo('cdr', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.zip`)}
+                        onClick={() => descargarArchivo('cdr', selectedComprobante.id, `${selectedComprobante.serie}-${selectedComprobante.correlativo}.zip`, selectedComprobante.nubefact_cdr_url)}
                         className="text-green-600 border-green-200"
                       >
                         <Download className="h-4 w-4 mr-2" />
@@ -1690,10 +1731,10 @@ export default function BoletasFacturas() {
 
         {/* Modal Enviar por WhatsApp */}
         <Dialog open={isWhatsAppModalOpen} onOpenChange={setIsWhatsAppModalOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="w-[min(28rem,92vw)]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                <MessageCircle className="h-5 w-5" />
+                <MessageCircle className="h-5 w-5 shrink-0" />
                 Enviar al Cliente por WhatsApp
               </DialogTitle>
               <DialogDescription>
@@ -1701,45 +1742,56 @@ export default function BoletasFacturas() {
               </DialogDescription>
             </DialogHeader>
             {comprobanteWhatsApp && (
-              <div className="space-y-4 py-2">
-                <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-3 space-y-1">
-                  <p className="text-sm font-medium">
-                    {comprobanteWhatsApp.tipo_doc === '01' ? 'Factura' : comprobanteWhatsApp.tipo_doc === '03' ? 'Boleta' : 'Comprobante'}: <span className="font-mono">{comprobanteWhatsApp.numero_completo}</span>
+              <div className="space-y-4 py-2 min-w-0">
+                {/* Info del comprobante */}
+                <div className="rounded-lg border border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30 p-3 space-y-1 min-w-0">
+                  <p className="text-sm font-medium truncate">
+                    {comprobanteWhatsApp.tipo_doc === '01' ? 'Factura' : comprobanteWhatsApp.tipo_doc === '03' ? 'Boleta' : 'Comprobante'}:{' '}
+                    <span className="font-mono">{comprobanteWhatsApp.numero_completo}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground truncate">
                     Cliente: {comprobanteWhatsApp.cliente_razon_social}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Total: {formatCurrency(comprobanteWhatsApp.mto_imp_venta)}
                   </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="numero-whatsapp">Número de WhatsApp del Cliente <span className="text-red-500">*</span></Label>
+
+                {/* Campo teléfono */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="numero-whatsapp">
+                    Número de WhatsApp del Cliente <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="numero-whatsapp"
                     value={numeroWhatsApp}
                     onChange={(e) => setNumeroWhatsApp(e.target.value)}
                     placeholder="Ej: +51 987 654 321"
-                    className="font-mono"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Ingrese el número del cliente con código de país (ej: +51 para Perú)
+                    Con código de país (ej: +51 para Perú)
                   </p>
                 </div>
-                <div className="rounded-lg border bg-muted/50 p-3">
+
+                {/* Vista previa */}
+                <div className="rounded-lg border bg-muted/50 p-3 min-w-0 overflow-hidden">
                   <p className="text-xs font-medium mb-2">Vista previa del mensaje:</p>
-                  <div className="text-xs text-muted-foreground space-y-1 font-mono">
+                  <div className="text-xs text-muted-foreground space-y-0.5">
                     <p>Hola {comprobanteWhatsApp.cliente_razon_social},</p>
-                    <p></p>
                     <p>Le enviamos su {comprobanteWhatsApp.tipo_doc === '01' ? 'Factura' : 'Boleta'} Electrónica:</p>
                     <p>📄 <strong>{comprobanteWhatsApp.numero_completo}</strong></p>
                     <p>💰 Total: <strong>{comprobanteWhatsApp.moneda === 'PEN' ? 'S/' : 'USD'} {comprobanteWhatsApp.mto_imp_venta.toFixed(2)}</strong></p>
-                    <p></p>
                     {comprobanteWhatsApp.nubefact_pdf_url && (
                       <>
                         <p>Puede descargar su comprobante aquí:</p>
-                        <p className="text-blue-600 dark:text-blue-400 truncate">{comprobanteWhatsApp.nubefact_pdf_url}</p>
-                        <p></p>
+                        <a
+                          href={comprobanteWhatsApp.nubefact_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 dark:text-blue-400 break-all leading-relaxed underline hover:opacity-80 cursor-pointer select-text"
+                        >
+                          {comprobanteWhatsApp.nubefact_pdf_url}
+                        </a>
                       </>
                     )}
                     <p>Gracias por su preferencia.</p>
@@ -1747,7 +1799,7 @@ export default function BoletasFacturas() {
                 </div>
               </div>
             )}
-            <DialogFooter className="gap-2 sm:gap-0">
+            <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => setIsWhatsAppModalOpen(false)}>
                 Cancelar
               </Button>

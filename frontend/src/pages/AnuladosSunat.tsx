@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { Eye, Download, RefreshCw, ChevronLeft, ChevronRight, FileText, MoreVertical, FileDown, Printer, AlertCircle } from 'lucide-react';
+import { Eye, RefreshCw, ChevronLeft, ChevronRight, FileText, MoreVertical, FileDown, Printer, AlertCircle } from 'lucide-react';
 import { NubofactHeader } from '@/components/layout/NubofactHeader';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -135,7 +135,7 @@ export default function AnuladosSunat() {
     }
   };
 
-  const descargarArchivo = async (url: string | undefined, nombre: string) => {
+  const descargarArchivo = async (url: string | undefined) => {
     if (!url) {
       toast.error('URL no disponible');
       return;
@@ -285,11 +285,11 @@ export default function AnuladosSunat() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => descargarArchivo(comp.nubefact_pdf_url, 'PDF')}>
+                              <DropdownMenuItem onClick={() => descargarArchivo(comp.nubefact_pdf_url)}>
                                 <FileDown className="h-4 w-4 mr-2" />
                                 Descargar PDF
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => descargarArchivo(comp.nubefact_xml_url, 'XML')}>
+                              <DropdownMenuItem onClick={() => descargarArchivo(comp.nubefact_xml_url)}>
                                 <FileText className="h-4 w-4 mr-2" />
                                 Descargar XML
                               </DropdownMenuItem>

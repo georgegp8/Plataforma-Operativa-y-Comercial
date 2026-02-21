@@ -1,5 +1,6 @@
 import { type Dispatch, type SetStateAction } from 'react';
 import { type UseFormReturn } from 'react-hook-form';
+import { Mail, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -180,8 +181,33 @@ export function ClienteCard({
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium">Email</label>
-          <Input type="email" {...form.register('cliente_email')} placeholder="cliente@example.com" />
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium flex items-center gap-1">
+              <Mail className="h-3.5 w-3.5" />
+              Email del Cliente
+            </label>
+            {form.watch('cliente_email') ? (
+              <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Se enviará comprobante automáticamente
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">
+                Ingresa el email para envío automático
+              </span>
+            )}
+          </div>
+          <Input
+            type="email"
+            {...form.register('cliente_email')}
+            placeholder="cliente@example.com"
+            className={form.watch('cliente_email') ? 'border-green-400 focus-visible:ring-green-400' : ''}
+          />
+          {form.formState.errors.cliente_email && (
+            <p className="text-sm text-destructive">
+              {form.formState.errors.cliente_email.message}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

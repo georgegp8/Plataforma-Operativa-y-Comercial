@@ -1,183 +1,139 @@
-# 📚 Documentación de la Plataforma
+# Plataforma Operativa y Comercial con Facturación Electrónica
 
-**Última actualización**: 3 de febrero de 2026
-
----
-
-## 📖 Índice de Documentación
-
-### 🎯 Requerimientos y Estado del Proyecto
-
-- **[REQUERIMIENTOS.md](../REQUERIMIENTOS.md)** - Requerimientos completos del MVP
-- **[requerimientos-mvp.md](../requerimientos-mvp.md)** - Versión simplificada del MVP
-- **[PENDIENTES.md](../PENDIENTES.md)** - Tareas pendientes y estado actual
+**Desarrollador:** George Guerra Pacheco — george.guerra@tecsup.edu.pe
+**Institución:** Tecsup
+**Estado:** MVP en producción (modo demo)
+**Última actualización:** Febrero 2026
 
 ---
 
-## 📂 Documentación por Módulo
+## Descripción
 
-### 🧾 NubeFact (Facturación Electrónica)
+Sistema web fullstack para gestión comercial y emisión de comprobantes electrónicos certificados por SUNAT (Perú), integrado con **NubeFact API** como Proveedor de Servicios Electrónicos (PSE).
 
-- **[MIGRACION_NUBEFACT_COMPLETADA.md](nubefact/MIGRACION_NUBEFACT_COMPLETADA.md)** - Migración de Greenter a NubeFact ✅
-- **[API_SINCRONIZACION_NUBEFACT.md](nubefact/API_SINCRONIZACION_NUBEFACT.md)** - API de sincronización directa con NubeFact
-- **[CONFIRMACION_INTEGRACION_NUBEFACT.md](nubefact/CONFIRMACION_INTEGRACION_NUBEFACT.md)** - Confirmación de integración
-- **[SINCRONIZACION_COMPLETA_IMPLEMENTADA.md](nubefact/SINCRONIZACION_COMPLETA_IMPLEMENTADA.md)** - Sync de comprobantes + items + entidades + productos
-
-**PDFs de Referencia:**
-- [NUBEFACT DOC API JSON V1.pdf](../NUBEFACT%20DOC%20API%20JSON%20V1.pdf) - Documentación oficial API
-- [API NUBEFACT - GUIA DE REMISIÓN.pdf](../API%20NUBEFACT%20-%20GUIA%20DE%20REMISIÓN.pdf) - Guías de remisión
+Permite a una empresa emitir Facturas, Boletas, Notas de Crédito/Débito y Guías de Remisión Electrónicas directamente a SUNAT, con almacenamiento automático de XML, CDR y PDF. Incluye gestión de clientes, inventario, comercial, compras, finanzas y digitalización OCR de documentos.
 
 ---
 
-### 🔍 OCR (Reconocimiento de Documentos)
+## Stack Tecnológico
 
-- **[COMPLETADO.md](ocr/COMPLETADO.md)** - ✅ Instalación completada (Docker)
-- **[DOCKER_OCR_SETUP.md](ocr/DOCKER_OCR_SETUP.md)** - Guía completa de setup con Docker
-- **[DEPLOYMENT.md](ocr/DEPLOYMENT.md)** - Opciones de deployment (Docker, APIs)
+| Capa | Tecnología |
+|------|------------|
+| Backend | Laravel 11 (PHP >= 8.2) |
+| Frontend | React 19 + TypeScript + Vite 7 |
+| Base de datos | PostgreSQL 15 |
+| UI | shadcn/ui + TailwindCSS 4 |
+| Storage | MinIO (S3 compatible) |
+| OCR | Python 3.12 + Tesseract (Docker) |
+| Facturación electrónica | NubeFact API JSON V1 |
+| Autenticación | Laravel Sanctum (tokens Bearer) |
 
-**¿Con Docker puedo hacer pruebas locales?**
-✅ **SÍ** - El servicio OCR está completamente funcional en Docker. Puedes:
-- Procesar PDFs/imágenes localmente sin internet
-- Obtener resultados en 3-5 segundos por documento
-- Confianza del 85-90% en facturas
-- Sin costo (gratis, ilimitado)
+---
 
-**Comandos rápidos:**
+## Módulos del Sistema
+
+| Módulo | Descripción |
+|--------|-------------|
+| Facturación electrónica | Facturas (01), Boletas (03), NC (07), ND (08) vía NubeFact |
+| Guías de Remisión | GRE Remitente (tipo 7) y Transportista (tipo 8) |
+| Clientes / Proveedores | CRUD de entidades con búsqueda por RUC/DNI |
+| Productos | Catálogo con stock, categorías, marcas, atributos, destacados |
+| Inventario | Movimientos ingreso/salida, alertas stock mínimo |
+| Productos Compuestos | Paquetes y ofertas combinadas |
+| Gestión Comercial | Oportunidades, seguimiento de pagos, SLA, alertas |
+| Compras | Órdenes de compra, digitalización OCR de facturas |
+| Finanzas | Bancos, cuentas bancarias, transacciones |
+| Dashboard | Métricas, rankings top productos/clientes, comparativas mensuales |
+| Configuración | Empresa (multi-RUC), series, vendedores, vehículos, conductores |
+| Sincronización NubeFact | Importación masiva de comprobantes históricos desde NubeFact |
+| Digitalización OCR | Extracción de datos de facturas escaneadas con Tesseract |
+
+---
+
+## Documentación
+
+| Documento | Contenido |
+|-----------|-----------|
+| [ARQUITECTURA.md](ARQUITECTURA.md) | Estructura del proyecto, modelos, endpoints, base de datos |
+| [DESPLIEGUE.md](DESPLIEGUE.md) | Instalación local y en servidor de producción |
+| [OPERACION.md](OPERACION.md) | Logs, backups, reinicio de servicios, troubleshooting |
+| [CONTINUIDAD.md](CONTINUIDAD.md) | Cómo seguir desarrollando, deuda técnica, bugs conocidos |
+| [NUBEFACT_API.md](NUBEFACT_API.md) | Integración completa con NubeFact API JSON V1 |
+
+---
+
+## Inicio Rápido (Local)
+
 ```bash
-# Verificar que el contenedor esté corriendo
-docker ps | grep facturacion_ocr
+# 1. Clonar repositorio
+git clone <url-repo>
+cd Plataforma_Op_Com_Facturacion_Elect
 
-# Probar OCR con un archivo
-docker exec facturacion_ocr python ocr_service.py "/app/storage/archivo.pdf"
-
-# Desde Laravel (automático)
-# Solo asegúrate de tener OCR_USE_DOCKER=true en .env
-```
-
----
-
-### 🎨 Desarrollo y Mejoras
-
-- **[APLICACION_DISENO_FIGMA.md](desarrollo/APLICACION_DISENO_FIGMA.md)** - Implementación del diseño de Nubofact desde Figma
-- **[MEJORAS_INTERFACE_DESIGN.md](desarrollo/MEJORAS_INTERFACE_DESIGN.md)** - Mejoras de UX/UI aplicadas
-- **[MEJORAS_EMISION_COMPROBANTES.md](desarrollo/MEJORAS_EMISION_COMPROBANTES.md)** - Componente unificado de emisión
-- **[OPTIMIZACIONES_APLICADAS.md](desarrollo/OPTIMIZACIONES_APLICADAS.md)** - Best practices Vercel + Supabase
-- **[DIAGNOSTICO_DASHBOARD.md](desarrollo/DIAGNOSTICO_DASHBOARD.md)** - Diagnóstico de problemas del dashboard
-
----
-
-## 🚀 Inicio Rápido
-
-### 1. Levantar Servicios Docker
-```bash
+# 2. Levantar servicios Docker (PostgreSQL + MinIO + OCR)
 docker-compose up -d
-```
 
-Esto inicia:
-- ✅ PostgreSQL (puerto 5432)
-- ✅ MinIO (API: 9000, Console: 9001)
-- ✅ OCR Service (facturacion_ocr)
-
-### 2. Backend (Laravel)
-```bash
+# 3. Backend
 cd backend
+composer install
+cp .env.example .env
+# Editar .env con credenciales (ver DESPLIEGUE.md)
+php artisan key:generate
+php artisan migrate
+php artisan db:seed --class=CatalogosSunatSeeder
+php artisan storage:link
 php artisan serve
-```
 
-### 3. Frontend (React)
-```bash
+# 4. Frontend (otra terminal)
 cd frontend
+npm install
 npm run dev
 ```
 
+**Accesos locales:**
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8000/api
+- MinIO Console: http://localhost:9001 (usuario: `minio` / contraseña: `minio123`)
+
 ---
 
-## 🧪 Pruebas Locales con Docker
+## Variables de Entorno Esenciales
 
-### OCR
-```bash
-# Copiar PDF de prueba
-Copy-Item "examples\factura.pdf" "backend\storage\app\public\test.pdf"
+```env
+# Base de datos PostgreSQL (Docker local)
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=plataforma_facturacion
+DB_USERNAME=postgres
+DB_PASSWORD=postgres123
 
-# Ejecutar OCR
-docker exec facturacion_ocr python ocr_service.py "/app/storage/test.pdf"
+# NubeFact (obtener credenciales en nubefact.com)
+NUBEFACT_BASE_URL=https://api.pse.pe/api/v1/{ruc_key}
+NUBEFACT_TOKEN=eyJhbGciOiJIUzI1NiJ9...
+NUBEFACT_MODE=demo        # cambiar a 'production' en producción
+NUBEFACT_AUTO_SUNAT=true
+
+# Email automático (Gmail con App Password de 16 caracteres)
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=correo@gmail.com
+MAIL_PASSWORD=xxxx xxxx xxxx xxxx
+MAIL_ENCRYPTION=tls
+
+# Storage MinIO (Docker local)
+FILESYSTEM_DISK=minio
+MINIO_ENDPOINT=http://localhost:9000
+MINIO_KEY=minio
+MINIO_SECRET=minio123
+MINIO_BUCKET=facturacion
 ```
 
-### Base de Datos
-```bash
-# Conectar a PostgreSQL
-docker exec -it facturacion_postgres psql -U postgres -d plataforma_facturacion
-```
-
-### MinIO
-- Console: http://localhost:9001
-- User: minio
-- Password: minio123
+Ver [DESPLIEGUE.md](DESPLIEGUE.md) para lista completa y configuración de producción.
 
 ---
 
-## 📦 Estructura de Carpetas
+## Autor
 
-```
-Plataforma_Op_Com_Facturacion_Elect/
-├── backend/              # Laravel API
-│   ├── app/
-│   ├── database/
-│   ├── python_ocr/      # Servicio OCR
-│   │   ├── Dockerfile
-│   │   ├── ocr_service.py
-│   │   ├── requirements.txt
-│   │   └── README.md
-│   └── ...
-├── frontend/            # React + TypeScript
-│   ├── src/
-│   └── ...
-├── docs/                # 📚 Documentación organizada
-│   ├── nubefact/       # NubeFact API
-│   ├── ocr/            # OCR Docker
-│   ├── desarrollo/     # Mejoras y diagnósticos
-│   └── README.md       # Este archivo
-├── examples/           # Archivos de ejemplo
-├── docker-compose.yml  # Orquestación Docker
-├── README.md           # README principal
-├── REQUERIMIENTOS.md   # Requerimientos completos
-└── PENDIENTES.md       # Tareas pendientes
-```
-
----
-
-## 🔗 Enlaces Útiles
-
-### Documentación Externa
-- [NubeFact](https://nubefact.com) - Proveedor SUNAT
-- [SUNAT](https://www.sunat.gob.pe) - Portal oficial
-- [Laravel 11](https://laravel.com/docs/11.x)
-- [React 18](https://react.dev)
-
-### Herramientas
-- [MinIO Console](http://localhost:9001) - Gestión de archivos
-- [PostgreSQL Admin](http://localhost:5432) - Base de datos
-
----
-
-## ❓ Preguntas Frecuentes
-
-### ¿Puedo hacer pruebas locales con Docker?
-✅ **SÍ** - Todos los servicios (PostgreSQL, MinIO, OCR) funcionan localmente con Docker. No necesitas conexión a internet para la mayoría de funcionalidades (excepto NubeFact API).
-
-### ¿Qué archivos se eliminaron en la limpieza?
-- ❌ `INSTALACION.md` (obsoleto - ahora usamos Docker)
-- ❌ `INSTALAR_POPPLER.md` (obsoleto - incluido en Docker)
-- ❌ `verificar_instalacion.bat` (obsoleto - ahora usamos Docker)
-- ❌ `insert_boletas_prueba.sql` (script de prueba antiguo)
-
-### ¿Dónde están los documentos ahora?
-Organizados en `docs/`:
-- `docs/nubefact/` - Todo sobre NubeFact API
-- `docs/ocr/` - Documentación de OCR con Docker
-- `docs/desarrollo/` - Mejoras y diagnósticos
-
----
-
-**Mantenido por:** Equipo de Desarrollo  
-**Estado:** ✅ Producción Ready (MVP)
+**George Guerra Pacheco**
+george.guerra@tecsup.edu.pe — Tecsup, 2026

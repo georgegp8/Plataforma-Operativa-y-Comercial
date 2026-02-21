@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { type UseFormReturn } from 'react-hook-form';
+import { type UseFormReturn, useWatch } from 'react-hook-form';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { TIPOS_IGV } from '@/services/nubefact';
 import { api, type Producto } from '@/lib/api';
-import { AlertTriangle, Package } from 'lucide-react';
+import { AlertTriangle, Package, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 type ItemValues = {
@@ -48,39 +48,71 @@ export function ItemModal({
 }: ItemModalProps) {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
-  const [busqueda, setBusqueda] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [refreshingStock, setRefreshingStock] = useState(false);
+
+  // Suscribirse a cambios de items para forzar re-render y recalcular automáticamente
+  useWatch({ control: form.control, name: 'items' });
+
+  const fetchProductos = async () => {
+    setLoadingProductos(true);
+    try {
+      const response = await api.productos.listar({ empresa_id: empresaId, activo: true });
+      setProductos(response.data);
+      return response.data as Producto[];
+    } catch (error) {
+      console.error('Error al cargar productos:', error);
+      toast.error('Error al cargar productos');
+      return [] as Producto[];
+    } finally {
+      setLoadingProductos(false);
+    }
+  };
 
   // Cargar productos cuando se abre el modal
   useEffect(() => {
-    const fetchProductos = async () => {
-      if (!open) return;
-
-      setLoadingProductos(true);
-      try {
-        const response = await api.productos.listar({ empresa_id: empresaId, activo: true });
-        setProductos(response.data);
-      } catch (error) {
-        console.error('Error al cargar productos:', error);
-        toast.error('Error al cargar productos');
-      } finally {
-        setLoadingProductos(false);
+    if (!open) return;
+    fetchProductos().then((lista) => {
+      // Identificar producto actual al abrir
+      if (index !== null) {
+        const codigoActual = form.getValues(`items.${index}.codigo`);
+        if (codigoActual) {
+          const encontrado = lista.find(p => p.codigo === codigoActual);
+          setProductoSeleccionado(encontrado || null);
+        }
       }
-    };
-
-    fetchProductos();
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, empresaId]);
 
-  // Cargar producto seleccionado cuando cambia el código
+  // Actualizar productoSeleccionado cuando cambia el índice
   useEffect(() => {
-    if (index !== null && open) {
-      const codigoActual = form.watch(`items.${index}.codigo`);
-      if (codigoActual && productos.length > 0) {
-        const producto = productos.find(p => p.codigo === codigoActual);
-        setProductoSeleccionado(producto || null);
+    if (index !== null && open && productos.length > 0) {
+      const codigoActual = form.getValues(`items.${index}.codigo`);
+      if (codigoActual) {
+        const encontrado = productos.find(p => p.codigo === codigoActual);
+        setProductoSeleccionado(encontrado || null);
+      } else {
+        setProductoSeleccionado(null);
       }
     }
   }, [index, open, productos, form]);
+
+  const handleRefreshStock = async () => {
+    if (!productoSeleccionado) return;
+    setRefreshingStock(true);
+    try {
+      const lista = await fetchProductos();
+      const actualizado = lista.find(p => p.codigo === productoSeleccionado.codigo);
+      if (actualizado) {
+        setProductoSeleccionado(actualizado);
+        toast.success(`Stock actualizado: ${actualizado.stock_actual} unidades`);
+      }
+    } finally {
+      setRefreshingStock(false);
+    }
+  };
 
   const handleProductoSelect = (codigo: string) => {
     const producto = productos.find(p => p.codigo === codigo);
@@ -88,7 +120,6 @@ export function ItemModal({
 
     setProductoSeleccionado(producto);
 
-    // Auto-rellenar datos del producto
     form.setValue(`items.${index}.codigo`, producto.codigo);
     form.setValue(`items.${index}.descripcion`, producto.descripcion);
     form.setValue(`items.${index}.unidad_de_medida`, producto.unidad_medida || 'NIU');
@@ -96,14 +127,12 @@ export function ItemModal({
     form.setValue(`items.${index}.valor_unitario`, parseFloat((producto.valor_venta_unitario ?? 0).toString()));
     form.setValue(`items.${index}.tipo_de_igv`, producto.tipo_afectacion_igv || '10');
 
-    // Recalcular totales
     calcularItem(index);
 
-    // Advertencia si stock es 0 o bajo
     if (producto.stock_actual <= 0) {
       toast.warning(`⚠️ Producto sin stock disponible`);
     } else if (producto.stock_actual <= producto.stock_minimo) {
-      toast.warning(`⚠️ Stock bajo: solo ${producto.stock_actual} unidades disponibles`);
+      toast.warning(`⚠️ Stock bajo: solo ${producto.stock_actual} unidades`);
     }
   };
 
@@ -119,6 +148,14 @@ export function ItemModal({
       setBusqueda('');
     }
   };
+
+  // Calcular valores actuales (reactivo gracias a useWatch)
+  const calc = index !== null ? calcularItemSolo(index) : { subtotal: 0, igv: 0, total: 0, precio_unitario: 0 };
+
+  const stockActual = productoSeleccionado?.stock_actual ?? null;
+  const stockMinimo = productoSeleccionado?.stock_minimo ?? 0;
+  const stockCritico = stockActual !== null && stockActual <= 0;
+  const stockBajo = stockActual !== null && stockActual > 0 && stockActual <= stockMinimo;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -188,39 +225,51 @@ export function ItemModal({
             </div>
 
             {/* Stock con advertencia visual */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Stock actual disponible</label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  disabled
-                  value={productoSeleccionado?.stock_actual ?? '-'}
-                  className={`bg-muted ${
-                    productoSeleccionado && productoSeleccionado.stock_actual <= 0
-                      ? 'border-red-500 border-2'
-                      : productoSeleccionado && productoSeleccionado.stock_actual <= productoSeleccionado.stock_minimo
-                      ? 'border-yellow-500 border-2'
-                      : ''
-                  }`}
-                />
-                {productoSeleccionado && productoSeleccionado.stock_actual <= 0 && (
-                  <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-                    <AlertTriangle className="h-5 w-5 text-red-500" />
-                  </div>
+            {productoSeleccionado && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Stock actual disponible</label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs text-muted-foreground"
+                    onClick={handleRefreshStock}
+                    disabled={refreshingStock}
+                  >
+                    <RefreshCw className={`h-3 w-3 mr-1 ${refreshingStock ? 'animate-spin' : ''}`} />
+                    Actualizar
+                  </Button>
+                </div>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    disabled
+                    value={stockActual !== null ? String(stockActual) : ''}
+                    className={`bg-muted ${
+                      stockCritico ? 'border-red-500 border-2' :
+                      stockBajo    ? 'border-yellow-500 border-2' : ''
+                    }`}
+                  />
+                  {stockCritico && (
+                    <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                      <AlertTriangle className="h-5 w-5 text-red-500" />
+                    </div>
+                  )}
+                </div>
+                {stockCritico && (
+                  <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Sin stock disponible — puedes continuar igual
+                  </p>
+                )}
+                {stockBajo && (
+                  <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                    Stock bajo (mínimo: {stockMinimo})
+                  </p>
                 )}
               </div>
-              {productoSeleccionado && productoSeleccionado.stock_actual <= 0 && (
-                <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Sin stock disponible
-                </p>
-              )}
-              {productoSeleccionado && productoSeleccionado.stock_actual > 0 && productoSeleccionado.stock_actual <= productoSeleccionado.stock_minimo && (
-                <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                  Stock bajo (mínimo: {productoSeleccionado.stock_minimo})
-                </p>
-              )}
-            </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               {/* Cantidad */}
@@ -228,7 +277,8 @@ export function ItemModal({
                 <label className="text-sm font-medium">Cantidad</label>
                 <Input
                   type="number"
-                  step="0.01"
+                  step="1"
+                  min="1"
                   {...form.register(`items.${index}.cantidad`, {
                     valueAsNumber: true,
                     onChange: () => calcularItem(index),
@@ -245,12 +295,12 @@ export function ItemModal({
                   {...form.register(`items.${index}.precio_unitario`, {
                     valueAsNumber: true,
                     onChange: () => {
-                      const precioConIgv = form.watch(`items.${index}.precio_unitario`) || 0;
+                      const precioConIgv = form.getValues(`items.${index}.precio_unitario`) || 0;
                       const igvRate = (form.getValues('porcentaje_de_igv') || 18) / 100;
                       const valorSinIgv = precioConIgv / (1 + igvRate);
                       form.setValue(
                         `items.${index}.valor_unitario`,
-                        parseFloat(valorSinIgv.toFixed(2))
+                        parseFloat(valorSinIgv.toFixed(6))
                       );
                       calcularItem(index);
                     },
@@ -287,9 +337,9 @@ export function ItemModal({
               <div className="space-y-2">
                 <label className="text-sm font-medium">IGV de la línea</label>
                 <Input
-                  type="number"
+                  type="text"
                   disabled
-                  value={calcularItemSolo(index).igv.toFixed(2)}
+                  value={calc.igv.toFixed(2)}
                   className="bg-muted"
                 />
               </div>
@@ -300,9 +350,9 @@ export function ItemModal({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Subtotal</label>
                 <Input
-                  type="number"
+                  type="text"
                   disabled
-                  value={calcularItemSolo(index).subtotal.toFixed(2)}
+                  value={calc.subtotal.toFixed(2)}
                   className="bg-muted"
                 />
               </div>
@@ -311,10 +361,10 @@ export function ItemModal({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Total</label>
                 <Input
-                  type="number"
+                  type="text"
                   disabled
-                  value={calcularItemSolo(index).total.toFixed(2)}
-                  className="bg-muted"
+                  value={calc.total.toFixed(2)}
+                  className="bg-muted font-semibold"
                 />
               </div>
             </div>
@@ -369,4 +419,3 @@ export function ItemModal({
     </Dialog>
   );
 }
-

@@ -103,7 +103,7 @@ export function ItemsSection({
                   <CommandGroup
                     ref={scrollContainerRef}
                     onWheel={handleWheel}
-                    className="max-h-[400px] overflow-y-scroll overscroll-contain"
+                    className="max-h-100 overflow-y-scroll overscroll-contain"
                   >
                     {productos
                       .filter((producto) => {
@@ -249,7 +249,7 @@ export function ItemsSection({
                         variant="outline"
                         className="text-xs h-auto py-1.5 px-3 text-left"
                         onClick={() => onAppendProducto(p)}
-                        title={p.nombre}
+                        title={p.descripcion}
                       >
                         <span className="font-mono mr-1 text-muted-foreground">{p.codigo}</span>
                         <span>· S/ {Number(p.precio_venta_unitario ?? 0).toFixed(2)}</span>

@@ -69,7 +69,7 @@ export default function Clientes() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     fetchClientes();

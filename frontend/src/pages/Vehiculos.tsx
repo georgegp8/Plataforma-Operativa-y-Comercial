@@ -53,7 +53,7 @@ export default function Vehiculos() {
     const fetchVehiculos = async () => {
       try {
         const response = await api.vehiculos.listar();
-        setVehiculos(response.data);
+        setVehiculos(response.data as Vehiculo[]);
       } catch {
         toast.error('Error al cargar los vehículos', {
           duration: 4000,
@@ -137,14 +137,14 @@ export default function Vehiculos() {
 
     try {
       if (editingVehiculo) {
-        await api.vehiculos.actualizar(editingVehiculo.id, formData);
-        const response = await api.vehiculos.listar();
-        setVehiculos(response.data);
+        await api.vehiculos.actualizar(editingVehiculo.id, formData as unknown as Record<string, unknown>);
+        const responseUpdate = await api.vehiculos.listar();
+        setVehiculos(responseUpdate.data as Vehiculo[]);
         toast.success('Vehículo actualizado exitosamente');
       } else {
-        await api.vehiculos.crear(formData);
-        const response = await api.vehiculos.listar();
-        setVehiculos(response.data);
+        await api.vehiculos.crear(formData as unknown as Record<string, unknown>);
+        const responseCreate = await api.vehiculos.listar();
+        setVehiculos(responseCreate.data as Vehiculo[]);
         toast.success('Vehículo creado exitosamente');
       }
       handleCloseModal();

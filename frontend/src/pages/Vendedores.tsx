@@ -38,7 +38,7 @@ export default function Vendedores() {
     try {
       const response = await api.vendedores.listar();
 
-      const vendedoresMapped: Vendedor[] = response.data.map((vendedor: Vendedor) => ({
+      const vendedoresMapped: Vendedor[] = (response.data as Vendedor[]).map((vendedor: Vendedor) => ({
         id: vendedor.id,
         nombre: vendedor.nombre || '',
         email: vendedor.email || '',
@@ -144,7 +144,7 @@ export default function Vendedores() {
     if (!selectedVendedor) return;
 
     try {
-      await api.vendedores.actualizar(selectedVendedor.id, formData);
+      await api.vendedores.actualizar(selectedVendedor.id, formData as unknown as Record<string, unknown>);
       toast.success('Éxito', {
         description: 'Vendedor actualizado correctamente',
       });
@@ -170,7 +170,7 @@ export default function Vendedores() {
     e.preventDefault();
 
     try {
-      await api.vendedores.crear(formData);
+      await api.vendedores.crear(formData as unknown as Record<string, unknown>);
       toast.success('Éxito', {
         description: 'Vendedor creado correctamente',
       });

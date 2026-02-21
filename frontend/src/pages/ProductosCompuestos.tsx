@@ -63,6 +63,7 @@ export default function ProductosCompuestos() {
 
     useEffect(() => {
         fetchProductos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [empresaId]);
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
