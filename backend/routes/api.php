@@ -95,6 +95,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::prefix('v1')->group(function () {
         // Guías de Remisión (Módulo Interno)
+        Route::get('guias-remision/correlativo', [App\Http\Controllers\Api\GuiaRemisionController::class, 'correlativo']);
         Route::get('guias-remision', [App\Http\Controllers\Api\GuiaRemisionController::class, 'index']);
         Route::post('guias-remision', [App\Http\Controllers\Api\GuiaRemisionController::class, 'store']);
         Route::get('guias-remision/{id}', [App\Http\Controllers\Api\GuiaRemisionController::class, 'show']);

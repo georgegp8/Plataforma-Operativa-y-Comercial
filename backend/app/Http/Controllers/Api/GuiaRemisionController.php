@@ -39,6 +39,28 @@ class GuiaRemisionController extends Controller
         return response()->json($guias);
     }
 
+    public function correlativo(Request $request)
+    {
+        $empresaId = $request->query('empresa_id');
+        $serie     = $request->query('serie', 'T001');
+
+        $query = GuiaRemision::query();
+        if ($empresaId) {
+            $query->where('empresa_id', $empresaId);
+        }
+        $query->where('serie', $serie);
+
+        // Obtener el máximo número numérico registrado
+        $maxNumero = $query->max('numero');
+        $siguiente = $maxNumero ? ((int) $maxNumero + 1) : 1;
+
+        return response()->json([
+            'serie'    => $serie,
+            'numero'   => $siguiente,
+            'correlativo' => str_pad($siguiente, 8, '0', STR_PAD_LEFT),
+        ]);
+    }
+
     public function store(Request $request)
     {
         // Validación básica

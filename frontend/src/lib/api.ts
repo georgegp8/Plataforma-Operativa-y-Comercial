@@ -748,6 +748,8 @@ export const api = {
 
   // Guías
   guiasRemision: {
+    correlativo: (params: { empresa_id?: number; serie: string }) =>
+      apiClient.get<{ serie: string; numero: number; correlativo: string }>('/v1/guias-remision/correlativo', { params }),
     listar: (params?: Record<string, unknown>) =>
       apiClient.get<PaginatedResponse<GuiaRemision>>('/v1/guias-remision', { params }),
     obtener: (id: number) =>

@@ -94,6 +94,7 @@ export default function GuiasRemision() {
     const [totalItems, setTotalItems] = useState(0);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [emitiendo, setEmitiendo] = useState(false);
+    const [loadingNumero, setLoadingNumero] = useState(false);
     const [form, setForm] = useState({ ...EMPTY_FORM });
     const [items, setItems] = useState<ItemGuia[]>([{ unidad_medida: 'NIU', codigo: '', descripcion: '', cantidad: '1' }]);
     const [selectedGuia, setSelectedGuia] = useState<GuiaRemision | null>(null);
@@ -210,11 +211,21 @@ export default function GuiasRemision() {
         }
     };
 
-    const handleAbrirNuevo = () => {
-        // Pre-calcular siguiente número según serie/tipo seleccionados
-        setForm({ ...EMPTY_FORM });
+    const handleAbrirNuevo = async () => {
+        const base = { ...EMPTY_FORM };
+        setForm(base);
         setItems([{ unidad_medida: 'NIU', codigo: '', descripcion: '', cantidad: '1' }]);
         setIsModalOpen(true);
+        // Auto-cargar correlativo
+        setLoadingNumero(true);
+        try {
+            const res = await api.guiasRemision.correlativo({ empresa_id: empresaId ?? undefined, serie: base.serie });
+            setForm(prev => ({ ...prev, numero: String(res.data.numero) }));
+        } catch {
+            // Si falla, se deja vacío y el backend lo calcula
+        } finally {
+            setLoadingNumero(false);
+        }
     };
 
     const handleCrearYEmitir = async () => {
@@ -316,6 +327,22 @@ export default function GuiasRemision() {
     };
 
     const setF = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
+
+    const handleSerieChange = async (serie: string) => {
+        const upper = serie.toUpperCase();
+        setForm(prev => ({ ...prev, serie: upper, numero: '' }));
+        if (upper.length === 4) {
+            setLoadingNumero(true);
+            try {
+                const res = await api.guiasRemision.correlativo({ empresa_id: empresaId ?? undefined, serie: upper });
+                setForm(prev => ({ ...prev, numero: String(res.data.numero) }));
+            } catch {
+                // silenciar
+            } finally {
+                setLoadingNumero(false);
+            }
+        }
+    };
 
     const addItem = () => setItems(prev => [...prev, { unidad_medida: 'NIU', codigo: '', descripcion: '', cantidad: '1' }]);
     const removeItem = (idx: number) => setItems(prev => prev.filter((_, i) => i !== idx));
@@ -712,12 +739,21 @@ export default function GuiasRemision() {
                                     <div className="space-y-1">
                                         <Label className="text-xs">Serie</Label>
                                         <Input className="h-8 text-xs" value={form.serie}
-                                            onChange={e => setF('serie', e.target.value.toUpperCase())} maxLength={4} placeholder="T001" />
+                                            onChange={e => handleSerieChange(e.target.value)} maxLength={4} placeholder="T001" />
                                     </div>
                                     <div className="space-y-1">
                                         <Label className="text-xs">Número</Label>
-                                        <Input className="h-8 text-xs" type="number" min="1" value={form.numero}
-                                            onChange={e => setF('numero', e.target.value)} placeholder="Auto" />
+                                        <div className="relative">
+                                            <Input
+                                                className="h-8 text-xs bg-muted/50 cursor-not-allowed"
+                                                value={loadingNumero ? '' : (form.numero || '')}
+                                                readOnly
+                                                placeholder={loadingNumero ? 'Cargando...' : 'Auto'}
+                                            />
+                                            {loadingNumero && (
+                                                <Loader2 className="h-3 w-3 animate-spin absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="space-y-1">
                                         <Label className="text-xs">Fecha Emisión</Label>
@@ -918,7 +954,7 @@ export default function GuiasRemision() {
                             {/* ── Observaciones ────────────────────────────── */}
                             <section>
                                 <p className="text-xs font-semibold uppercase text-muted-foreground mb-2 border-b pb-1">Observaciones</p>
-                                <Textarea className="text-xs min-h-[60px]" value={form.observaciones}
+                                <Textarea className="text-xs min-h-15" value={form.observaciones}
                                     onChange={e => setF('observaciones', e.target.value)}
                                     placeholder="Observaciones opcionales..." />
                             </section>

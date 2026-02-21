@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -138,6 +138,22 @@ export default function BoletasFacturas() {
 
   // --- Estado del formulario CPE ---
   const { empresaId, empresa } = useEmpresa();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const logoBlobRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (empresa?.logo_path && empresa.id) {
+      api.empresas.getLogo(empresa.id).then(res => {
+        const blobUrl = URL.createObjectURL(res.data as Blob);
+        if (logoBlobRef.current) URL.revokeObjectURL(logoBlobRef.current);
+        logoBlobRef.current = blobUrl;
+        setLogoUrl(blobUrl);
+      }).catch(() => setLogoUrl(null));
+    } else {
+      setLogoUrl(null);
+    }
+  }, [empresa?.id, empresa?.logo_path]);
+
   const [tipoActivo, setTipoActivo] = useState<'factura' | 'boleta'>('factura');
   const [emitiendo, setEmitiendo] = useState(false);
 
@@ -1332,12 +1348,11 @@ export default function BoletasFacturas() {
               {/* Información de la Empresa */}
               {empresa && (
                 <div className="bg-muted/50 p-4 rounded-lg border flex items-center gap-4">
-                  {empresa.logo_path && (
+                  {logoUrl && (
                     <img
-                      src={`${apiBaseUrl}/v1/empresas/${empresa.id}/logo`}
+                      src={logoUrl}
                       alt="Logo"
                       className="h-14 w-14 object-contain rounded border bg-white"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   )}
                   <div className="flex-1">
