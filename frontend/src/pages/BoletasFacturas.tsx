@@ -163,6 +163,7 @@ export default function BoletasFacturas() {
   const [busquedaCliente, setBusquedaCliente] = useState('');
 
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [productosDestacados, setProductosDestacados] = useState<Producto[]>([]);
   const [loadingProductos, setLoadingProductos] = useState(false);
   const [openProductoCombobox, setOpenProductoCombobox] = useState(false);
   const [busquedaProducto, setBusquedaProducto] = useState('');
@@ -353,12 +354,24 @@ export default function BoletasFacturas() {
     }
   };
 
+  const cargarProductosDestacados = async () => {
+    try {
+      const response = await api.productos.destacados({ empresa_id: empresaId || 1 });
+      // El endpoint devuelve un array directo o envuelto en data
+      const lista = Array.isArray(response.data) ? response.data : [];
+      setProductosDestacados(lista.slice(0, 6));
+    } catch {
+      // silenciar — no es bloqueante
+    }
+  };
+
   useEffect(() => {
     if (isCreateModalOpen && empresaId) {
       form.setValue('empresa_id', empresaId);
       void cargarSeries();
       void cargarClientes();
       void cargarProductos();
+      void cargarProductosDestacados();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCreateModalOpen, empresaId]);
@@ -1532,6 +1545,7 @@ export default function BoletasFacturas() {
                   onClickItem={(index) => abrirModalItem(index)}
                   onRemoveItem={(index) => remove(index)}
                   calcularItemSolo={calcularItemSolo}
+                  productosDestacados={productosDestacados}
                 />
 
                 <div className="space-y-4">

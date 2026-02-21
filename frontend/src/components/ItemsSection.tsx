@@ -34,6 +34,7 @@ interface ItemsSectionProps {
   onClickItem: (index: number) => void;
   onRemoveItem: (index: number) => void;
   calcularItemSolo: (index: number) => { subtotal: number; igv: number; total: number; precio_unitario: number };
+  productosDestacados?: Producto[];
 }
 
 export function ItemsSection({
@@ -50,6 +51,7 @@ export function ItemsSection({
   onClickItem,
   onRemoveItem,
   calcularItemSolo,
+  productosDestacados = [],
 }: ItemsSectionProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -227,27 +229,37 @@ export function ItemsSection({
             )}
           </div>
 
-          {/* Columna Derecha (placeholder de productos destacados) */}
-          <div className="space-y-4">
-            <Card className="border-dashed">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Productos destacados</CardTitle>
-                <CardDescription className="text-xs">
-                  Placeholder para productos frecuentes
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <Button type="button" size="sm" variant="outline" className="text-xs">
-                    PROD001 · S/ 0.00
-                  </Button>
-                  <Button type="button" size="sm" variant="outline" className="text-xs">
-                    SERV001 · S/ 0.00
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Columna Derecha — Productos Destacados */}
+          {productosDestacados.length > 0 && (
+            <div className="space-y-4">
+              <Card className="border-dashed">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Productos destacados</CardTitle>
+                  <CardDescription className="text-xs">
+                    Clic para agregar al comprobante
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {productosDestacados.map((p) => (
+                      <Button
+                        key={p.id}
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-auto py-1.5 px-3 text-left"
+                        onClick={() => onAppendProducto(p)}
+                        title={p.nombre}
+                      >
+                        <span className="font-mono mr-1 text-muted-foreground">{p.codigo}</span>
+                        <span>· S/ {Number(p.precio_venta_unitario ?? 0).toFixed(2)}</span>
+                      </Button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
