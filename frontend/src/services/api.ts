@@ -83,12 +83,13 @@ export const dashboardApi = {
     return response.data;
   },
 
-  getClientesTop: async (filtros: DashboardFiltros, limit = 10): Promise<ClienteTopItem[]> => {
+  getClientesTop: async (filtros: DashboardFiltros, limit = 10, incluirAnulados = false): Promise<ClienteTopItem[]> => {
     const params = new URLSearchParams({
       establecimiento: filtros.establecimiento,
       periodo: filtros.periodo,
       fecha_del: filtros.fechaDel,
       limit: limit.toString(),
+      incluir_anulados: String(incluirAnulados),
     });
     if (filtros.fechaHasta) {
       params.append('fecha_hasta', filtros.fechaHasta);

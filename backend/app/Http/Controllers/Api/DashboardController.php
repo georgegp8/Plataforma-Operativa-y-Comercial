@@ -523,6 +523,7 @@ class DashboardController extends Controller
         $fechaDel = $request->get('fecha_del', now()->format('Y-m-d'));
         $fechaHasta = $request->get('fecha_hasta', null);
         $limit = $request->get('limit', 10);
+        $incluirAnulados = $request->boolean('incluir_anulados', false);
 
         // Calcular fecha_hasta según período o usar la proporcionada
         if (! $fechaHasta) {
@@ -537,8 +538,10 @@ class DashboardController extends Controller
             ->whereDate('fecha_emision', '>=', $fechaDel)
             ->whereDate('fecha_emision', '<=', $fechaHasta)
             ->where('estado_sunat', 'aceptado')
-            ->where(function ($q) {
-                $q->whereNull('anulado')->orWhere('anulado', false);
+            ->when(! $incluirAnulados, function ($q) {
+                $q->where(function ($sub) {
+                    $sub->whereNull('anulado')->orWhere('anulado', false);
+                });
             })
             ->whereNotNull('cliente_razon_social')
             ->where('cliente_razon_social', '!=', '')

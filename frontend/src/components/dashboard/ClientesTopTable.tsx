@@ -12,26 +12,37 @@ interface ClientesTopTableProps {
   className?: string;
   limit?: number;
   onLimitChange?: (limit: number) => void;
+  incluirAnulados?: boolean;
+  onToggleAnulados?: (value: boolean) => void;
 }
 
-export function ClientesTopTable({ data, className, limit = 10, onLimitChange }: ClientesTopTableProps) {
+export function ClientesTopTable({ data, className, limit = 10, onLimitChange, incluirAnulados = false, onToggleAnulados }: ClientesTopTableProps) {
   return (
     <Card className={`overflow-hidden shadow-md p-0 ${className}`}>
       <CardHeader className="bg-primary text-primary-foreground px-4 py-2 space-y-0">
         <CardTitle className="text-sm font-semibold">Clientes Top</CardTitle>
       </CardHeader>
       <CardContent className="bg-muted px-4 py-3">
-        {/* Selector de cantidad */}
-        <div className="mb-3">
+        {/* Controles */}
+        <div className="flex items-center gap-3 mb-3">
           <select
             value={limit}
             onChange={(e) => onLimitChange?.(Number(e.target.value))}
-            className="w-full bg-background text-foreground border border-input rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 bg-background text-foreground border border-input rounded px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value={5}>Top 5</option>
             <option value={10}>Top 10</option>
             <option value={20}>Top 20</option>
           </select>
+          <label className="flex items-center gap-1.5 cursor-pointer select-none shrink-0">
+            <input
+              type="checkbox"
+              checked={incluirAnulados}
+              onChange={(e) => onToggleAnulados?.(e.target.checked)}
+              className="w-3.5 h-3.5 accent-primary cursor-pointer"
+            />
+            <span className="text-xs text-muted-foreground whitespace-nowrap">Incluir anulados</span>
+          </label>
         </div>
 
         {/* Tabla con scroll horizontal para responsividad */}

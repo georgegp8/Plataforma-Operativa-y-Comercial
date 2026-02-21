@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [productosTop, setProductosTop] = useState<ProductoTopItem[]>([]);
   const [clientesTop, setClientesTop] = useState<ClienteTopItem[]>([]);
   const [clientesTopLimit, setClientesTopLimit] = useState(10);
+  const [clientesTopAnulados, setClientesTopAnulados] = useState(false);
   const [stockMinimo, setStockMinimo] = useState<StockMinimoProduct[]>([]);
   const [stockMinimoTotal, setStockMinimoTotal] = useState(0);
   const [stockMinimoPage, setStockMinimoPage] = useState(1);
@@ -112,7 +113,7 @@ export default function Dashboard() {
   useEffect(() => {
     const cargarClientesTop = async () => {
       try {
-        const data = await dashboardApi.getClientesTop(filtros, clientesTopLimit);
+        const data = await dashboardApi.getClientesTop(filtros, clientesTopLimit, clientesTopAnulados);
         setClientesTop(data);
       } catch (error) {
         console.error("Error al cargar clientes top:", error);
@@ -121,7 +122,7 @@ export default function Dashboard() {
     };
 
     cargarClientesTop();
-  }, [filtros, clientesTopLimit]);
+  }, [filtros, clientesTopLimit, clientesTopAnulados]);
 
   useEffect(() => {
     const cargarStockMinimo = async () => {
@@ -367,6 +368,8 @@ export default function Dashboard() {
               className="lg:col-span-4"
               limit={clientesTopLimit}
               onLimitChange={setClientesTopLimit}
+              incluirAnulados={clientesTopAnulados}
+              onToggleAnulados={setClientesTopAnulados}
             />
             <StockMinimoTable
               data={stockMinimo}
