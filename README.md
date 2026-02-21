@@ -1,10 +1,13 @@
 # Plataforma Operativa y Comercial con Facturación Electrónica
 
-**Desarrollador:** George Guerra Pacheco — george.guerra@tecsup.edu.pe
-**Institución:** Tecsup
-**Estado:** MVP — Producción (modo demo)
-**Versión:** v1.0 — Febrero 2026
-
+- **Desarrollador:** George Guerra Pacheco — [george.guerra@tecsup.edu.pe](mailto:george.guerra@tecsup.edu.pe)
+- **Empresa:** Fibertel Networks S.A.C.
+- **Proyecto:** Nubofact Web y Facturador
+- **Equipo:** Diseño de Base de Datos
+- **Repositorio oficial (URL):** [github.com/diegomejiam/Nubofact-Web-y-Facturador](https://github.com/diegomejiam/Nubofact-Web-y-Facturador.git)
+- **Hyscloud (Nextcloud):** [Ruta del proyecto](https://hyscloud.mcsyra.com/index.php/apps/files/files/1819?dir=/Nubofact%20Web%20App)
+- **Versión de entrega:** `v1.0-entrega`
+- **Fecha de entrega:** 21 / 02 / 2026
 ---
 
 ## 1. Introducción
