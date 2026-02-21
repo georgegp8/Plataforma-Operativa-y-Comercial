@@ -7,6 +7,12 @@ NubeFact es el Proveedor de Servicios Electrónicos (PSE) que intermedia entre e
 **URL Producción:** `https://api.nubefact.com/api/v1/{ruc_key}`
 **Autenticación:** Bearer Token JWT
 
+> **Manuales oficiales NubeFact (fuente de verdad):**
+> - [NUBEFACT DOC API JSON V1.pdf](NUBEFACT%20DOC%20API%20JSON%20V1.pdf) — Documentación completa de la API JSON V1: todos los tipos de comprobante, campos, catálogos y ejemplos oficiales
+> - [API NUBEFACT - GUIA DE REMISIÓN.pdf](API%20NUBEFACT%20-%20GUIA%20DE%20REMISI%C3%93N.pdf) — Manual oficial de Guías de Remisión Electrónica (GRE tipo 7 y 8)
+>
+> Este documento resume los aspectos más usados en la integración. Ante cualquier duda sobre un campo específico, consultar los PDFs oficiales.
+
 ---
 
 ## 1. Configuración

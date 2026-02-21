@@ -55,10 +55,19 @@ Permite a una empresa emitir Facturas, Boletas, Notas de Crédito/Débito y Guí
 | Documento | Contenido |
 |-----------|-----------|
 | [ARQUITECTURA.md](ARQUITECTURA.md) | Estructura del proyecto, modelos, endpoints, base de datos |
-| [DESPLIEGUE.md](DESPLIEGUE.md) | Instalación local y en servidor de producción |
+| [DESPLIEGUE.md](DESPLIEGUE.md) | Instalación local y en servidor de producción (Debian 12) |
 | [OPERACION.md](OPERACION.md) | Logs, backups, reinicio de servicios, troubleshooting |
 | [CONTINUIDAD.md](CONTINUIDAD.md) | Cómo seguir desarrollando, deuda técnica, bugs conocidos |
 | [NUBEFACT_API.md](NUBEFACT_API.md) | Integración completa con NubeFact API JSON V1 |
+
+### Documentación Oficial NubeFact (PDFs de referencia)
+
+> Estos PDFs son los manuales oficiales proporcionados por NubeFact. Son la fuente de verdad para el formato JSON de los comprobantes y guías de remisión.
+
+| Documento | Contenido |
+|-----------|-----------|
+| [NUBEFACT DOC API JSON V1.pdf](NUBEFACT%20DOC%20API%20JSON%20V1.pdf) | Manual oficial de la API JSON V1 de NubeFact — estructura completa de todos los tipos de comprobante (Factura, Boleta, NC, ND), campos obligatorios, catálogos SUNAT, ejemplos de request/response |
+| [API NUBEFACT - GUIA DE REMISIÓN.pdf](API%20NUBEFACT%20-%20GUIA%20DE%20REMISI%C3%93N.pdf) | Manual oficial de Guías de Remisión Electrónica (GRE) — tipos 7 (Remitente) y 8 (Transportista), campos de traslado, vehículos, conductores, ubigeos y modalidades de transporte |
 
 ---
 

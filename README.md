@@ -138,6 +138,8 @@ Plataforma_Op_Com_Facturacion_Elect/
 | [docs/OPERACION.md](docs/OPERACION.md) | Logs, reinicio servicios, backups PostgreSQL/MinIO, troubleshooting |
 | [docs/CONTINUIDAD.md](docs/CONTINUIDAD.md) | Cómo agregar features, patrones del proyecto, deuda técnica, bugs |
 | [docs/NUBEFACT_API.md](docs/NUBEFACT_API.md) | JSON completo de Factura, Boleta, NC, ND, GRE, sync masivo |
+| [docs/NUBEFACT DOC API JSON V1.pdf](docs/NUBEFACT%20DOC%20API%20JSON%20V1.pdf) | Manual oficial NubeFact — API JSON V1 (fuente de verdad) |
+| [docs/API NUBEFACT - GUIA DE REMISIÓN.pdf](docs/API%20NUBEFACT%20-%20GUIA%20DE%20REMISI%C3%93N.pdf) | Manual oficial NubeFact — Guías de Remisión Electrónica (GRE) |
 
 ---
 
