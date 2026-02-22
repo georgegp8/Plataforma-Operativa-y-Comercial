@@ -305,7 +305,7 @@ Ver [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md) para configuración en producción 
 - **Docker** + **Docker Compose** (para PostgreSQL, MinIO y servicio OCR)
 - **PHP 8.2+** con extensiones: `pgsql`, `mbstring`, `xml`, `curl`, `zip`, `gd`, `fileinfo`
 - **Composer 2.x**
-- **Node.js 18 LTS** + npm
+- **Node.js 22 LTS** + npm (`--legacy-peer-deps` requerido en install)
 - **Cuenta NubeFact** con credenciales API ([nubefact.com](https://nubefact.com))
 - **Gmail con App Password** para envío de emails ([myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords))
 - **Google AI Studio API Key** (opcional, para OCR inteligente) ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
@@ -315,8 +315,11 @@ Ver [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md) para configuración en producción 
 ## 11. Inicio Rápido (Local)
 
 ```bash
-# 1. Clonar repositorio
-git clone https://github.com/diegomejiam/Nubofact-Web-y-Facturador.git
+# 1. Obtener el proyecto
+# El repositorio es PRIVADO. Opciones:
+# Opción A — ZIP: GitHub → Code → Download ZIP → descomprimir
+# Opción B — Git con token personal:
+git clone https://<TOKEN>@github.com/diegomejiam/Nubofact-Web-y-Facturador.git
 cd Nubofact-Web-y-Facturador
 
 # 2. Levantar servicios Docker
@@ -326,7 +329,7 @@ docker compose up -d
 # 3. Backend
 cd backend
 composer install
-cp ../.env.example .env
+cp .env.example .env
 # Editar .env con tus credenciales (ver sección 8 — Variables de Entorno)
 php artisan key:generate
 php artisan migrate
@@ -335,8 +338,8 @@ php artisan storage:link
 php artisan serve
 
 # 4. Frontend (otra terminal)
-cd frontend
-npm install
+cd ../frontend
+npm install --legacy-peer-deps
 npm run dev
 ```
 

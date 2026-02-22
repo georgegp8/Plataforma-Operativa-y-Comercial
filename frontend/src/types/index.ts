@@ -11,7 +11,6 @@ export type {
   EmpresaFormData,
   ComprobanteItem,
   ComprobanteEmitido,
-  Comprobante,
   ClientePayload,
   Producto,
   ProductoFormData,
@@ -318,6 +317,22 @@ export interface CompraFormData {
   activo: boolean;
 }
 
+// Estructura de datos extraídos por OCR
+export interface DatosExtraidos {
+  forma_pago?: string;
+  items?: Array<{
+    numero?: number;
+    codigo?: string;
+    descripcion: string;
+    unidad_medida?: string;
+    cantidad: number;
+    precio_unitario: number;
+    valor_unitario?: number;
+    importe: number;
+  }>;
+  [key: string]: unknown;
+}
+
 // Documentos Digitalizados (OCR de facturas)
 export interface DocumentoDigitalizado {
   readonly id: number;
@@ -328,7 +343,7 @@ export interface DocumentoDigitalizado {
   tipo_operacion: 'compra' | 'venta';
   estado_procesamiento: 'pendiente' | 'procesando' | 'completado' | 'error';
   error_mensaje: string | null;
-  datos_extraidos: any;
+  datos_extraidos: DatosExtraidos;
   tipo_comprobante: string | null;
   serie: string | null;
   numero: string | null;

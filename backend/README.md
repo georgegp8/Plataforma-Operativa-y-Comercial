@@ -1,66 +1,117 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Backend — Plataforma Operativa y Comercial con Facturación Electrónica
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+API REST construida con **Laravel 11 + PHP 8.2** para la gestión de comprobantes electrónicos (SUNAT/NubeFact), inventario, clientes, compras, finanzas y digitalización OCR.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Requisitos
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- PHP 8.2+ con extensiones: `pgsql`, `pdo_pgsql`, `mbstring`, `xml`, `curl`, `zip`, `gd`, `fileinfo`, `bcmath`, `intl`
+- Composer 2.x
+- PostgreSQL 15+
+- Docker + Docker Compose (para MinIO y servicio OCR)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Configuración rápida (local)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+```bash
+# Desde la raíz del proyecto — levantar servicios Docker primero
+docker compose up -d
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+cd backend
+composer install
+cp .env.example .env
+# Editar .env con tus credenciales (DB, NubeFact, Gmail, Gemini, MinIO)
+php artisan key:generate
+php artisan migrate
+php artisan db:seed --class=CatalogosSunatSeeder
+php artisan storage:link
+php artisan serve   # http://localhost:8000
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+> Ver [docs/DESPLIEGUE.md](../docs/DESPLIEGUE.md) para el despliegue completo en Debian 12.
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Variables de entorno clave
 
-### Premium Partners
+| Variable | Descripción |
+|----------|-------------|
+| `DB_CONNECTION=pgsql` | Motor PostgreSQL |
+| `DB_HOST / DB_PORT / DB_DATABASE` | Conexión a la BD |
+| `NUBEFACT_BASE_URL` | URL de la API NubeFact (campo RUTA en el panel) |
+| `NUBEFACT_TOKEN` | JWT de autenticación NubeFact (campo TOKEN en el panel) |
+| `NUBEFACT_MODE` | `demo` (pruebas) o `production` (SUNAT real) |
+| `MAIL_MAILER` | `log` en local / `smtp` en producción con Gmail App Password |
+| `GEMINI_API_KEY` | API Key de Google AI Studio (OCR inteligente) |
+| `MINIO_ENDPOINT / MINIO_KEY / MINIO_SECRET` | Conexión al storage MinIO |
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+---
 
-## Contributing
+## Estructura principal
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```
+backend/
+├── app/
+│   ├── Http/Controllers/Api/   # 31+ controladores REST
+│   ├── Models/                 # 32+ modelos Eloquent
+│   ├── Services/               # NubefactClient, NubefactSyncService, NubefactMapper, OCR
+│   └── Mail/                   # ComprobanteEmitido (email automático al cliente)
+├── database/
+│   ├── migrations/             # 40+ migraciones
+│   └── seeders/                # CatalogosSunatSeeder (catálogos SUNAT obligatorios)
+├── python_ocr/                 # Servicio OCR (Dockerfile + Python 3.12 + Tesseract/Gemini)
+├── routes/api.php              # 100+ endpoints REST
+└── .env.example                # Variables de entorno de referencia
+```
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Endpoints principales
 
-## Security Vulnerabilities
+| Prefijo | Descripción |
+|---------|-------------|
+| `POST /api/auth/login` | Login — devuelve Bearer token |
+| `GET /api/v1/empresas` | Listado de empresas |
+| `GET /api/facturacion/comprobantes` | Listado de CPE emitidos |
+| `POST /api/nubefact/comprobantes` | Emitir comprobante (Factura/Boleta/NC/ND) |
+| `POST /api/nubefact/guias` | Emitir Guía de Remisión |
+| `POST /api/nubefact/guias/sincronizar-rango` | Sincronizar GRE desde NubeFact |
+| `POST /api/nubefact-sync/rango` | Sincronizar CPE históricos desde NubeFact |
+| `GET /api/v1/productos` | Catálogo de productos |
+| `GET /api/v1/movimientos-inventario` | Movimientos de inventario |
+| `GET /api/v1/productos-compuestos` | Productos compuestos (ofertas) |
+| `GET /api/v1/entidades` | Clientes y proveedores |
+| `GET /api/v1/compras` | Compras a proveedores |
+| `POST /api/v1/documentos-digitalizados/upload` | Subir documento para OCR |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+> Ver [docs/ARQUITECTURA.md](../docs/ARQUITECTURA.md) para la lista completa de endpoints.
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Autenticación
+
+Todos los endpoints (excepto `/auth/login` y `/auth/register`) requieren:
+
+```
+Authorization: Bearer <token>
+```
+
+El token se obtiene del login y se guarda en el frontend. Los endpoints de administración usan además el middleware `role:admin`.
+
+---
+
+## Importar base de datos existente
+
+```bash
+# Backup desde DBeaver: Format=Plain, Use SQL INSERT, No owner, No privileges
+# Transferir el .sql al servidor y ejecutar:
+
+BACKUP=$(find /home -name "dump-plataforma_facturacion-*.sql" 2>/dev/null | head -1)
+php artisan migrate:fresh --force
+php artisan db:seed --class=CatalogosSunatSeeder
+grep "^INSERT INTO" "$BACKUP" > /tmp/data_only.sql
+psql -h 127.0.0.1 -U facturacion_user -d plataforma_facturacion < /tmp/data_only.sql
+php artisan config:clear
+```
