@@ -252,7 +252,7 @@ php artisan serve      # http://localhost:8000
 
 # Terminal 2 — Frontend
 cd ../frontend
-npm install
+npm install --legacy-peer-deps
 npm run dev            # http://localhost:5173
 ```
 
