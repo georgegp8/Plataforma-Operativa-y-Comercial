@@ -120,6 +120,13 @@ const comprobanteSchema = z
 
 type ComprobanteFormValues = z.infer<typeof comprobanteSchema>;
 
+/** Devuelve la fecha local en formato YYYY-MM-DD, evitando el desfase UTC */
+const localDateStr = (offsetDays = 0): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export default function BoletasFacturas() {
   const { isAdmin } = useAuth();
 
@@ -206,12 +213,12 @@ export default function BoletasFacturas() {
       cliente_denominacion: '',
       cliente_direccion: '',
       cliente_email: '',
-      fecha_de_emision: new Date().toISOString().split('T')[0],
+      fecha_de_emision: localDateStr(),
       moneda: MONEDAS.PEN,
       sunat_transaction: 1,
       porcentaje_de_igv: 18,
       pagado: false,
-      fecha_de_vencimiento: new Date().toISOString().split('T')[0],
+      fecha_de_vencimiento: localDateStr(30),
       tiene_detraccion: false,
       detraccion_tipo: null,
       detraccion_porcentaje: null,
@@ -803,13 +810,13 @@ export default function BoletasFacturas() {
       cliente_denominacion: '',
       cliente_direccion: '',
       cliente_email: '',
-      fecha_de_emision: new Date().toISOString().split('T')[0],
+      fecha_de_emision: localDateStr(),
       moneda: MONEDAS.PEN,
       sunat_transaction: 1,
       porcentaje_de_igv: 18,
       pagado: false,
       forma_pago: 'Contado',
-      fecha_de_vencimiento: new Date().toISOString().split('T')[0],
+      fecha_de_vencimiento: localDateStr(30),
       tiene_detraccion: false,
       detraccion_tipo: null,
       detraccion_porcentaje: null,
@@ -1489,11 +1496,37 @@ export default function BoletasFacturas() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Fecha Emisión *</Label>
-                    <Input type="date" className="h-9" {...form.register('fecha_de_emision')} />
+                    <Input
+                      type="date"
+                      className="h-9"
+                      min={localDateStr()}
+                      max={localDateStr()}
+                      {...form.register('fecha_de_emision', {
+                        validate: (v) => v === localDateStr() || 'Solo se permite la fecha de hoy',
+                      })}
+                    />
+                    {form.formState.errors.fecha_de_emision && (
+                      <p className="text-xs text-destructive mt-1">
+                        {form.formState.errors.fecha_de_emision.message}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Fecha Vencimiento</Label>
-                    <Input type="date" className="h-9" {...form.register('fecha_de_vencimiento')} />
+                    <Input
+                      type="date"
+                      className="h-9"
+                      min={localDateStr()}
+                      {...form.register('fecha_de_vencimiento', {
+                        validate: (v) =>
+                          !v || v >= localDateStr() || 'La fecha de vencimiento no puede ser anterior a hoy',
+                      })}
+                    />
+                    {form.formState.errors.fecha_de_vencimiento && (
+                      <p className="text-xs text-destructive mt-1">
+                        {form.formState.errors.fecha_de_vencimiento.message}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1562,7 +1595,19 @@ export default function BoletasFacturas() {
                     <Label className="text-xs">Forma de Pago *</Label>
                     <Select
                       value={form.watch('forma_pago') || 'Contado'}
-                      onValueChange={(value) => form.setValue('forma_pago', value)}
+                      onValueChange={(value) => {
+                        form.setValue('forma_pago', value);
+                        const emision = form.getValues('fecha_de_emision') || localDateStr();
+                        if (value === 'Contado') {
+                          form.setValue('fecha_de_vencimiento', emision);
+                        } else {
+                          // Crédito: 30 días desde la fecha de emisión
+                          const base = new Date(emision + 'T00:00:00');
+                          base.setDate(base.getDate() + 30);
+                          const venc = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`;
+                          form.setValue('fecha_de_vencimiento', venc);
+                        }
+                      }}
                     >
                       <SelectTrigger className="h-9">
                         <SelectValue />

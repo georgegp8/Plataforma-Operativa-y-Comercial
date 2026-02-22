@@ -53,10 +53,11 @@ export default function NuevaCompra() {
   const [tipoComprobante, setTipoComprobante] = useState('FACTURA ELECTRONICA');
   const [serie, setSerie] = useState('');
   const [numero, setNumero] = useState('');
-  const [fechaEmision, setFechaEmision] = useState('2026-04-15');
-  const [fechaVencimiento, setFechaVencimiento] = useState('2026-04-15');
+  const today = new Date().toISOString().split('T')[0];
+  const [fechaEmision, setFechaEmision] = useState(today);
+  const [fechaVencimiento, setFechaVencimiento] = useState(today);
   const [tipoCambio, setTipoCambio] = useState('3.37');
-  const [moneda, setMoneda] = useState('Soles');
+  const [moneda, setMoneda] = useState('PEN');
   const [incluyeIgv, setIncluyeIgv] = useState(true);
   const [agregarPagos, setAgregarPagos] = useState(false);
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Entidad | null>(null);
@@ -179,8 +180,8 @@ export default function NuevaCompra() {
     setTipoComprobante('FACTURA ELECTRONICA');
     setSerie('');
     setNumero('');
-    setFechaEmision('2026-04-15');
-    setFechaVencimiento('2026-04-15');
+    setFechaEmision(new Date().toISOString().split('T')[0]);
+    setFechaVencimiento(new Date().toISOString().split('T')[0]);
     setTipoCambio('3.37');
     setMoneda('Soles');
     setIncluyeIgv(true);
@@ -233,17 +234,15 @@ export default function NuevaCompra() {
         numero_comprobante: numero,
         comprobante_completo: `${serie}-${numero}`,
         tipo_comprobante_desc: tipoComprobante,
-        moneda: moneda === 'Soles' ? 'PEN' : 'USD',
+        moneda: moneda,
         total: totales.total,
         cantidad_productos: productosCompra.length,
         activo: true,
       };
 
-      const response = await api.compras.crear(compraData);
-      if (response.data.success) {
-        toast.success('Compra registrada exitosamente');
-        handleResetForm();
-      }
+      await api.compras.crear(compraData);
+      toast.success('Compra registrada exitosamente');
+      handleResetForm();
     } catch (error: unknown) {
       console.error('Error al guardar compra:', error);
       const errorMessage = error && typeof error === 'object' && 'response' in error

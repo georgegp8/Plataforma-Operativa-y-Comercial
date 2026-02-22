@@ -28,13 +28,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function ListaCompras() {
   const [compras, setCompras] = useState<Compra[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [selectedCompra, setSelectedCompra] = useState<Compra | null>(null);
+  const [viewCompra, setViewCompra] = useState<Compra | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [filterType, setFilterType] = useState('numero');
@@ -42,7 +50,7 @@ export default function ListaCompras() {
 
   const [formData, setFormData] = useState<CompraFormData>({
     actividad: '',
-    fecha_actividad: '',
+    fecha_actividad: new Date().toISOString().split('T')[0],
     proveedor_id: 0,
     proveedor_nombre: '',
     proveedor_ruc: '',
@@ -79,7 +87,7 @@ export default function ListaCompras() {
     setSelectedCompra(compra);
     setFormData({
       actividad: compra.actividad,
-      fecha_actividad: compra.fecha_actividad,
+      fecha_actividad: compra.fecha_actividad.split('T')[0],
       proveedor_id: compra.proveedor_id,
       proveedor_nombre: compra.proveedor_nombre,
       proveedor_ruc: compra.proveedor_ruc,
@@ -95,6 +103,11 @@ export default function ListaCompras() {
       activo: compra.activo,
     });
     setIsModalOpen(true);
+  };
+
+  const handleView = (compra: Compra) => {
+    setViewCompra(compra);
+    setIsViewModalOpen(true);
   };
 
   const handleDelete = (compra: Compra) => {
@@ -121,11 +134,17 @@ export default function ListaCompras() {
     e.preventDefault();
 
     try {
+      const payload = {
+        ...formData,
+        comprobante_completo: formData.comprobante_completo ||
+          `${formData.serie_comprobante}-${formData.numero_comprobante}`,
+        proveedor_id: formData.proveedor_id || 0,
+      };
       if (selectedCompra) {
-        await api.compras.actualizar(selectedCompra.id, formData as unknown as Record<string, unknown>);
+        await api.compras.actualizar(selectedCompra.id, payload as unknown as Record<string, unknown>);
         toast.success('Compra actualizada correctamente');
       } else {
-        await api.compras.crear(formData as unknown as Record<string, unknown>);
+        await api.compras.crear(payload as unknown as Record<string, unknown>);
         toast.success('Compra creada correctamente');
       }
 
@@ -142,7 +161,7 @@ export default function ListaCompras() {
   const resetForm = () => {
     setFormData({
       actividad: '',
-      fecha_actividad: '',
+      fecha_actividad: new Date().toISOString().split('T')[0],
       proveedor_id: 0,
       proveedor_nombre: '',
       proveedor_ruc: '',
@@ -313,13 +332,22 @@ export default function ListaCompras() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={() => toast.info('Funcionalidad de visualización de productos en desarrollo')}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 mx-auto"
-                        >
-                          <Eye className="h-3 w-3" />
-                          Ver
-                        </button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={() => handleView(compra)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors flex items-center gap-1 mx-auto"
+                              >
+                                <Eye className="h-3 w-3" />
+                                Ver
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Ver detalle completo de la compra</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </td>
                       <td className="px-4 py-3 text-sm text-foreground">{compra.moneda}</td>
                       <td className="px-4 py-3 text-sm text-foreground text-right font-medium">{Number(compra.total).toFixed(2)}</td>
@@ -331,17 +359,33 @@ export default function ListaCompras() {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(compra)}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(compra)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </DropdownMenuItem>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <DropdownMenuItem onClick={() => handleEdit(compra)}>
+                                    <Pencil className="mr-2 h-4 w-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                  <p>Modificar los datos de esta compra</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <DropdownMenuItem
+                                    onClick={() => handleDelete(compra)}
+                                    className="text-red-600"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </TooltipTrigger>
+                                <TooltipContent side="left">
+                                  <p>Eliminar permanentemente esta compra</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -462,6 +506,29 @@ export default function ListaCompras() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
+                    <Label htmlFor="actividad">Actividad *</Label>
+                    <Input
+                      id="actividad"
+                      value={formData.actividad}
+                      onChange={(e) => setFormData({ ...formData, actividad: e.target.value })}
+                      placeholder="Ej: Compra de materiales"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fecha_actividad">Fecha *</Label>
+                    <Input
+                      id="fecha_actividad"
+                      type="date"
+                      value={formData.fecha_actividad}
+                      onChange={(e) => setFormData({ ...formData, fecha_actividad: e.target.value })}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
                     <Label htmlFor="proveedor_nombre">Proveedor *</Label>
                     <Input
                       id="proveedor_nombre"
@@ -575,6 +642,78 @@ export default function ListaCompras() {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Ver Compra */}
+        <Dialog open={isViewModalOpen} onOpenChange={setIsViewModalOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Detalle de Compra</DialogTitle>
+              <DialogDescription>
+                {viewCompra?.comprobante_completo} — {viewCompra?.tipo_comprobante_desc}
+              </DialogDescription>
+            </DialogHeader>
+            {viewCompra && (
+              <div className="grid gap-3 py-2 text-sm">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <div>
+                    <span className="text-muted-foreground">Actividad</span>
+                    <p className="font-medium">{viewCompra.actividad}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Fecha</span>
+                    <p className="font-medium">{formatDate(viewCompra.fecha_actividad)}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Proveedor</span>
+                    <p className="font-medium">{viewCompra.proveedor_nombre}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">RUC Proveedor</span>
+                    <p className="font-medium">{viewCompra.proveedor_ruc}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Serie</span>
+                    <p className="font-medium">{viewCompra.serie_comprobante}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Número</span>
+                    <p className="font-medium">{viewCompra.numero_comprobante}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Tipo Comprobante</span>
+                    <p className="font-medium">{viewCompra.tipo_comprobante_desc || viewCompra.tipo_comprobante}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Estado</span>
+                    <p className="font-medium">{viewCompra.estado}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Moneda</span>
+                    <p className="font-medium">{viewCompra.moneda}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Total</span>
+                    <p className="font-medium text-lg">{Number(viewCompra.total).toFixed(2)}</p>
+                  </div>
+                  {viewCompra.cantidad_productos !== null && viewCompra.cantidad_productos !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Cantidad de productos</span>
+                      <p className="font-medium">{viewCompra.cantidad_productos}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsViewModalOpen(false)}>
+                Cerrar
+              </Button>
+              <Button onClick={() => { setIsViewModalOpen(false); handleEdit(viewCompra!); }}>
+                Editar
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 

@@ -270,6 +270,19 @@ class DocumentoDigitalizadoController extends Controller
         }
 
         try {
+            // Resolver empresa del usuario autenticado (mismo patrón que EntidadController)
+            $empresaId = $request->empresa_id ?? $request->user()->empresa_id ?? null;
+            if (! $empresaId) {
+                $primeraEmpresa = \App\Models\Empresa::where('activo', true)->first();
+                $empresaId = $primeraEmpresa?->id;
+            }
+            if (! $empresaId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hay empresas disponibles. Configure una empresa primero.',
+                ], 422);
+            }
+
             // Buscar o crear proveedor en la tabla entidades
             $tipoDoc = strlen($documento->entidad_num_doc ?? '') === 11 ? '6' : '1'; // 6=RUC, 1=DNI
             $proveedor = \App\Models\Entidad::where('num_doc', $documento->entidad_num_doc)
@@ -279,7 +292,7 @@ class DocumentoDigitalizadoController extends Controller
             if (! $proveedor) {
                 // Crear nuevo proveedor si no existe
                 $proveedor = \App\Models\Entidad::create([
-                    'empresa_id' => 1, // TODO: usar empresa del usuario autenticado
+                    'empresa_id' => $empresaId,
                     'tipo_doc' => $tipoDoc,
                     'num_doc' => $documento->entidad_num_doc,
                     'denominacion' => $documento->entidad_razon_social ?? 'Proveedor sin nombre',

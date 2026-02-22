@@ -91,7 +91,7 @@ export function ItemsSection({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-(--radix-popover-trigger-width) max-w-[min(90vw,600px)] p-0" align="start">
-                <Command>
+                <Command shouldFilter={false}>
                   <CommandInput
                     placeholder="Buscar por código o descripción..."
                     value={busquedaProducto}

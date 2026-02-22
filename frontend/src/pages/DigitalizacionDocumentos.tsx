@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import type { DocumentoDigitalizado } from '@/types';
@@ -374,32 +375,65 @@ export default function DigitalizacionDocumentos() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="sm" onClick={() => handleView(doc)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          {doc.estado_procesamiento === 'completado' && !doc.validado && (
-                            <Button variant="ghost" size="sm" onClick={() => handleValidar(doc)} className="text-green-600">
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {doc.requiere_validacion && (
-                            <Button variant="ghost" size="sm" onClick={() => handleEdit(doc)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => {
-                              setDocumentoToDelete(doc);
-                              setShowDeleteDialog(true);
-                            }}
-                            className="text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <TooltipProvider>
+                          <div className="flex items-center gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="sm" onClick={() => handleView(doc)}>
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Ver datos extraídos del documento</p>
+                              </TooltipContent>
+                            </Tooltip>
+
+                            {doc.estado_procesamiento === 'completado' && !doc.validado && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="sm" onClick={() => handleValidar(doc)} className="text-green-600">
+                                    <CheckCircle className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Confirmar que los datos extraídos son correctos</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+
+                            {doc.requiere_validacion && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button variant="ghost" size="sm" onClick={() => handleEdit(doc)}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Corregir datos extraídos por OCR manualmente</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setDocumentoToDelete(doc);
+                                    setShowDeleteDialog(true);
+                                  }}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Eliminar este documento</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TooltipProvider>
                       </td>
                     </tr>
                   ))
