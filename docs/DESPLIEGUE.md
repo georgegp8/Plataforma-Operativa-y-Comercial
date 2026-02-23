@@ -529,11 +529,17 @@ ls -la /var/www/Nubofact-Web-y-Facturador/frontend/dist/
 
 ### Paso 14 — Configurar Nginx
 
+Elegir la variante según el entorno:
+
+---
+
+#### Variante A — Solo IP (sin dominio, sin SSL)
+
+Usar cuando el servidor se accede por IP directa (ej: red interna, VirtualBox, Proxmox en LAN).
+
 ```bash
 sudo nano /etc/nginx/sites-available/facturacion
 ```
-
-Pegar este contenido exacto:
 
 ```nginx
 server {
@@ -571,8 +577,82 @@ server {
 ```bash
 sudo ln -s /etc/nginx/sites-available/facturacion /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t            # Debe mostrar: test is successful
+sudo nginx -t
 sudo systemctl reload nginx
+```
+
+---
+
+#### Variante B — Con dominio + HTTPS (Let's Encrypt)
+
+Usar cuando el servidor tiene un dominio público apuntando a su IP (ej: `facturacion.empresa.com`).
+
+**Requisito previo:** el dominio debe apuntar ya a la IP del servidor (DNS propagado).
+
+```bash
+# Instalar Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Configurar Nginx con el dominio (sin SSL por ahora — Certbot lo agrega)
+sudo nano /etc/nginx/sites-available/facturacion
+```
+
+```nginx
+server {
+    listen 80;
+    server_name facturacion.empresa.com;   # Reemplazar con el dominio real
+
+    root /var/www/Nubofact-Web-y-Facturador/frontend/dist;
+    index index.html;
+
+    access_log /var/log/nginx/facturacion_access.log;
+    error_log  /var/log/nginx/facturacion_error.log;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /api {
+        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME /var/www/Nubofact-Web-y-Facturador/backend/public/index.php;
+        fastcgi_param DOCUMENT_ROOT /var/www/Nubofact-Web-y-Facturador/backend/public;
+        include fastcgi_params;
+        fastcgi_read_timeout 120;
+    }
+
+    client_max_body_size 20M;
+
+    location ~ /\.(?!well-known) {
+        deny all;
+    }
+}
+```
+
+```bash
+sudo ln -s /etc/nginx/sites-available/facturacion /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+
+# Obtener certificado SSL — Certbot edita el Nginx automáticamente
+sudo certbot --nginx -d facturacion.empresa.com
+# Certbot pregunta el email y acepta términos → seleccionar "redirigir HTTP a HTTPS"
+```
+
+Después del certbot, el archivo queda con dos bloques `server`: uno que redirige HTTP→HTTPS y otro con SSL. **No editar manualmente.**
+
+```bash
+# Verificar renovación automática (se renueva cada 90 días)
+sudo certbot renew --dry-run
+```
+
+**Actualizar `.env` del backend** con el dominio real:
+
+```bash
+sudo nano /var/www/Nubofact-Web-y-Facturador/backend/.env
+# Cambiar:
+# APP_URL=https://facturacion.empresa.com
+sudo -u www-data php artisan config:clear
 ```
 
 ---
