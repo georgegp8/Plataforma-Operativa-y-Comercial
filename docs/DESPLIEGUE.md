@@ -9,7 +9,7 @@
 Antes de tocar el servidor, el encargado del despliegue debe recopilar las siguientes 4 credenciales:
 
 1. **Credenciales NubeFact (PSE SUNAT)**
-   - Ingresar a https://nubofact.pse.pe/tokens con la cuenta de la empresa.
+   - Ingresar a https://nubefact.pse.pe/tokens con la cuenta de la empresa.
    - Ubicar la fila "PRINCIPAL / LOCAL PRINCIPAL".
    - Copiar la **RUTA** → se usará en `NUBEFACT_BASE_URL`.
    - Copiar el **TOKEN** (empieza con `eyJ...`) → se usará en `NUBEFACT_TOKEN`.
@@ -109,6 +109,9 @@ sudo ufw --force enable
 
 # Permisos de Docker
 sudo usermod -aG docker $USER
+# ⚠️ IMPORTANTE: newgrp abre una subshell interactiva.
+# NO copies este comando junto con otros en un bloque; ejecútalo solo.
+# Después de ejecutarlo, escribe 'exit' para volver a la shell principal.
 newgrp docker
 ```
 
@@ -138,7 +141,7 @@ sudo chmod 775 /var/www
 cd /var/www
 
 # REEMPLAZA <TOKEN> CON TU TOKEN REAL DE GITHUB
-sudo git clone https://<TOKEN>@[github.com/diegomejiam/Nubofact-Web-y-Facturador.git](https://github.com/diegomejiam/Nubofact-Web-y-Facturador.git) Nubofact-Web-y-Facturador
+sudo git clone https://<TOKEN>@github.com/diegomejiam/Nubofact-Web-y-Facturador.git Nubofact-Web-y-Facturador
 
 # Permisos para el servidor web
 sudo chown -R www-data:www-data /var/www/Nubofact-Web-y-Facturador
@@ -266,7 +269,8 @@ sudo bash -c 'echo "VITE_API_URL=/api" > .env'
 sudo npm install --legacy-peer-deps
 
 # 3. Construir la carpeta 'dist'
-sudo -u www-data npm run build
+# IMPORTANTE: usar sudo (root) igual que en npm install para evitar errores de permisos en node_modules
+sudo npm run build
 
 # 4. Otorgar permisos a la carpeta generada (Crucial para Nginx)
 sudo chown -R www-data:www-data /var/www/Nubofact-Web-y-Facturador/frontend/dist
@@ -317,6 +321,7 @@ server {
   # 4. BLOQUE PARA EL BACKEND (Laravel API)
   location /api {
     fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+    fastcgi_index index.php;
     fastcgi_param SCRIPT_FILENAME /var/www/Nubofact-Web-y-Facturador/backend/public/index.php;
     fastcgi_param DOCUMENT_ROOT /var/www/Nubofact-Web-y-Facturador/backend/public;
     include fastcgi_params;
