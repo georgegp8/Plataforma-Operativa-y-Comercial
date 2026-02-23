@@ -50,7 +50,7 @@ const PageLoader = () => (
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="dark" storageKey="facturacion-theme">
+    <ThemeProvider defaultTheme="light" storageKey="facturacion-theme">
       <BrowserRouter>
         <AuthProvider>
           <Suspense fallback={<PageLoader />}>
