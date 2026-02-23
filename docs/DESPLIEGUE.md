@@ -306,7 +306,46 @@ sudo chmod 775 /var/www
 ```bash
 sudo apt update && sudo apt upgrade -y
 sudo apt install -y curl wget gnupg ca-certificates lsb-release \
-  apt-transport-https software-properties-common unzip git
+  apt-transport-https software-properties-common unzip git ufw
+```
+
+---
+
+### Paso 1.1 — Configurar Firewall (UFW)
+
+> **IMPORTANTE:** Habilitar SSH **antes** de activar UFW o perderás el acceso remoto.
+
+```bash
+# 1. SSH primero (obligatorio antes de enable)
+sudo ufw allow 22/tcp
+
+# 2. HTTP y HTTPS
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# 3. MinIO — solo si se accede externamente al panel/API desde fuera del servidor
+#    Omitir si MinIO es solo acceso interno (recomendado en producción)
+# sudo ufw allow 9000/tcp   # MinIO API
+# sudo ufw allow 9001/tcp   # MinIO Console
+
+# NOTA: PostgreSQL (5432) NO se abre — solo acceso local desde la misma máquina
+
+# 4. Activar UFW
+sudo ufw enable
+# Responder "y" cuando pregunte
+
+# 5. Verificar reglas activas
+sudo ufw status verbose
+```
+
+Estado esperado:
+```
+Status: active
+To                   Action      From
+--                   ------      ----
+22/tcp               ALLOW IN    Anywhere
+80/tcp               ALLOW IN    Anywhere
+443/tcp              ALLOW IN    Anywhere
 ```
 
 ---
