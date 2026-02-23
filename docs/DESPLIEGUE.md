@@ -73,21 +73,21 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y curl wget gnupg ca-certificates lsb-release apt-transport-https software-properties-common unzip git ufw
 
 # 1. Repositorio PHP 8.2
-sudo curl -sSlo /usr/share/keyrings/deb.sury.org-php.gpg [https://packages.sury.org/php/apt.gpg](https://packages.sury.org/php/apt.gpg)
-echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] [https://packages.sury.org/php/](https://packages.sury.org/php/) $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/php.list
+sudo curl -sSlo /usr/share/keyrings/deb.sury.org-php.gpg https://packages.sury.org/php/apt.gpg
+echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/php.list
 
 # 2. Repositorio PostgreSQL 15
-sudo sh -c 'echo "deb [https://apt.postgresql.org/pub/repos/apt](https://apt.postgresql.org/pub/repos/apt) $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-wget --quiet -O - [https://www.postgresql.org/media/keys/ACCC4CF8.asc](https://www.postgresql.org/media/keys/ACCC4CF8.asc) | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
+sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/postgresql.gpg
 
 # 3. Repositorio Oficial Docker (Actualizado para Debian 12)
 sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL [https://download.docker.com/linux/debian/gpg](https://download.docker.com/linux/debian/gpg) -o /etc/apt/keyrings/docker.asc
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] [https://download.docker.com/linux/debian](https://download.docker.com/linux/debian) $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # 4. Repositorio Node.js 22
-curl -fsSL [https://deb.nodesource.com/setup_22.x](https://deb.nodesource.com/setup_22.x) | sudo bash -
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
 ```
 
 ### 3. Instalación de Software
