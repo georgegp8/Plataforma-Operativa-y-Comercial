@@ -331,6 +331,371 @@ export interface EntidadFormData {
   es_proveedor?: boolean;
 }
 
+export interface Atributo {
+  id: number;
+  codigo?: string;
+  descripcion: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface AtributoFormData {
+  codigo?: string;
+  descripcion: string;
+  activo: boolean;
+}
+
+export interface UnidadMedida {
+  id: number;
+  codigo: string;
+  descripcion: string;
+  simbolo: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface UnidadMedidaFormData {
+  codigo: string;
+  descripcion: string;
+  simbolo: string;
+  activo: boolean;
+}
+
+export interface Vendedor {
+  id: number;
+  nombre: string;
+  email?: string;
+  telefono?: string;
+  porcentaje_comision: number;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+  ventas_cpe?: number;
+  ventas_nv?: number;
+  total_ventas?: number;
+  total_comision?: number;
+}
+
+export interface VendedorFormData {
+  nombre: string;
+  email: string;
+  telefono: string;
+  porcentaje_comision: number;
+  activo: boolean;
+}
+
+export interface Personal {
+  id: number;
+  nombre: string;
+  numero?: string;
+  puesto_asignado?: string;
+  salario_base: number;
+  email?: string;
+  telefono?: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface PersonalFormData {
+  nombre: string;
+  numero: string;
+  puesto_asignado: string;
+  salario_base: number;
+  email: string;
+  telefono: string;
+  activo: boolean;
+}
+
+export interface CuentaBancaria {
+  id: number;
+  descripcion: string;
+  numero: string;
+  balance: number;
+  abreviatura?: string;
+  banco?: string;
+  moneda: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface CuentaBancariaFormData {
+  descripcion: string;
+  numero: string;
+  balance: number;
+  abreviatura: string;
+  banco: string;
+  moneda: string;
+  activo: boolean;
+}
+
+export interface Banco {
+  id: number;
+  abreviatura?: string;
+  descripcion: string;
+  imagen?: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface BancoFormData {
+  abreviatura: string;
+  descripcion: string;
+  imagen?: string;
+  activo: boolean;
+}
+
+export interface Categoria {
+  id: number;
+  nombre: string;
+  identificador?: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface CategoriaFormData {
+  nombre: string;
+  identificador?: string;
+  activo: boolean;
+}
+
+export interface Marca {
+  id: number;
+  nombre: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface MarcaFormData {
+  nombre: string;
+  activo: boolean;
+}
+
+export interface Transaccion {
+  id: number;
+  descripcion: string;
+  tipo: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface TransaccionFormData {
+  descripcion: string;
+  tipo: string;
+  activo: boolean;
+}
+
+export interface Vehiculo {
+  id: number;
+  placa: string;
+  modelo: string;
+  marca: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface VehiculoFormData {
+  placa: string;
+  modelo: string;
+  marca: string;
+  activo: boolean;
+}
+
+export interface Conductor {
+  id: number;
+  tipo_documento: string;
+  numero_documento: string;
+  nombre: string;
+  licencia_conducir?: string;
+  telefono?: string;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface ConductorFormData {
+  tipo_documento: string;
+  numero_documento: string;
+  nombre: string;
+  licencia_conducir?: string;
+  telefono?: string;
+  activo: boolean;
+}
+
+export interface Compra {
+  id: number;
+  actividad: string;
+  fecha_actividad: string;
+  proveedor_id: number;
+  proveedor_nombre: string;
+  proveedor_ruc: string;
+  estado: string;
+  tipo_comprobante: string;
+  serie_comprobante: string;
+  numero_comprobante: string;
+  comprobante_completo: string;
+  tipo_comprobante_desc: string;
+  moneda: string;
+  total: number;
+  cantidad_productos: number;
+  activo: boolean;
+  created_by?: string;
+  created_at?: string;
+}
+
+export interface CompraFormData {
+  actividad: string;
+  fecha_actividad: string;
+  proveedor_id: number;
+  proveedor_nombre: string;
+  proveedor_ruc: string;
+  estado: string;
+  tipo_comprobante: string;
+  serie_comprobante: string;
+  numero_comprobante: string;
+  comprobante_completo: string;
+  tipo_comprobante_desc: string;
+  moneda: string;
+  total: number;
+  cantidad_productos: number;
+  activo: boolean;
+}
+
+export interface DatosExtraidos {
+  forma_pago?: string;
+  items?: Array<{
+    numero?: number;
+    codigo?: string;
+    descripcion: string;
+    unidad_medida?: string;
+    cantidad: number;
+    precio_unitario: number;
+    valor_unitario?: number;
+    importe: number;
+  }>;
+  [key: string]: unknown;
+}
+
+export interface ItemExtraido {
+  codigo?: string;
+  descripcion: string;
+  cantidad: number;
+  unidad_medida?: string;
+  valor_unitario?: number;
+  precio_unitario: number;
+  tipo_igv?: string;
+  subtotal: number;
+  igv?: number;
+  total?: number;
+}
+
+export interface CuotaCredito {
+  cuota: number;
+  fecha_pago: string;
+  importe: number;
+}
+
+export interface GuiaRelacionada {
+  tipo: string;
+  serie: string;
+  numero: string;
+}
+
+export interface DocumentoDigitalizado {
+  readonly id: number;
+  nombre_archivo: string;
+  ruta_archivo: string;
+  tipo_archivo: string;
+  tamano_archivo: number;
+  tipo_operacion: 'compra' | 'venta';
+  estado_procesamiento: 'pendiente' | 'procesando' | 'completado' | 'error';
+  error_mensaje: string | null;
+  datos_extraidos: DatosExtraidos;
+  tipo_comprobante: string | null;
+  serie: string | null;
+  numero: string | null;
+  comprobante_completo: string | null;
+  fecha_emision: string | null;
+  entidad_tipo_doc: string | null;
+  entidad_num_doc: string | null;
+  entidad_razon_social: string | null;
+  entidad_direccion: string | null;
+  moneda: string | null;
+  subtotal: number | null;
+  igv: number | null;
+  total: number | null;
+  items_extraidos: ItemExtraido[] | null;
+  confianza_ocr: number | null;
+  requiere_validacion: boolean;
+  validado: boolean;
+  fecha_validacion: string | null;
+  validado_por: string | null;
+  compra_id: number | null;
+  venta_id: number | null;
+  activo: boolean;
+  sunat_transaction: string | null;
+  tipo_documento_cliente: '1' | '4' | '6' | '7' | '0' | null;
+  fecha_vencimiento: string | null;
+  tipo_cambio: number | null;
+  porcentaje_igv: number | null;
+  total_gravada: number | null;
+  total_exonerada: number | null;
+  total_inafecta: number | null;
+  total_gratuita: number | null;
+  total_otros_cargos: number | null;
+  total_descuentos: number | null;
+  suma_igv: number | null;
+  suma_isc: number | null;
+  suma_otros_tributos: number | null;
+  mto_operaciones_gravadas: number | null;
+  mto_operaciones_exoneradas: number | null;
+  mto_operaciones_inafectas: number | null;
+  mto_operaciones_gratuitas: number | null;
+  detraccion: boolean | null;
+  detraccion_codigo: string | null;
+  detraccion_porcentaje: number | null;
+  detraccion_monto: number | null;
+  percepcion_tipo: string | null;
+  percepcion_monto: number | null;
+  condiciones_pago: string | null;
+  orden_compra_servicio: string | null;
+  observaciones: string | null;
+  documento_modifica_tipo: string | null;
+  documento_modifica_serie: string | null;
+  documento_modifica_numero: string | null;
+  tipo_nota: '1' | '2' | null;
+  motivo_nota: string | null;
+  venta_al_credito: boolean;
+  venta_credito_cuotas: CuotaCredito[] | null;
+  guias_relacionadas: GuiaRelacionada[] | null;
+  readonly created_at?: string;
+  readonly created_by?: string;
+}
+
+export interface DocumentoDigitalizadoFormData {
+  tipo_comprobante: string;
+  serie: string;
+  numero: string;
+  fecha_emision: string;
+  entidad_tipo_doc: string;
+  entidad_num_doc: string;
+  entidad_razon_social: string;
+  entidad_direccion: string;
+  moneda: string;
+  subtotal: number;
+  igv: number;
+  total: number;
+  items_extraidos: ItemExtraido[];
+}
+
 export interface GuiaRemision {
   id: number;
   serie: string;
@@ -620,13 +985,13 @@ export const api = {
   // Atributos
   atributos: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<unknown[]>('/v1/atributos', { params }),
+      apiClient.get<Atributo[]>('/v1/atributos', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<unknown>>(`/v1/atributos/${id}`),
-    crear: (data: Record<string, unknown>) =>
-      apiClient.post<ApiResponse<unknown>>('/v1/atributos', data),
-    actualizar: (id: number, data: Record<string, unknown>) =>
-      apiClient.put<ApiResponse<unknown>>(`/v1/atributos/${id}`, data),
+      apiClient.get<ApiResponse<Atributo>>(`/v1/atributos/${id}`),
+    crear: (data: AtributoFormData) =>
+      apiClient.post<ApiResponse<Atributo>>('/v1/atributos', data),
+    actualizar: (id: number, data: Partial<AtributoFormData>) =>
+      apiClient.put<ApiResponse<Atributo>>(`/v1/atributos/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/atributos/${id}`),
   },
@@ -634,13 +999,13 @@ export const api = {
   // Unidades de Medida
   unidadesMedida: {
     listar: (params?: Record<string, unknown>) =>
-      apiClient.get<unknown[]>('/v1/unidades-medida', { params }),
+      apiClient.get<UnidadMedida[]>('/v1/unidades-medida', { params }),
     obtener: (id: number) =>
-      apiClient.get<ApiResponse<unknown>>(`/v1/unidades-medida/${id}`),
-    crear: (data: Record<string, unknown>) =>
-      apiClient.post<ApiResponse<unknown>>('/v1/unidades-medida', data),
-    actualizar: (id: number, data: Record<string, unknown>) =>
-      apiClient.put<ApiResponse<unknown>>(`/v1/unidades-medida/${id}`, data),
+      apiClient.get<ApiResponse<UnidadMedida>>(`/v1/unidades-medida/${id}`),
+    crear: (data: UnidadMedidaFormData) =>
+      apiClient.post<ApiResponse<UnidadMedida>>('/v1/unidades-medida', data),
+    actualizar: (id: number, data: Partial<UnidadMedidaFormData>) =>
+      apiClient.put<ApiResponse<UnidadMedida>>(`/v1/unidades-medida/${id}`, data),
     eliminar: (id: number) =>
       apiClient.delete<ApiResponse<unknown>>(`/v1/unidades-medida/${id}`),
   },

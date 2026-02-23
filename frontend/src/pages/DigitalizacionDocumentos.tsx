@@ -61,7 +61,7 @@ export default function DigitalizacionDocumentos() {
       if (requiereValidacion && requiereValidacion !== 'all') params.requiere_validacion = requiereValidacion;
       
       const response = await api.documentosDigitalizados.listar(params);
-      setDocumentos(response.data || []);
+      setDocumentos((response.data as DocumentoDigitalizado[]) || []);
     } catch (error) {
       console.error('Error al cargar documentos:', error);
       toast.error('Error al cargar la lista de documentos');

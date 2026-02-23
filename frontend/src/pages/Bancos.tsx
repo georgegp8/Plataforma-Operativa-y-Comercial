@@ -48,7 +48,7 @@ export default function Bancos() {
     const fetchBancos = async () => {
       try {
         const response = await api.bancos.listar();
-        setBancos(response.data);
+        setBancos(response.data as Banco[]);
       } catch {
         toast.error('Error al cargar los bancos', {
           duration: 4000,
@@ -120,7 +120,7 @@ export default function Bancos() {
       
       // Recargar bancos
       const response = await api.bancos.listar();
-      setBancos(response.data);
+      setBancos(response.data as Banco[]);
       
       setShowDeleteModal(false);
       setBancoToDelete(null);
@@ -139,24 +139,23 @@ export default function Bancos() {
   const handleSave = async () => {
     try {
       if (editingBanco) {
-        await api.bancos.actualizar(editingBanco.id, formData);
+        await api.bancos.actualizar(editingBanco.id, formData as unknown as Record<string, unknown>);
         toast.success('Banco actualizado exitosamente', {
           duration: 4000,
           closeButton: true,
           richColors: true,
         });
       } else {
-        await api.bancos.crear(formData);
+        await api.bancos.crear(formData as unknown as Record<string, unknown>);
         toast.success('Banco creado exitosamente', {
           duration: 4000,
           closeButton: true,
           richColors: true,
         });
       }
-      
       // Recargar bancos
       const response = await api.bancos.listar();
-      setBancos(response.data);
+      setBancos(response.data as Banco[]);
       
       setShowModal(false);
       setEditingBanco(null);
@@ -199,7 +198,7 @@ export default function Bancos() {
       
       // Recargar bancos
       const response = await api.bancos.listar();
-      setBancos(response.data);
+      setBancos(response.data as Banco[]);
     } catch {
       toast.error('Error al subir la imagen', {
         duration: 4000,

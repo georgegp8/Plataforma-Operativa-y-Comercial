@@ -55,7 +55,7 @@ export default function Conductores() {
     const fetchConductores = async () => {
       try {
         const response = await api.conductores.listar();
-        setConductores(response.data);
+        setConductores(response.data as Conductor[]);
       } catch {
         toast.error('Error al cargar los conductores', {
           duration: 4000,
@@ -141,14 +141,14 @@ export default function Conductores() {
 
     try {
       if (editingConductor) {
-        await api.conductores.actualizar(editingConductor.id, formData);
+        await api.conductores.actualizar(editingConductor.id, formData as unknown as Record<string, unknown>);
         const response = await api.conductores.listar();
-        setConductores(response.data);
+        setConductores(response.data as Conductor[]);
         toast.success('Conductor actualizado exitosamente');
       } else {
-        await api.conductores.crear(formData);
+        await api.conductores.crear(formData as unknown as Record<string, unknown>);
         const response = await api.conductores.listar();
-        setConductores(response.data);
+        setConductores(response.data as Conductor[]);
         toast.success('Conductor creado exitosamente');
       }
       handleCloseModal();

@@ -44,7 +44,7 @@ export default function CuentasBancarias() {
     const fetchCuentas = async () => {
       try {
         const response = await api.cuentasBancarias.listar();
-        setCuentas(response.data);
+        setCuentas(response.data as CuentaBancaria[]);
       } catch {
         toast.error('Error al cargar las cuentas bancarias', {
           duration: 4000,
@@ -122,7 +122,7 @@ export default function CuentasBancarias() {
       
       // Recargar cuentas
       const response = await api.cuentasBancarias.listar();
-      setCuentas(response.data);
+      setCuentas(response.data as CuentaBancaria[]);
       
       setShowDeleteModal(false);
       setCuentaToDelete(null);
@@ -141,24 +141,23 @@ export default function CuentasBancarias() {
   const handleSave = async () => {
     try {
       if (editingCuenta) {
-        await api.cuentasBancarias.actualizar(editingCuenta.id, formData);
+        await api.cuentasBancarias.actualizar(editingCuenta.id, formData as unknown as Record<string, unknown>);
         toast.success('Cuenta bancaria actualizada exitosamente', {
           duration: 4000,
           closeButton: true,
           richColors: true,
         });
       } else {
-        await api.cuentasBancarias.crear(formData);
+        await api.cuentasBancarias.crear(formData as unknown as Record<string, unknown>);
         toast.success('Cuenta bancaria creada exitosamente', {
           duration: 4000,
           closeButton: true,
           richColors: true,
         });
       }
-      
       // Recargar cuentas
       const response = await api.cuentasBancarias.listar();
-      setCuentas(response.data);
+      setCuentas(response.data as CuentaBancaria[]);
       
       setShowModal(false);
       setEditingCuenta(null);

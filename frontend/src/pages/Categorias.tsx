@@ -45,7 +45,7 @@ export default function Categorias() {
     const fetchCategorias = async () => {
       try {
         const response = await api.categorias.listar();
-        setCategorias(response.data);
+        setCategorias(response.data as Categoria[]);
       } catch {
         toast.error('Error al cargar las categorías', {
           duration: 4000,
@@ -107,12 +107,12 @@ export default function Categorias() {
 
     try {
       if (editingCategoria) {
-        const response = await api.categorias.actualizar(editingCategoria.id, formData);
-        setCategorias(categorias.map((c) => (c.id === editingCategoria.id ? response.data.data : c)));
+        const response = await api.categorias.actualizar(editingCategoria.id, formData as unknown as Record<string, unknown>);
+        setCategorias(categorias.map((c) => (c.id === editingCategoria.id ? (response.data.data as Categoria) : c)));
         toast.success('Categoría actualizada exitosamente');
       } else {
-        const response = await api.categorias.crear(formData);
-        setCategorias([response.data.data, ...categorias]);
+        const response = await api.categorias.crear(formData as unknown as Record<string, unknown>);
+        setCategorias([response.data.data as Categoria, ...categorias]);
         toast.success('Categoría creada exitosamente');
       }
       setShowModal(false);

@@ -19,6 +19,10 @@ export type {
   Documento,
   Pago,
   EstadoOportunidad,
+  Atributo,
+  AtributoFormData,
+  UnidadMedida,
+  UnidadMedidaFormData,
 } from '@/lib/api';
 
 // --- Entidades de vista (listados / formularios) ---
@@ -190,38 +194,6 @@ export interface Marca {
 
 export interface MarcaFormData {
   nombre: string;
-  activo: boolean;
-}
-
-export interface Atributo {
-  id: number;
-  codigo?: string;
-  descripcion: string;
-  activo: boolean;
-  created_by?: string;
-  created_at?: string;
-}
-
-export interface AtributoFormData {
-  codigo?: string;
-  descripcion: string;
-  activo: boolean;
-}
-
-export interface UnidadMedida {
-  id: number;
-  codigo: string;
-  descripcion: string;
-  simbolo: string;
-  activo: boolean;
-  created_by?: string;
-  created_at?: string;
-}
-
-export interface UnidadMedidaFormData {
-  codigo: string;
-  descripcion: string;
-  simbolo: string;
   activo: boolean;
 }
 

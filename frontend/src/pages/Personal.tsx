@@ -35,7 +35,7 @@ export default function PersonalEmpresa() {
     try {
       const response = await api.personal.listar();
 
-      const personalMapped: Personal[] = response.data.map((empleado: Personal) => ({
+      const personalMapped: Personal[] = (response.data as Personal[]).map((empleado: Personal) => ({
         id: empleado.id,
         nombre: empleado.nombre || '',
         numero: empleado.numero || '',
@@ -127,7 +127,7 @@ export default function PersonalEmpresa() {
     if (!selectedPersonal) return;
 
     try {
-      await api.personal.actualizar(selectedPersonal.id, formData);
+      await api.personal.actualizar(selectedPersonal.id, formData as unknown as Record<string, unknown>);
       toast.success('Éxito', {
         description: 'Personal actualizado correctamente',
       });
@@ -153,7 +153,7 @@ export default function PersonalEmpresa() {
     e.preventDefault();
 
     try {
-      await api.personal.crear(formData);
+      await api.personal.crear(formData as unknown as Record<string, unknown>);
       toast.success('Éxito', {
         description: 'Personal creado correctamente',
       });

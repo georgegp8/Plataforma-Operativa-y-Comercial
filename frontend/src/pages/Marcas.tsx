@@ -45,7 +45,7 @@ export default function Marcas() {
       try {
         setLoading(true);
         const response = await api.marcas.listar();
-        setMarcas(response.data);
+        setMarcas(response.data as Marca[]);
       } catch (error) {
         console.error('Error al cargar marcas:', error);
         toast.error('Error al cargar las marcas');
@@ -100,12 +100,12 @@ export default function Marcas() {
 
     try {
       if (editingMarca) {
-        const response = await api.marcas.actualizar(editingMarca.id, formData);
-        setMarcas(marcas.map((m) => (m.id === editingMarca.id ? response.data.data : m)));
+        const response = await api.marcas.actualizar(editingMarca.id, formData as unknown as Record<string, unknown>);
+        setMarcas(marcas.map((m) => (m.id === editingMarca.id ? (response.data.data as Marca) : m)));
         toast.success('Marca actualizada exitosamente');
       } else {
-        const response = await api.marcas.crear(formData);
-        setMarcas([response.data.data, ...marcas]);
+        const response = await api.marcas.crear(formData as unknown as Record<string, unknown>);
+        setMarcas([response.data.data as Marca, ...marcas]);
         toast.success('Marca creada exitosamente');
       }
 

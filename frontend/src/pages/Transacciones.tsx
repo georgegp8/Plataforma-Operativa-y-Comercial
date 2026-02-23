@@ -52,7 +52,7 @@ export default function Transacciones() {
     const fetchTransacciones = async () => {
       try {
         const response = await api.transacciones.listar();
-        setTransacciones(response.data);
+        setTransacciones(response.data as Transaccion[]);
       } catch {
         toast.error('Error al cargar las transacciones', {
           duration: 4000,
@@ -116,14 +116,14 @@ export default function Transacciones() {
 
     try {
       if (editingTransaccion) {
-        await api.transacciones.actualizar(editingTransaccion.id, formData);
+        await api.transacciones.actualizar(editingTransaccion.id, formData as unknown as Record<string, unknown>);
         const response = await api.transacciones.listar();
-        setTransacciones(response.data);
+        setTransacciones(response.data as Transaccion[]);
         toast.success('Transacción actualizada exitosamente');
       } else {
-        await api.transacciones.crear(formData);
+        await api.transacciones.crear(formData as unknown as Record<string, unknown>);
         const response = await api.transacciones.listar();
-        setTransacciones(response.data);
+        setTransacciones(response.data as Transaccion[]);
         toast.success('Transacción creada exitosamente');
       }
       handleCloseModal();
