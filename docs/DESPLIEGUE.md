@@ -1,7 +1,3 @@
-echo "Restaurando backup: $BACKUP"
-docker compose up -d
----
-
 # Guía de Despliegue en Producción: Plataforma Facturación Electrónica
 
 **Objetivo:** Permitir al equipo de infraestructura y redes desplegar el sistema completo (Frontend React + Backend Laravel + Servicios Docker) en un entorno de producción basado en Debian 12, de forma autónoma.
