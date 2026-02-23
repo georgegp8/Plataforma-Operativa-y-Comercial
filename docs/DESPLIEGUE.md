@@ -264,6 +264,43 @@ npm run dev            # http://localhost:5173
 
 ---
 
+### Paso 0 — Preparación inicial del servidor
+
+> Ejecutar esto **una sola vez** al conectarse por primera vez al servidor.
+
+**Si entraste como `root` directamente** (instalación limpia de Debian):
+
+```bash
+# Crear usuario de trabajo (reemplazar "deploy" por el nombre que prefieras)
+adduser deploy
+# Agregar al grupo sudo para poder ejecutar comandos con privilegios
+usermod -aG sudo deploy
+# Cambiar a ese usuario para el resto de la sesión
+su - deploy
+# Verificar que sudo funciona
+sudo whoami   # Debe responder: root
+```
+
+**Si ya entraste con un usuario sin sudo** (el sistema dice "deploy is not in the sudoers file"):
+
+```bash
+# Desde otra terminal como root, o usando su -:
+su -
+usermod -aG sudo <tu-usuario>
+exit
+# Cerrar sesión y volver a entrar para que el grupo aplique
+```
+
+**Verificar permisos sobre `/var/www`** (requerido para todos los pasos siguientes):
+
+```bash
+sudo mkdir -p /var/www
+sudo chown root:sudo /var/www
+sudo chmod 775 /var/www
+```
+
+---
+
 ### Paso 1 — Actualizar sistema e instalar herramientas base
 
 ```bash
@@ -366,6 +403,15 @@ sudo systemctl start docker
 
 docker --version
 docker compose version
+
+# Agregar el usuario actual al grupo docker (permite correr docker sin sudo)
+sudo usermod -aG docker $USER
+
+# Aplicar el grupo en la sesión actual sin cerrar sesión
+newgrp docker
+
+# Verificar
+docker ps   # Debe responder sin errores de permiso
 ```
 
 ---
