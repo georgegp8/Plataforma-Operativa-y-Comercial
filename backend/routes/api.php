@@ -299,5 +299,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('notas-venta/totales', [App\Http\Controllers\Api\NotaVentaController::class, 'totales']);
         Route::post('notas-venta/generar-cpe-masivo', [App\Http\Controllers\Api\NotaVentaController::class, 'generarCpeMasivo']);
         Route::get('notas-venta/{id}', [App\Http\Controllers\Api\NotaVentaController::class, 'show']);
+
+        // Voice IA Facturación por Voz (PRY-030)
+        Route::prefix('voice')->group(function () {
+            Route::post('transcribir', [App\Http\Controllers\Api\VoiceIA\VoiceIAController::class, 'transcribir']);
+            Route::post('procesar-audio', [App\Http\Controllers\Api\VoiceIA\VoiceIAController::class, 'procesarAudio']);
+            Route::post('confirmar-emision', [App\Http\Controllers\Api\VoiceIA\VoiceIAController::class, 'confirmarEmision']);
+            Route::post('cancelar', [App\Http\Controllers\Api\VoiceIA\VoiceIAController::class, 'cancelar']);
+            Route::get('conversaciones', [App\Http\Controllers\Api\VoiceIA\VoiceIAHistorialController::class, 'index']);
+            Route::get('conversaciones/{id}', [App\Http\Controllers\Api\VoiceIA\VoiceIAHistorialController::class, 'show']);
+        });
     });
 });

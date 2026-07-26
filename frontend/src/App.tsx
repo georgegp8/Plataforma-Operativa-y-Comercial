@@ -41,6 +41,8 @@ const ResumenesSunat = lazy(() => import('@/pages/ResumenesSunat'));
 const Cotizaciones = lazy(() => import('@/pages/Cotizaciones'));
 const Finanzas = lazy(() => import('@/pages/Finanzas'));
 const ConfiguracionEmpresa = lazy(() => import('@/pages/ConfiguracionEmpresa'));
+const VoiceIA = lazy(() => import('@/pages/VoiceIA'));
+const VoiceIADashboard = lazy(() => import('@/pages/VoiceIADashboard'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center h-screen">
@@ -61,6 +63,8 @@ function App() {
 
               {/* Rutas protegidas */}
               <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+              <Route path="/voice-ia" element={<PrivateRoute><VoiceIA /></PrivateRoute>} />
+              <Route path="/voice-ia/historial" element={<PrivateRoute><VoiceIADashboard /></PrivateRoute>} />
               <Route path="/mantenimiento/clientes" element={<PrivateRoute><Clientes /></PrivateRoute>} />
               <Route path="/mantenimiento/proveedores" element={<PrivateRoute><Proveedores /></PrivateRoute>} />
               <Route path="/mantenimiento/vendedores" element={<PrivateRoute><Vendedores /></PrivateRoute>} />
