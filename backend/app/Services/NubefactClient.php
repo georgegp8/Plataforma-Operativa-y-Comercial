@@ -168,6 +168,8 @@ class NubefactClient
      */
     protected function request(array $data): array
     {
+        $this->validarCredenciales();
+
         try {
             $response = Http::timeout($this->timeout)
                 ->withHeaders([
@@ -187,6 +189,12 @@ class NubefactClient
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
+
+                if ($response->status() === 404) {
+                    throw new Exception(
+                        "Error HTTP 404: La URL NUBEFACT_BASE_URL ('{$this->baseUrl}') no existe o es incorrecta. Asegúrate de incluir la clave/ruta asignada por NubeFact a tu empresa (ej: https://api.nubefact.com/api/v1/TU_RUTA_KEY) en el archivo backend/.env."
+                    );
+                }
 
                 throw new Exception(
                     "Error HTTP {$response->status()} de NubeFact: {$response->body()}"
@@ -288,11 +296,16 @@ class NubefactClient
     public function validarCredenciales(): void
     {
         if (empty($this->baseUrl)) {
-            throw new Exception('URL base de NubeFact no configurada. Revisar config/nubefact.php');
+            throw new Exception('URL base de NubeFact no configurada. Por favor define NUBEFACT_BASE_URL en backend/.env');
         }
 
-        if (empty($this->token)) {
-            throw new Exception('Token de NubeFact no configurado. Revisar .env NUBEFACT_TOKEN');
+        $trimmedUrl = rtrim($this->baseUrl, '/');
+        if (str_ends_with($trimmedUrl, '/api/v1')) {
+            throw new Exception("La URL NUBEFACT_BASE_URL ('{$this->baseUrl}') está incompleta. Le falta la clave o RUTA única asignada a tu empresa por NubeFact (ejemplo: https://api.nubefact.com/api/v1/TU_RUTA_KEY).");
+        }
+
+        if (empty($this->token) || $this->token === 'dummy_token') {
+            throw new Exception('Token de NubeFact no configurado o es un valor genérico (dummy_token). Configura NUBEFACT_TOKEN en backend/.env con tu token JWT real de NubeFact.');
         }
     }
 }
