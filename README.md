@@ -4,8 +4,7 @@
 - **Empresa:** Fibertel Networks S.A.C.
 - **Proyecto:** Nubofact Web y Facturador
 - **Equipo:** Diseño de Base de Datos
-- **Repositorio oficial (URL):** [github.com/diegomejiam/Nubofact-Web-y-Facturador](https://github.com/diegomejiam/Nubofact-Web-y-Facturador.git)
-- **Hyscloud (Nextcloud):** [Ruta del proyecto](https://hyscloud.mcsyra.com/index.php/apps/files/files/1819?dir=/Nubofact%20Web%20App)
+- **Repositorio:** [github.com/georgegp8/Plataforma-Operativa-y-Comercial](https://github.com/georgegp8/Plataforma-Operativa-y-Comercial)
 - **Versión de entrega:** `v1.0-entrega`
 - **Fecha de entrega:** 21 / 02 / 2026
 ---
@@ -316,11 +315,8 @@ Ver [docs/DESPLIEGUE.md](docs/DESPLIEGUE.md) para configuración en producción 
 
 ```bash
 # 1. Obtener el proyecto
-# El repositorio es PRIVADO. Opciones:
-# Opción A — ZIP: GitHub → Code → Download ZIP → descomprimir
-# Opción B — Git con token personal:
-git clone https://<TOKEN>@github.com/diegomejiam/Nubofact-Web-y-Facturador.git
-cd Nubofact-Web-y-Facturador
+git clone https://github.com/georgegp8/Plataforma-Operativa-y-Comercial.git
+cd Plataforma-Operativa-y-Comercial
 
 # 2. Levantar servicios Docker
 docker compose up -d
