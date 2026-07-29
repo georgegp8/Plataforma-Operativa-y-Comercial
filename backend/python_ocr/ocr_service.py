@@ -26,8 +26,8 @@ except ImportError as e:
     }))
     sys.exit(1)
 
-# API Key de Gemini (desde variable de entorno o hardcoded)
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '***REMOVED***')
+# API Key de Gemini (obligatoria vía variable de entorno; nunca hardcodear)
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # Modelo Gemini a usar (opciones: gemini-2.5-flash-lite, gemini-2.0-flash-exp, gemini-2.0-flash, gemini-1.5-pro, gemini-1.5-flash)
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash-lite')
 
@@ -127,6 +127,13 @@ class FacturaOCR:
     def _extraer_con_gemini(self) -> Optional[Dict]:
         """Extrae datos estructurados usando Gemini AI"""
         try:
+            if not GEMINI_API_KEY:
+                print(json.dumps({
+                    "success": False,
+                    "error": "GEMINI_API_KEY no está configurada. Defínela en el entorno o en .env."
+                }), file=sys.stderr)
+                return None
+
             # Prompt optimizado y conciso
             prompt = f"""Extrae datos de factura peruana en JSON. TODOS los items deben tener cantidad.
 
